@@ -135,6 +135,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _aboutRow('Version', '1.0.0'),
               _aboutRow('Tax System', 'GST (India)'),
               _aboutRow('Currency', '₹ INR'),
+              const Divider(height: 24),
+              _aboutRow('Created By', 'Sumukha Tech Solutions'),
+              _aboutRow('Mobile', '9449831316'),
+              _aboutRow('Email', 'sumukhatech21@gmail.com'),
             ])),
         ]),
       );
