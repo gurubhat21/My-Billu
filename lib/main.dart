@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/app_state.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -15,12 +14,10 @@ import 'features/settings/settings_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (kIsWeb) {
-    // Initialize sqflite for web using IndexedDB + sql.js WASM
-    databaseFactory = databaseFactoryFfiWeb;
-  } else if (defaultTargetPlatform == TargetPlatform.windows ||
-             defaultTargetPlatform == TargetPlatform.linux) {
-    // Initialize sqflite_ffi for Windows/Linux desktop
+  // Initialize sqflite_ffi for Windows/Linux desktop only
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+       defaultTargetPlatform == TargetPlatform.linux)) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
