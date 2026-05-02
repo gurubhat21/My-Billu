@@ -196,7 +196,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     const Icon(Icons.access_time, size: 14, color: Color(0xFF00F5A0)),
                     const SizedBox(width: 6),
                     Text(
-                      '${_currentTime.hour.toString().padLeft(2, '0')}:${_currentTime.minute.toString().padLeft(2, '0')}:${_currentTime.second.toString().padLeft(2, '0')}',
+                      '${(_currentTime.hour % 12 == 0 ? 12 : _currentTime.hour % 12).toString().padLeft(2, '0')}:${_currentTime.minute.toString().padLeft(2, '0')}:${_currentTime.second.toString().padLeft(2, '0')} ${_currentTime.hour >= 12 ? 'PM' : 'AM'}',
                       style: const TextStyle(color: Color(0xFF00F5A0), fontWeight: FontWeight.w700, fontSize: 12, fontFamily: 'monospace'),
                     ),
                   ],
