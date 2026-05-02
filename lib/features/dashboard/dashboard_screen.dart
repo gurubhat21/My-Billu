@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/app_state.dart';
@@ -17,6 +18,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   String _userName = '';
+  String _logoUrl = '';
+  DateTime _currentTime = DateTime.now();
+  Timer? _clockTimer;
 
   @override
   void initState() {
@@ -31,19 +35,28 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
     _animController.forward();
     _loadUserName();
+    // Live clock
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _currentTime = DateTime.now());
+    });
   }
 
   Future<void> _loadUserName() async {
     final appState = context.read<AppState>();
     final name = await appState.getSetting('businessName');
+    final logo = await appState.getSetting('businessLogo');
     if (mounted) {
-      setState(() => _userName = name ?? '');
+      setState(() {
+        _userName = name ?? '';
+        _logoUrl = logo ?? '';
+      });
     }
   }
 
   @override
   void dispose() {
     _animController.dispose();
+    _clockTimer?.cancel();
     super.dispose();
   }
 
@@ -134,11 +147,21 @@ class _DashboardScreenState extends State<DashboardScreen>
           // Greeting emoji + text
           Row(
             children: [
-              Text(
-                _getEmoji(),
-                style: const TextStyle(fontSize: 32),
-              ),
-              const SizedBox(width: 12),
+              // Business Logo
+              if (_logoUrl.isNotEmpty) ...
+                [Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 2),
+                    image: DecorationImage(image: NetworkImage(_logoUrl), fit: BoxFit.cover),
+                  ),
+                ),
+                const SizedBox(width: 12),]
+              else ...
+                [Text(_getEmoji(), style: const TextStyle(fontSize: 32)),
+                const SizedBox(width: 12),],
+              // Date chip
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
@@ -152,12 +175,29 @@ class _DashboardScreenState extends State<DashboardScreen>
                     const Icon(Icons.calendar_today, size: 14, color: Color(0xFF818CF8)),
                     const SizedBox(width: 6),
                     Text(
-                      AppFormatters.date(DateTime.now()),
-                      style: const TextStyle(
-                        color: Color(0xFF818CF8),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
+                      AppFormatters.date(_currentTime),
+                      style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.w600, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Time chip (live)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.access_time, size: 14, color: Color(0xFF00F5A0)),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${_currentTime.hour.toString().padLeft(2, '0')}:${_currentTime.minute.toString().padLeft(2, '0')}:${_currentTime.second.toString().padLeft(2, '0')}',
+                      style: const TextStyle(color: Color(0xFF00F5A0), fontWeight: FontWeight.w700, fontSize: 12, fontFamily: 'monospace'),
                     ),
                   ],
                 ),

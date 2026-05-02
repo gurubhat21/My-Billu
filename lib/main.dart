@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/app_state.dart';
+import 'features/login/login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/billing/billing_screen.dart';
 import 'features/items/items_screen.dart';
@@ -40,9 +41,28 @@ class MyBilluApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.dark,
-        home: const MainShell(),
+        home: const AuthGate(),
       ),
     );
+  }
+}
+
+/// Gate that shows Login first, then MainShell after authentication
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _loggedIn = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loggedIn) {
+      return LoginScreen(onLogin: () => setState(() => _loggedIn = true));
+    }
+    return const MainShell();
   }
 }
 

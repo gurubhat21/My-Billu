@@ -15,6 +15,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _bizAddressCtrl = TextEditingController();
   final _bizPhoneCtrl = TextEditingController();
   final _bizGstinCtrl = TextEditingController();
+  final _bizLogoCtrl = TextEditingController();
   bool _loaded = false;
 
   @override
@@ -31,6 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _bizAddressCtrl.text = settings['businessAddress'] ?? '';
       _bizPhoneCtrl.text = settings['businessPhone'] ?? '';
       _bizGstinCtrl.text = settings['businessGstin'] ?? '';
+      _bizLogoCtrl.text = settings['businessLogo'] ?? '';
       _loaded = true;
     });
   }
@@ -41,6 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await appState.saveSetting('businessAddress', _bizAddressCtrl.text.trim());
     await appState.saveSetting('businessPhone', _bizPhoneCtrl.text.trim());
     await appState.saveSetting('businessGstin', _bizGstinCtrl.text.trim());
+    await appState.saveSetting('businessLogo', _bizLogoCtrl.text.trim());
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: const Row(children: [
@@ -84,6 +87,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 TextField(controller: _bizGstinCtrl,
                   decoration: const InputDecoration(labelText: 'GSTIN', prefixIcon: Icon(Icons.badge_outlined))),
                 const SizedBox(height: 20),
+
+                // Logo section
+                Row(children: [
+                  Container(padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.image, size: 22, color: AppColors.accent)),
+                  const SizedBox(width: 12),
+                  Text('Business Logo', style: Theme.of(context).textTheme.titleMedium),
+                ]),
+                const SizedBox(height: 12),
+                if (_bizLogoCtrl.text.isNotEmpty)
+                  Center(child: Container(
+                    width: 80, height: 80, margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2),
+                      image: DecorationImage(image: NetworkImage(_bizLogoCtrl.text), fit: BoxFit.cover),
+                    ),
+                  )),
+                TextField(controller: _bizLogoCtrl,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Logo URL (paste image link)',
+                    prefixIcon: Icon(Icons.link),
+                    hintText: 'https://example.com/logo.png',
+                  )),
+                const SizedBox(height: 20),
+
                 SizedBox(width: double.infinity,
                   child: ElevatedButton.icon(onPressed: _save,
                     icon: const Icon(Icons.save, size: 20), label: const Text('Save Settings'))),
@@ -124,6 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _bizAddressCtrl.dispose();
     _bizPhoneCtrl.dispose();
     _bizGstinCtrl.dispose();
+    _bizLogoCtrl.dispose();
     super.dispose();
   }
 }
