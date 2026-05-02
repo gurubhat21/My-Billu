@@ -28,10 +28,12 @@ class _BillingScreenState extends State<BillingScreen> {
   Customer? _selectedCustomer;
   PaymentMethod _paymentMethod = PaymentMethod.cash;
   String _itemSearch = '';
+  final _discountCtrl = TextEditingController(text: '0');
 
   double get _subtotal => _cart.fold(0, (s, c) => s + c.subtotal);
   double get _totalTax => _cart.fold(0, (s, c) => s + c.taxAmount);
-  double get _totalAmount => _subtotal + _totalTax;
+  double get _discount => double.tryParse(_discountCtrl.text) ?? 0;
+  double get _totalAmount => (_subtotal + _totalTax - _discount).clamp(0, double.infinity);
 
   @override
   Widget build(BuildContext context) {
@@ -147,6 +149,27 @@ class _BillingScreenState extends State<BillingScreen> {
           _row('Subtotal', AppFormatters.currency(_subtotal)),
           const SizedBox(height: 6),
           _row('GST', AppFormatters.currency(_totalTax)),
+          const SizedBox(height: 6),
+          // Discount input
+          Row(children: [
+            const Text('Discount', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+            const Spacer(),
+            SizedBox(width: 100, height: 36,
+              child: TextField(
+                controller: _discountCtrl,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.right,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.error),
+                decoration: InputDecoration(
+                  prefixText: '- ₹',
+                  prefixStyle: const TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onChanged: (_) => setState(() {}),
+              )),
+          ]),
           const Divider(height: 16),
           _row('Total', AppFormatters.currency(_totalAmount), bold: true),
           const SizedBox(height: 12),
@@ -248,13 +271,14 @@ class _BillingScreenState extends State<BillingScreen> {
       unitPrice: c.item.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit)).toList();
     final bill = Bill(billNumber: billNumber, customerId: _selectedCustomer?.id,
       customerName: _selectedCustomer?.name, items: billItems, subtotal: _subtotal,
+      discount: _discount,
       totalTax: _totalTax, totalAmount: _totalAmount,
       paidAmount: _paymentMethod == PaymentMethod.credit ? 0 : _totalAmount,
       paymentMethod: _paymentMethod,
       status: _paymentMethod == PaymentMethod.credit ? BillStatus.unpaid : BillStatus.paid);
     await appState.createBill(bill);
     if (mounted) {
-      setState(() { _cart.clear(); _selectedCustomer = null; _paymentMethod = PaymentMethod.cash; });
+      setState(() { _cart.clear(); _selectedCustomer = null; _paymentMethod = PaymentMethod.cash; _discountCtrl.text = '0'; });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10), Text('Bill $billNumber created!')]),
         backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,

@@ -171,6 +171,11 @@ Future<int> deleteBill(WebDB db, String id) async {
   return 1;
 }
 
+Future<int> updateBill(WebDB db, Bill bill) async {
+  db.update('bills', bill.toMap(), bill.id);
+  return 1;
+}
+
 Future<String> getNextBillNumber(WebDB db) async {
   final count = db.getAll('bills').length;
   final now = DateTime.now();

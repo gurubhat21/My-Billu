@@ -102,6 +102,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ]))),
           const Divider(height: 20),
           _detailRow('Subtotal', AppFormatters.currency(bill.subtotal)),
+          if (bill.discount > 0) _detailRow('Discount', '- ${AppFormatters.currency(bill.discount)}'),
           _detailRow('GST', AppFormatters.currency(bill.totalTax)),
           const SizedBox(height: 4),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -109,12 +110,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Text(AppFormatters.currency(bill.totalAmount),
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.primary)),
           ]),
+          if (bill.status != BillStatus.paid) ...[
+            const SizedBox(height: 8),
+            _detailRow('Paid', AppFormatters.currency(bill.paidAmount)),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const Text('Balance Due', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.error)),
+              Text(AppFormatters.currency(bill.balanceDue),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.error)),
+            ]),
+          ],
         ]))),
       actions: [
         TextButton(onPressed: () {
           Navigator.pop(ctx);
           _confirmDelete(context, bill);
         }, child: const Text('Delete', style: TextStyle(color: AppColors.error))),
+        if (bill.status != BillStatus.paid)
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showCollectPayment(context, bill);
+            },
+            icon: const Icon(Icons.payments, size: 18),
+            label: const Text('Collect Payment'),
+          ),
         OutlinedButton.icon(
           onPressed: () async {
             Navigator.pop(ctx);
@@ -186,5 +206,54 @@ class _HistoryScreenState extends State<HistoryScreen> {
         );
       }
     }
+  }
+
+  void _showCollectPayment(BuildContext context, Bill bill) {
+    final amountCtrl = TextEditingController(text: bill.balanceDue.toStringAsFixed(2));
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.payments, color: AppColors.success), SizedBox(width: 10), Text('Collect Payment')]),
+      content: SizedBox(width: 350, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        _detailRow('Bill', bill.billNumber),
+        _detailRow('Customer', bill.customerName ?? 'Walk-in'),
+        _detailRow('Total', AppFormatters.currency(bill.totalAmount)),
+        _detailRow('Paid', AppFormatters.currency(bill.paidAmount)),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('Balance Due', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.error)),
+          Text(AppFormatters.currency(bill.balanceDue),
+            style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.error)),
+        ]),
+        const SizedBox(height: 16),
+        TextField(controller: amountCtrl, keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Payment Amount (₹)',
+            prefixIcon: Icon(Icons.currency_rupee),
+          )),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+          onPressed: () async {
+            final amount = double.tryParse(amountCtrl.text) ?? 0;
+            if (amount <= 0) return;
+            Navigator.pop(ctx);
+            await context.read<AppState>().collectPayment(bill.id, amount);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Row(children: [
+                  const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
+                  Text('₹${amount.toStringAsFixed(2)} collected for ${bill.billNumber}'),
+                ]),
+                backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ));
+            }
+          },
+          icon: const Icon(Icons.check, size: 18),
+          label: const Text('Collect'),
+        ),
+      ],
+    ));
   }
 }

@@ -58,6 +58,7 @@ class Bill {
   String? customerName;
   final List<BillItem> items;
   final double subtotal;
+  final double discount;
   final double totalTax;
   final double totalAmount;
   double paidAmount;
@@ -73,6 +74,7 @@ class Bill {
     this.customerName,
     required this.items,
     required this.subtotal,
+    this.discount = 0.0,
     required this.totalTax,
     required this.totalAmount,
     this.paidAmount = 0.0,
@@ -95,6 +97,7 @@ class Bill {
       'customerName': customerName,
       'items': items.map((e) => e.toMap()).toList(),
       'subtotal': subtotal,
+      'discount': discount,
       'totalTax': totalTax,
       'totalAmount': totalAmount,
       'paidAmount': paidAmount,
@@ -115,6 +118,7 @@ class Bill {
           .map((e) => BillItem.fromMap(e as Map<String, dynamic>))
           .toList(),
       subtotal: (map['subtotal'] as num).toDouble(),
+      discount: (map['discount'] as num?)?.toDouble() ?? 0.0,
       totalTax: (map['totalTax'] as num).toDouble(),
       totalAmount: (map['totalAmount'] as num).toDouble(),
       paidAmount: (map['paidAmount'] as num?)?.toDouble() ?? 0.0,

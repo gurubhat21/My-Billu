@@ -153,6 +153,12 @@ Future<List<Bill>> getBillsByDateRange(Database db, DateTime from, DateTime to) 
 Future<int> deleteBill(Database db, String id) async =>
     db.delete('bills', where: 'id = ?', whereArgs: [id]);
 
+Future<int> updateBill(Database db, Bill bill) async {
+  final map = bill.toMap();
+  map['items'] = jsonEncode(map['items']);
+  return db.update('bills', map, where: 'id = ?', whereArgs: [bill.id]);
+}
+
 Future<String> getNextBillNumber(Database db) async {
   final result = await db.rawQuery('SELECT COUNT(*) as count FROM bills');
   final count = Sqflite.firstIntValue(result) ?? 0;

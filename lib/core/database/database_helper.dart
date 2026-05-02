@@ -43,6 +43,7 @@ class DatabaseHelper {
   Future<List<Bill>> getBillsByDate(DateTime date) async => await platform_db.getBillsByDate(await database, date);
   Future<List<Bill>> getBillsByDateRange(DateTime from, DateTime to) async => await platform_db.getBillsByDateRange(await database, from, to);
   Future<int> deleteBill(String id) async => await platform_db.deleteBill(await database, id);
+  Future<int> updateBill(Bill bill) async => await platform_db.updateBill(await database, bill);
   Future<String> getNextBillNumber() async => await platform_db.getNextBillNumber(await database);
 
   // ===== PURCHASES =====

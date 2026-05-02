@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -35,8 +37,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  void _login() {
-    if (_userCtrl.text.trim() == 'admin' && _passCtrl.text == '12345') {
+  void _login() async {
+    final appState = context.read<AppState>();
+    final savedPassword = await appState.getSetting('loginPassword') ?? '12345';
+    if (_userCtrl.text.trim() == 'admin' && _passCtrl.text == savedPassword) {
       widget.onLogin();
     } else {
       setState(() => _error = 'Invalid username or password');

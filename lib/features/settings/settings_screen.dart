@@ -151,6 +151,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _aboutRow('Mobile', '9449831316'),
               _aboutRow('Email', 'sumukhatech21@gmail.com'),
             ])),
+          const SizedBox(height: 20),
+          // Change Password
+          GlassCard(padding: const EdgeInsets.all(20), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.lock_outline, size: 22, color: AppColors.error)),
+                const SizedBox(width: 12),
+                Text('Change Password', style: Theme.of(context).textTheme.titleLarge),
+              ]),
+              const SizedBox(height: 16),
+              SizedBox(width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _showChangePassword(context),
+                  icon: const Icon(Icons.key, size: 20),
+                  label: const Text('Change Login Password'),
+                )),
+            ])),
         ]),
       );
     });
@@ -172,5 +191,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _bizGstinCtrl.dispose();
     _bizLogoCtrl.dispose();
     super.dispose();
+  }
+
+  void _showChangePassword(BuildContext context) {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.lock, color: AppColors.primary), SizedBox(width: 10), Text('Change Password')]),
+      content: SizedBox(width: 350, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: currentCtrl, obscureText: true,
+          decoration: const InputDecoration(labelText: 'Current Password', prefixIcon: Icon(Icons.lock_outline))),
+        const SizedBox(height: 12),
+        TextField(controller: newCtrl, obscureText: true,
+          decoration: const InputDecoration(labelText: 'New Password', prefixIcon: Icon(Icons.lock_reset))),
+        const SizedBox(height: 12),
+        TextField(controller: confirmCtrl, obscureText: true,
+          decoration: const InputDecoration(labelText: 'Confirm New Password', prefixIcon: Icon(Icons.lock_reset))),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ElevatedButton(onPressed: () async {
+          final appState = context.read<AppState>();
+          final savedPassword = await appState.getSetting('loginPassword') ?? '12345';
+
+          if (currentCtrl.text != savedPassword) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Current password is incorrect'), backgroundColor: AppColors.error));
+            return;
+          }
+          if (newCtrl.text.isEmpty || newCtrl.text.length < 4) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('New password must be at least 4 characters'), backgroundColor: AppColors.error));
+            return;
+          }
+          if (newCtrl.text != confirmCtrl.text) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Passwords do not match'), backgroundColor: AppColors.error));
+            return;
+          }
+
+          await appState.saveSetting('loginPassword', newCtrl.text);
+          if (mounted) {
+            Navigator.pop(ctx);
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: const Row(children: [
+                Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+                Text('Password changed successfully!')]),
+              backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+          }
+        }, child: const Text('Change Password')),
+      ],
+    ));
   }
 }

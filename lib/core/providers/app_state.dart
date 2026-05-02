@@ -201,6 +201,33 @@ class AppState extends ChangeNotifier {
     await loadDashboardStats();
   }
 
+  Future<void> collectPayment(String billId, double amount) async {
+    final bill = _bills.firstWhere((b) => b.id == billId);
+    bill.paidAmount += amount;
+    if (bill.paidAmount >= bill.totalAmount) {
+      bill.paidAmount = bill.totalAmount;
+      bill.status = BillStatus.paid;
+    } else {
+      bill.status = BillStatus.partial;
+    }
+    await _db.updateBill(bill);
+
+    // Update customer outstanding
+    if (bill.customerId != null) {
+      final customer = _customers.firstWhere(
+        (c) => c.id == bill.customerId,
+        orElse: () => Customer(name: ''),
+      );
+      if (customer.name.isNotEmpty) {
+        customer.outstandingBalance -= amount;
+        if (customer.outstandingBalance < 0) customer.outstandingBalance = 0;
+        await _db.updateCustomer(customer);
+      }
+    }
+
+    await Future.wait([loadBills(), loadCustomers(), loadDashboardStats()]);
+  }
+
   Future<List<Bill>> getBillsByDate(DateTime date) async {
     return await _db.getBillsByDate(date);
   }
