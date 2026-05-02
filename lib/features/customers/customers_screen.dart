@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/customer.dart';
+import '../../core/models/bill.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -150,6 +151,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
                     ),
                 ],
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.receipt_long, size: 20, color: AppColors.accent),
+              tooltip: 'View Ledger',
+              onPressed: () => _showLedger(context, customer),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -394,5 +400,94 @@ class _CustomersScreenState extends State<CustomersScreen> {
         );
       }
     }
+  }
+
+  void _showLedger(BuildContext context, Customer customer) {
+    final appState = context.read<AppState>();
+    final customerBills = appState.bills.where((b) => b.customerId == customer.id).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    double totalBilled = customerBills.fold(0, (s, b) => s + b.totalAmount);
+    double totalPaid = customerBills.fold(0, (s, b) => s + b.paidAmount);
+    double totalDue = totalBilled - totalPaid;
+
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        CircleAvatar(radius: 18,
+          backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+          child: Text(customer.name[0].toUpperCase(),
+            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700))),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(customer.name, style: const TextStyle(fontSize: 16)),
+          if (customer.phone != null)
+            Text(customer.phone!, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+        ])),
+      ]),
+      content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(
+        mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Summary
+          Container(padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [
+                AppColors.primary.withValues(alpha: 0.08), AppColors.primary.withValues(alpha: 0.02)]),
+              borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              Expanded(child: Column(children: [
+                Text(AppFormatters.currency(totalBilled),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
+                const Text('Total Billed', style: TextStyle(fontSize: 10)),
+              ])),
+              Expanded(child: Column(children: [
+                Text(AppFormatters.currency(totalPaid),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.success)),
+                const Text('Paid', style: TextStyle(fontSize: 10)),
+              ])),
+              Expanded(child: Column(children: [
+                Text(AppFormatters.currency(totalDue),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16,
+                    color: totalDue > 0 ? AppColors.error : AppColors.success)),
+                const Text('Due', style: TextStyle(fontSize: 10)),
+              ])),
+            ])),
+          const SizedBox(height: 16),
+          Text('Transactions (${customerBills.length})',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 8),
+          if (customerBills.isEmpty)
+            const Padding(padding: EdgeInsets.all(20),
+              child: Center(child: Text('No transactions', style: TextStyle(fontSize: 13))))
+          else
+            ...customerBills.map((bill) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.06))),
+              child: Row(children: [
+                Container(width: 4, height: 36,
+                  decoration: BoxDecoration(
+                    color: bill.status == BillStatus.paid ? AppColors.success : AppColors.error,
+                    borderRadius: BorderRadius.circular(2))),
+                const SizedBox(width: 10),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(bill.billNumber, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  Text('${AppFormatters.date(bill.createdAt)} · ${bill.items.length} items',
+                    style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+                ])),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text(AppFormatters.currency(bill.totalAmount),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  Text(bill.status == BillStatus.paid ? 'Paid' : 'Due: ${AppFormatters.currency(bill.balanceDue)}',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                      color: bill.status == BillStatus.paid ? AppColors.success : AppColors.error)),
+                ]),
+              ]))),
+        ]))),
+      actions: [
+        ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+      ],
+    ));
   }
 }

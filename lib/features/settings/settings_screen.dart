@@ -1,7 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/models/item.dart';
+import '../../core/models/customer.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/web_helper.dart' as web_helper;
 import '../../widgets/common_widgets.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -170,6 +174,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   label: const Text('Change Login Password'),
                 )),
             ])),
+          const SizedBox(height: 20),
+          // Backup & Restore
+          GlassCard(padding: const EdgeInsets.all(20), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.backup, size: 22, color: AppColors.warning)),
+                const SizedBox(width: 12),
+                Text('Backup & Restore', style: Theme.of(context).textTheme.titleLarge),
+              ]),
+              const SizedBox(height: 16),
+              Row(children: [
+                Expanded(child: OutlinedButton.icon(
+                  onPressed: () => _backupData(context),
+                  icon: const Icon(Icons.download, size: 20),
+                  label: const Text('Backup Data'),
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: OutlinedButton.icon(
+                  onPressed: () => _restoreData(context),
+                  icon: const Icon(Icons.upload, size: 20),
+                  label: const Text('Restore Data'),
+                )),
+              ]),
+              const SizedBox(height: 8),
+              Text('Backup saves all items, customers, bills & purchases as a JSON file.',
+                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+            ])),
         ]),
       );
     });
@@ -246,5 +279,92 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }, child: const Text('Change Password')),
       ],
     ));
+  }
+
+  Future<void> _backupData(BuildContext context) async {
+    try {
+      final appState = context.read<AppState>();
+      final backup = {
+        'version': '1.0.0',
+        'timestamp': DateTime.now().toIso8601String(),
+        'items': appState.items.map((i) => i.toMap()).toList(),
+        'customers': appState.customers.map((c) => c.toMap()).toList(),
+        'bills': appState.bills.map((b) => b.toMap()).toList(),
+        'purchases': appState.purchases.map((p) => p.toMap()).toList(),
+      };
+      final jsonStr = const JsonEncoder.withIndent('  ').convert(backup);
+      web_helper.downloadJson(jsonStr, 'mybillu_backup_${DateTime.now().millisecondsSinceEpoch}.json');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Row(children: [
+            Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+            Text('Backup downloaded successfully!')]),
+          backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Backup error: $e'), backgroundColor: AppColors.error));
+      }
+    }
+  }
+
+  Future<void> _restoreData(BuildContext context) async {
+    try {
+      final jsonStr = await web_helper.triggerFileUpload();
+      if (jsonStr == null) return;
+
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+        title: const Text('Restore Backup?'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('This will ADD the backup data to your current data.', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text('Items: ${(data['items'] as List?)?.length ?? 0}'),
+          Text('Customers: ${(data['customers'] as List?)?.length ?? 0}'),
+          Text('Bills: ${(data['bills'] as List?)?.length ?? 0}'),
+          Text('Purchases: ${(data['purchases'] as List?)?.length ?? 0}'),
+          if (data['timestamp'] != null) ...[
+            const SizedBox(height: 8),
+            Text('Backup date: ${data['timestamp']}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+          ],
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Restore')),
+        ],
+      ));
+
+      if (confirm != true || !mounted) return;
+
+      final appState = context.read<AppState>();
+      if (data['items'] != null) {
+        for (final m in data['items']) {
+          try { await appState.addItem(Item.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+      if (data['customers'] != null) {
+        for (final m in data['customers']) {
+          try { await appState.addCustomer(Customer.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Row(children: [
+            Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+            Text('Data restored successfully!')]),
+          backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Restore error: $e'), backgroundColor: AppColors.error));
+      }
+    }
   }
 }
