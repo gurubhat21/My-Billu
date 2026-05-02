@@ -74,28 +74,43 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  final _screens = const [
-    DashboardScreen(),
-    BillingScreen(),
-    PurchaseScreen(),
-    ItemsScreen(),
-    StockScreen(),
-    CustomersScreen(),
-    HistoryScreen(),
-    SettingsScreen(),
+  // All screens indexed
+  static const _allScreens = [
+    DashboardScreen(),    // 0
+    BillingScreen(),      // 1 - Sales
+    PurchaseScreen(),     // 2 - Purchase
+    HistoryScreen(),      // 3 - Payments
+    ItemsScreen(),        // 4
+    StockScreen(),        // 5
+    CustomersScreen(),    // 6
+    SettingsScreen(),     // 7
   ];
 
-  final _navItems = const [
-    NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Dashboard'),
-    NavigationDestination(icon: Icon(Icons.add_circle_outline), selectedIcon: Icon(Icons.add_circle), label: 'New Bill'),
-    NavigationDestination(icon: Icon(Icons.shopping_bag_outlined), selectedIcon: Icon(Icons.shopping_bag), label: 'Purchase'),
-    NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'Items'),
-    NavigationDestination(icon: Icon(Icons.warehouse_outlined), selectedIcon: Icon(Icons.warehouse), label: 'Stock'),
-    NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: 'Customers'),
-    NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'History'),
-    NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
+  // Bottom bar maps to indices: 1=Sales, 2=Purchase, 3=Payments
+  static const _bottomBarMapping = [1, 2, 3];
+
+  int get _bottomBarIndex {
+    final idx = _bottomBarMapping.indexOf(_currentIndex);
+    return idx >= 0 ? idx : -1; // -1 means not a bottom-bar screen
+  }
+
+  // Drawer menu items
+  static const _drawerItems = [
+    _DrawerItem(icon: Icons.dashboard, label: 'Dashboard', index: 0),
+    _DrawerItem(icon: Icons.add_circle, label: 'New Bill / Sales', index: 1),
+    _DrawerItem(icon: Icons.shopping_bag, label: 'Purchase', index: 2),
+    _DrawerItem(icon: Icons.receipt_long, label: 'Payments / History', index: 3),
+    _DrawerItem(icon: Icons.inventory_2, label: 'Items', index: 4),
+    _DrawerItem(icon: Icons.warehouse, label: 'Stock', index: 5),
+    _DrawerItem(icon: Icons.people, label: 'Customers', index: 6),
+    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 7),
   ];
+
+  void _goTo(int index) {
+    setState(() => _currentIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,12 +118,12 @@ class _MainShellState extends State<MainShell> {
       final isWide = constraints.maxWidth > 800;
 
       if (isWide) {
-        // Desktop / Web wide layout - side navigation rail
+        // Desktop / Web wide layout - permanent side navigation rail
         return Scaffold(
           body: Row(children: [
             NavigationRail(
               selectedIndex: _currentIndex,
-              onDestinationSelected: (i) => setState(() => _currentIndex = i),
+              onDestinationSelected: (i) => _goTo(i),
               labelType: NavigationRailLabelType.all,
               backgroundColor: Theme.of(context).brightness == Brightness.dark
                   ? AppColors.darkSurface : AppColors.lightSurface,
@@ -127,27 +142,142 @@ class _MainShellState extends State<MainShell> {
                   const Text('My Billu', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.primary)),
                 ]),
               ),
-              destinations: _navItems.map((n) => NavigationRailDestination(
-                icon: n.icon, selectedIcon: n.selectedIcon, label: Text(n.label),
+              destinations: _drawerItems.map((d) => NavigationRailDestination(
+                icon: Icon(d.icon), selectedIcon: Icon(d.icon), label: Text(d.label),
               )).toList(),
             ),
             VerticalDivider(width: 1, color: Theme.of(context).brightness == Brightness.dark
                 ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
-            Expanded(child: _screens[_currentIndex]),
+            Expanded(child: _allScreens[_currentIndex]),
           ]),
         );
       }
 
-      // Mobile / narrow layout - bottom navigation
+      // Mobile / narrow layout - drawer + bottom bar
       return Scaffold(
-        body: _screens[_currentIndex],
+        key: _scaffoldKey,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.menu, size: 26),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
+          title: ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Color(0xFF00F5A0), Color(0xFF00D9F5), Color(0xFFA855F7)],
+            ).createShader(bounds),
+            child: const Text('My Billu', style: TextStyle(
+              fontWeight: FontWeight.w900, fontSize: 22, color: Colors.white, letterSpacing: -0.5)),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
+        drawer: _buildDrawer(context),
+        body: _allScreens[_currentIndex],
         bottomNavigationBar: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (i) => setState(() => _currentIndex = i),
-          destinations: _navItems,
+          selectedIndex: _bottomBarIndex >= 0 ? _bottomBarIndex : 0,
+          onDestinationSelected: (i) => _goTo(_bottomBarMapping[i]),
           height: 70,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.point_of_sale_outlined),
+              selectedIcon: Icon(Icons.point_of_sale),
+              label: 'Sales',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.shopping_bag_outlined),
+              selectedIcon: Icon(Icons.shopping_bag),
+              label: 'Purchase',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.payments_outlined),
+              selectedIcon: Icon(Icons.payments),
+              label: 'Payments',
+            ),
+          ],
         ),
       );
     });
   }
+
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF0F0F23) : Colors.white,
+      child: Column(children: [
+        // Drawer Header
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [Color(0xFF1A1A3E), Color(0xFF0F0F23)],
+            ),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.receipt_long, color: Colors.white, size: 28),
+            ),
+            const SizedBox(height: 14),
+            ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [Color(0xFF00F5A0), Color(0xFF00D9F5), Color(0xFFA855F7)],
+              ).createShader(bounds),
+              child: const Text('My Billu', style: TextStyle(
+                fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5)),
+            ),
+            const SizedBox(height: 4),
+            Text('Smart Billing Software', style: TextStyle(
+              fontSize: 12, color: Colors.white.withValues(alpha: 0.5), fontWeight: FontWeight.w500)),
+          ]),
+        ),
+
+        // Menu Items
+        Expanded(child: ListView(padding: const EdgeInsets.symmetric(vertical: 8), children: [
+          ..._drawerItems.map((item) {
+            final isSelected = _currentIndex == item.index;
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary.withValues(alpha: 0.12) : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                leading: Icon(item.icon, size: 22,
+                  color: isSelected ? AppColors.primary : Colors.white.withValues(alpha: 0.6)),
+                title: Text(item.label, style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 14,
+                  color: isSelected ? AppColors.primary : Colors.white.withValues(alpha: 0.8),
+                )),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                onTap: () {
+                  _goTo(item.index);
+                  Navigator.pop(context); // Close drawer
+                },
+              ),
+            );
+          }),
+        ])),
+
+        // Footer
+        Padding(padding: const EdgeInsets.all(16),
+          child: Text('Sumukha Tech Solutions', style: TextStyle(
+            fontSize: 11, color: Colors.white.withValues(alpha: 0.3), fontWeight: FontWeight.w500)),
+        ),
+      ]),
+    );
+  }
+}
+
+class _DrawerItem {
+  final IconData icon;
+  final String label;
+  final int index;
+  const _DrawerItem({required this.icon, required this.label, required this.index});
 }
