@@ -1,0 +1,133 @@
+import 'package:uuid/uuid.dart';
+
+class BillItem {
+  final String itemId;
+  final String itemName;
+  final double unitPrice;
+  final int quantity;
+  final double taxRate;
+  final String unit;
+
+  BillItem({
+    required this.itemId,
+    required this.itemName,
+    required this.unitPrice,
+    required this.quantity,
+    required this.taxRate,
+    this.unit = 'pcs',
+  });
+
+  double get subtotal => unitPrice * quantity;
+  double get taxAmount => subtotal * taxRate / 100;
+  double get total => subtotal + taxAmount;
+  // GST split (intra-state)
+  double get cgst => taxAmount / 2;
+  double get sgst => taxAmount / 2;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'itemId': itemId,
+      'itemName': itemName,
+      'unitPrice': unitPrice,
+      'quantity': quantity,
+      'taxRate': taxRate,
+      'unit': unit,
+    };
+  }
+
+  factory BillItem.fromMap(Map<String, dynamic> map) {
+    return BillItem(
+      itemId: map['itemId'] as String,
+      itemName: map['itemName'] as String,
+      unitPrice: (map['unitPrice'] as num).toDouble(),
+      quantity: (map['quantity'] as num).toInt(),
+      taxRate: (map['taxRate'] as num).toDouble(),
+      unit: map['unit'] as String? ?? 'pcs',
+    );
+  }
+}
+
+enum PaymentMethod { cash, upi, card, bank, credit }
+
+enum BillStatus { paid, unpaid, partial }
+
+class Bill {
+  final String id;
+  final String billNumber;
+  String? customerId;
+  String? customerName;
+  final List<BillItem> items;
+  final double subtotal;
+  final double totalTax;
+  final double totalAmount;
+  double paidAmount;
+  final PaymentMethod paymentMethod;
+  BillStatus status;
+  String? notes;
+  final DateTime createdAt;
+
+  Bill({
+    String? id,
+    required this.billNumber,
+    this.customerId,
+    this.customerName,
+    required this.items,
+    required this.subtotal,
+    required this.totalTax,
+    required this.totalAmount,
+    this.paidAmount = 0.0,
+    this.paymentMethod = PaymentMethod.cash,
+    this.status = BillStatus.paid,
+    this.notes,
+    DateTime? createdAt,
+  })  : id = id ?? const Uuid().v4(),
+        createdAt = createdAt ?? DateTime.now();
+
+  double get balanceDue => totalAmount - paidAmount;
+  double get totalCgst => totalTax / 2;
+  double get totalSgst => totalTax / 2;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'billNumber': billNumber,
+      'customerId': customerId,
+      'customerName': customerName,
+      'items': items.map((e) => e.toMap()).toList(),
+      'subtotal': subtotal,
+      'totalTax': totalTax,
+      'totalAmount': totalAmount,
+      'paidAmount': paidAmount,
+      'paymentMethod': paymentMethod.name,
+      'status': status.name,
+      'notes': notes,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  factory Bill.fromMap(Map<String, dynamic> map) {
+    return Bill(
+      id: map['id'] as String,
+      billNumber: map['billNumber'] as String,
+      customerId: map['customerId'] as String?,
+      customerName: map['customerName'] as String?,
+      items: (map['items'] as List)
+          .map((e) => BillItem.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      subtotal: (map['subtotal'] as num).toDouble(),
+      totalTax: (map['totalTax'] as num).toDouble(),
+      totalAmount: (map['totalAmount'] as num).toDouble(),
+      paidAmount: (map['paidAmount'] as num?)?.toDouble() ?? 0.0,
+      paymentMethod: PaymentMethod.values.firstWhere(
+        (e) => e.name == map['paymentMethod'],
+        orElse: () => PaymentMethod.cash,
+      ),
+      status: BillStatus.values.firstWhere(
+        (e) => e.name == map['status'],
+        orElse: () => BillStatus.paid,
+      ),
+      notes: map['notes'] as String?,
+      createdAt: DateTime.parse(map['createdAt'] as String),
+    );
+  }
+}
