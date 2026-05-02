@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/bill.dart';
+import '../../core/models/purchase.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -18,7 +19,7 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -51,8 +52,9 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
               dividerColor: Colors.transparent,
               tabAlignment: TabAlignment.start,
               tabs: const [
-                Tab(text: '📊 Sales Report'),
-                Tab(text: '🧾 GST Report'),
+                Tab(text: '📊 Sales'),
+                Tab(text: '🧾 GST'),
+                Tab(text: '📈 P&L'),
               ],
             ),
           ),
@@ -64,6 +66,7 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
         children: const [
           _SalesReportTab(),
           _GSTReportTab(),
+          _PnLReportTab(),
         ],
       )),
     ]);
@@ -509,4 +512,326 @@ class _GSTSlabData {
   double sgst = 0;
   double totalTax = 0;
   int count = 0;
+}
+
+// ═══════════════════════════════════════════════
+//  PROFIT & LOSS REPORT TAB
+// ═══════════════════════════════════════════════
+class _PnLReportTab extends StatefulWidget {
+  const _PnLReportTab();
+  @override
+  State<_PnLReportTab> createState() => _PnLReportTabState();
+}
+
+class _PnLReportTabState extends State<_PnLReportTab> {
+  String _period = 'This Month';
+
+  List<T> _filterByPeriod<T>(List<T> list, DateTime Function(T) getDate) {
+    final now = DateTime.now();
+    return list.where((item) {
+      final d = getDate(item);
+      if (_period == 'Today') {
+        return d.day == now.day && d.month == now.month && d.year == now.year;
+      } else if (_period == 'This Week') {
+        return d.isAfter(now.subtract(const Duration(days: 7)));
+      } else if (_period == 'This Month') {
+        return d.month == now.month && d.year == now.year;
+      } else if (_period == 'This Quarter') {
+        final qStart = DateTime(now.year, ((now.month - 1) ~/ 3) * 3 + 1);
+        return d.isAfter(qStart.subtract(const Duration(days: 1)));
+      } else if (_period == 'This Year') {
+        return d.year == now.year;
+      }
+      return true;
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppState>(builder: (context, appState, _) {
+      final bills = _filterByPeriod(appState.bills, (b) => b.createdAt);
+      final purchases = _filterByPeriod(appState.purchases, (p) => p.createdAt);
+
+      // Revenue
+      final totalSales = bills.fold<double>(0, (s, b) => s + b.totalAmount);
+      final salesSubtotal = bills.fold<double>(0, (s, b) => s + b.subtotal);
+      final salesTax = bills.fold<double>(0, (s, b) => s + b.totalTax);
+      final salesDiscount = bills.fold<double>(0, (s, b) => s + b.discount);
+
+      // Cost of goods
+      final totalPurchases = purchases.fold<double>(0, (s, p) => s + p.totalAmount);
+      final purchaseSubtotal = purchases.fold<double>(0, (s, p) => s + p.subtotal);
+      final purchaseTax = purchases.fold<double>(0, (s, p) => s + p.totalTax);
+
+      // Profit
+      final grossProfit = salesSubtotal - purchaseSubtotal;
+      final netProfit = totalSales - totalPurchases;
+      final netTaxLiability = salesTax - purchaseTax;
+      final marginPct = salesSubtotal > 0 ? (grossProfit / salesSubtotal * 100) : 0.0;
+
+      // Monthly trend
+      final monthlyData = <String, Map<String, double>>{};
+      for (final b in bills) {
+        final key = '${_monthName(b.createdAt.month)} ${b.createdAt.year.toString().substring(2)}';
+        monthlyData.putIfAbsent(key, () => {'sales': 0, 'purchase': 0});
+        monthlyData[key]!['sales'] = (monthlyData[key]!['sales'] ?? 0) + b.totalAmount;
+      }
+      for (final p in purchases) {
+        final key = '${_monthName(p.createdAt.month)} ${p.createdAt.year.toString().substring(2)}';
+        monthlyData.putIfAbsent(key, () => {'sales': 0, 'purchase': 0});
+        monthlyData[key]!['purchase'] = (monthlyData[key]!['purchase'] ?? 0) + p.totalAmount;
+      }
+
+      return LayoutBuilder(builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 700;
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(isWide ? 24 : 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Period selector
+            Wrap(spacing: 8, runSpacing: 8, children:
+              ['Today', 'This Week', 'This Month', 'This Quarter', 'This Year', 'All Time'].map((p) =>
+                ChoiceChip(
+                  label: Text(p, style: const TextStyle(fontSize: 12)),
+                  selected: _period == p,
+                  selectedColor: AppColors.primary,
+                  onSelected: (_) => setState(() => _period = p),
+                )).toList()),
+            const SizedBox(height: 20),
+
+            // Profit highlight
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: netProfit >= 0
+                  ? const LinearGradient(colors: [Color(0xFF059669), Color(0xFF10B981)])
+                  : const LinearGradient(colors: [Color(0xFFDC2626), Color(0xFFEF4444)]),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: (netProfit >= 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8))]),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
+                  child: Icon(netProfit >= 0 ? Icons.trending_up : Icons.trending_down, color: Colors.white, size: 28)),
+                const SizedBox(width: 16),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(netProfit >= 0 ? 'NET PROFIT' : 'NET LOSS',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.7), letterSpacing: 1)),
+                  const SizedBox(height: 4),
+                  Text(AppFormatters.currency(netProfit.abs()),
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
+                  Text('Margin: ${marginPct.toStringAsFixed(1)}%',
+                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
+                ])),
+                Column(children: [
+                  _miniStat('Sales', AppFormatters.compactCurrency(totalSales)),
+                  const SizedBox(height: 8),
+                  _miniStat('Purchases', AppFormatters.compactCurrency(totalPurchases)),
+                ]),
+              ])),
+            const SizedBox(height: 20),
+
+            // Summary cards row
+            _buildPnLCards(isWide, totalSales, totalPurchases, grossProfit, netTaxLiability),
+            const SizedBox(height: 20),
+
+            // P&L Statement breakdown
+            GlassCard(padding: const EdgeInsets.all(20), child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Row(children: [
+                  Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 20),
+                  SizedBox(width: 8),
+                  Text('Profit & Loss Statement', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                ]),
+                const SizedBox(height: 16),
+                _sectionHeader('REVENUE'),
+                _pnlRow('Sales Revenue', salesSubtotal, indent: false),
+                _pnlRow('GST Collected', salesTax, indent: true),
+                _pnlRow('Less: Discounts', -salesDiscount, indent: true, isNeg: true),
+                _pnlRow('Total Revenue', totalSales, indent: false, bold: true, color: AppColors.success),
+                const Divider(height: 24),
+                _sectionHeader('COST OF GOODS'),
+                _pnlRow('Purchase Cost', purchaseSubtotal, indent: false),
+                _pnlRow('GST on Purchase', purchaseTax, indent: true),
+                _pnlRow('Total Purchases', totalPurchases, indent: false, bold: true, color: AppColors.error),
+                const Divider(height: 24),
+                _sectionHeader('PROFIT'),
+                _pnlRow('Gross Profit', grossProfit, indent: false, bold: true,
+                  color: grossProfit >= 0 ? AppColors.success : AppColors.error),
+                _pnlRow('Net Tax Liability', netTaxLiability, indent: true),
+                const Divider(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: (netProfit >= 0 ? AppColors.successGradient : const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)])),
+                    borderRadius: BorderRadius.circular(12)),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Text(netProfit >= 0 ? 'NET PROFIT' : 'NET LOSS',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 1)),
+                    Text(AppFormatters.currency(netProfit.abs()),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white)),
+                  ])),
+              ])),
+            const SizedBox(height: 20),
+
+            // Monthly trend
+            if (monthlyData.isNotEmpty)
+              GlassCard(padding: const EdgeInsets.all(20), child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Row(children: [
+                    Icon(Icons.show_chart, color: AppColors.accent, size: 20),
+                    SizedBox(width: 8),
+                    Text('Monthly Trend', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                  ]),
+                  const SizedBox(height: 16),
+                  SizedBox(height: 200, child: _buildComparisonChart(monthlyData)),
+                  const SizedBox(height: 12),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    _legendDot(AppColors.primary, 'Sales'),
+                    const SizedBox(width: 20),
+                    _legendDot(AppColors.error, 'Purchases'),
+                  ]),
+                ])),
+            const SizedBox(height: 20),
+
+            // Key metrics
+            GlassCard(padding: const EdgeInsets.all(20), child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Row(children: [
+                  Icon(Icons.analytics, color: AppColors.warning, size: 20),
+                  SizedBox(width: 8),
+                  Text('Key Metrics', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                ]),
+                const SizedBox(height: 16),
+                _metricRow('Total Bills', '${bills.length}'),
+                _metricRow('Total Purchases', '${purchases.length}'),
+                _metricRow('Avg Bill Value', bills.isNotEmpty ? AppFormatters.currency(totalSales / bills.length) : '₹0'),
+                _metricRow('Avg Purchase Value', purchases.isNotEmpty ? AppFormatters.currency(totalPurchases / purchases.length) : '₹0'),
+                _metricRow('Gross Margin', '${marginPct.toStringAsFixed(1)}%'),
+                _metricRow('Tax Liability', AppFormatters.currency(netTaxLiability)),
+              ])),
+          ]),
+        );
+      });
+    });
+  }
+
+  Widget _miniStat(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+      child: Column(children: [
+        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+        Text(label, style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.7))),
+      ]),
+    );
+  }
+
+  Widget _buildPnLCards(bool isWide, double sales, double purchases, double gross, double taxLiability) {
+    final cards = [
+      _pnlCard('Total Sales', AppFormatters.currency(sales), Icons.trending_up,
+        const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)])),
+      _pnlCard('Total Purchases', AppFormatters.currency(purchases), Icons.shopping_bag,
+        const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)])),
+      _pnlCard('Gross Profit', AppFormatters.currency(gross), Icons.account_balance_wallet,
+        gross >= 0 ? AppColors.successGradient : const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)])),
+      _pnlCard('Tax Liability', AppFormatters.currency(taxLiability), Icons.receipt_long,
+        const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF0284C7)])),
+    ];
+    if (isWide) {
+      return Row(children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: c))).toList());
+    }
+    return Wrap(spacing: 8, runSpacing: 8, children: cards.map((c) => SizedBox(width: (MediaQuery.of(context).size.width - 48) / 2, child: c)).toList());
+  }
+
+  Widget _pnlCard(String title, String value, IconData icon, Gradient gradient) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(gradient: gradient, borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 20),
+        const SizedBox(height: 10),
+        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
+        const SizedBox(height: 2),
+        Text(title, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+      ]),
+    );
+  }
+
+  Widget _sectionHeader(String title) {
+    return Padding(padding: const EdgeInsets.only(bottom: 8), child:
+      Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.4), letterSpacing: 1.5)));
+  }
+
+  Widget _pnlRow(String label, double amount, {bool indent = false, bool bold = false, Color? color, bool isNeg = false}) {
+    return Padding(padding: EdgeInsets.only(left: indent ? 20 : 0, bottom: 6), child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: TextStyle(
+          fontSize: bold ? 13 : 12,
+          fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+          color: color ?? Colors.white.withValues(alpha: indent ? 0.5 : 0.8))),
+        Text(
+          '${isNeg && amount != 0 ? '- ' : ''}${AppFormatters.currency(amount.abs())}',
+          style: TextStyle(
+            fontSize: bold ? 14 : 12,
+            fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+            color: color ?? Colors.white.withValues(alpha: indent ? 0.5 : 0.8))),
+      ]));
+  }
+
+  Widget _metricRow(String label, String value) {
+    return Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6))),
+        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+      ]));
+  }
+
+  Widget _buildComparisonChart(Map<String, Map<String, double>> data) {
+    final maxVal = data.values.fold<double>(0, (max, m) {
+      final s = m['sales'] ?? 0;
+      final p = m['purchase'] ?? 0;
+      return max > s ? (max > p ? max : p) : (s > p ? s : p);
+    });
+    if (maxVal == 0) return const Center(child: Text('No data'));
+    final entries = data.entries.toList();
+
+    return Row(crossAxisAlignment: CrossAxisAlignment.end, children:
+      entries.map((e) => Expanded(child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            // Sales bar
+            Container(
+              width: 12,
+              height: ((e.value['sales'] ?? 0) / maxVal) * 150,
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(3))),
+            const SizedBox(width: 2),
+            // Purchase bar
+            Container(
+              width: 12,
+              height: ((e.value['purchase'] ?? 0) / maxVal) * 150,
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(3))),
+          ]),
+          const SizedBox(height: 6),
+          Text(e.key, style: TextStyle(fontSize: 8, color: Colors.white.withValues(alpha: 0.5))),
+        ])))).toList());
+  }
+
+  Widget _legendDot(Color color, String label) {
+    return Row(children: [
+      Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+      const SizedBox(width: 4),
+      Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
+    ]);
+  }
+
+  String _monthName(int month) {
+    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month];
+  }
 }
