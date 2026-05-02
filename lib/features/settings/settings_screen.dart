@@ -136,6 +136,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _aboutRow('Tax System', 'GST (India)'),
               _aboutRow('Currency', '₹ INR'),
               const Divider(height: 24),
+              Center(child: Container(
+                width: 100, height: 100,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset('assets/sumukha_logo.png', fit: BoxFit.contain),
+                ),
+              )),
               _aboutRow('Created By', 'Sumukha Tech Solutions'),
               _aboutRow('Mobile', '9449831316'),
               _aboutRow('Email', 'sumukhatech21@gmail.com'),
