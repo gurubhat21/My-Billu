@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/item.dart';
+import '../../core/models/purchase.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -379,7 +380,15 @@ class _ItemsScreenState extends State<ItemsScreen> {
           ),
         ),
         actions: [
-          if (isEditing)
+          if (isEditing) ...
+            [OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _showItemPurchaseHistory(context, item);
+              },
+              icon: const Icon(Icons.history, size: 18),
+              label: const Text('Purchase History'),
+            ),
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
@@ -387,7 +396,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
               },
               child: const Text('Delete',
                   style: TextStyle(color: AppColors.error)),
-            ),
+            ),],
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
@@ -457,6 +466,132 @@ class _ItemsScreenState extends State<ItemsScreen> {
         ],
       ),
     );
+  }
+
+  void _showItemPurchaseHistory(BuildContext context, Item item) {
+    final appState = context.read<AppState>();
+    final List<_ItemPurchaseRecord> records = [];
+    for (final purchase in appState.purchases) {
+      for (final pi in purchase.items) {
+        if (pi.itemId == item.id) {
+          records.add(_ItemPurchaseRecord(
+            date: purchase.createdAt, supplier: purchase.supplierName,
+            purchaseNumber: purchase.purchaseNumber, unitCost: pi.unitCost,
+            quantity: pi.quantity, total: pi.total,
+          ));
+        }
+      }
+    }
+    double? lowestPrice, highestPrice;
+    int totalQty = 0; double totalSpent = 0;
+    for (final r in records) {
+      if (lowestPrice == null || r.unitCost < lowestPrice) lowestPrice = r.unitCost;
+      if (highestPrice == null || r.unitCost > highestPrice) highestPrice = r.unitCost;
+      totalQty += r.quantity;
+      totalSpent += r.total;
+    }
+
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        Container(padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+          child: const Icon(Icons.history, color: AppColors.primary, size: 20)),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(item.name, style: const TextStyle(fontSize: 16)),
+          Text('Purchase History', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5), fontWeight: FontWeight.w400)),
+        ])),
+      ]),
+      content: SizedBox(width: 520, child: records.isEmpty
+        ? const Padding(padding: EdgeInsets.all(30),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.inbox_outlined, size: 48, color: AppColors.accent),
+              SizedBox(height: 12),
+              Text('No purchase records', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text('This item has not been purchased yet', style: TextStyle(fontSize: 12)),
+            ]))
+        : SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Summary
+            Container(padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.15))),
+              child: Row(children: [
+                _phStatChip('Purchases', '${records.length}', Icons.shopping_cart, AppColors.primary),
+                _phStatChip('Total Qty', '$totalQty', Icons.inventory, AppColors.accent),
+                _phStatChip('Spent', AppFormatters.currency(totalSpent), Icons.currency_rupee, AppColors.success),
+              ])),
+            const SizedBox(height: 12),
+            // Price range
+            if (lowestPrice != null && highestPrice != null)
+              Container(padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.03), borderRadius: BorderRadius.circular(10)),
+                child: Row(children: [
+                  _phPriceTag('Lowest', AppFormatters.currency(lowestPrice), AppColors.success),
+                  Container(width: 1, height: 30, color: Colors.white.withValues(alpha: 0.1)),
+                  _phPriceTag('Highest', AppFormatters.currency(highestPrice), AppColors.error),
+                  Container(width: 1, height: 30, color: Colors.white.withValues(alpha: 0.1)),
+                  _phPriceTag('Sell Price', AppFormatters.currency(item.price), AppColors.primary),
+                ])),
+            const SizedBox(height: 16),
+            // Records
+            ...records.asMap().entries.map((entry) {
+              final i = entry.key;
+              final r = entry.value;
+              final prevCost = i + 1 < records.length ? records[i + 1].unitCost : null;
+              final diff = prevCost != null ? r.unitCost - prevCost : null;
+              return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03), borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.06))),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(r.purchaseNumber, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      Text('${AppFormatters.date(r.date)} · ${r.supplier}',
+                        style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                    ])),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text(AppFormatters.currency(r.unitCost),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.primary)),
+                      Text('× ${r.quantity}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                    ]),
+                  ]),
+                  if (diff != null && diff != 0)
+                    Padding(padding: const EdgeInsets.only(top: 6),
+                      child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (diff > 0 ? AppColors.error : AppColors.success).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(diff > 0 ? Icons.arrow_upward : Icons.arrow_downward, size: 12,
+                            color: diff > 0 ? AppColors.error : AppColors.success),
+                          const SizedBox(width: 4),
+                          Text('${diff > 0 ? '+' : ''}${AppFormatters.currency(diff)} (${(diff / prevCost! * 100).toStringAsFixed(1)}%) from previous',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                              color: diff > 0 ? AppColors.error : AppColors.success)),
+                        ]))),
+                ]));
+            }),
+          ]))),
+      actions: [ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
+  }
+
+  Widget _phStatChip(String label, String value, IconData icon, Color color) {
+    return Expanded(child: Column(children: [
+      Icon(icon, size: 16, color: color), const SizedBox(height: 4),
+      Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: color)),
+      Text(label, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
+    ]));
+  }
+
+  Widget _phPriceTag(String label, String value, Color color) {
+    return Expanded(child: Column(children: [
+      Text(label, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
+      const SizedBox(height: 2),
+      Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: color)),
+    ]));
   }
 
   Future<void> _importFromExcel(BuildContext context) async {
@@ -536,4 +671,18 @@ class _ItemsScreenState extends State<ItemsScreen> {
       }
     }
   }
+}
+
+class _ItemPurchaseRecord {
+  final DateTime date;
+  final String supplier;
+  final String purchaseNumber;
+  final double unitCost;
+  final int quantity;
+  final double total;
+
+  _ItemPurchaseRecord({
+    required this.date, required this.supplier, required this.purchaseNumber,
+    required this.unitCost, required this.quantity, required this.total,
+  });
 }
