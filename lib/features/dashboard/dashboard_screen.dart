@@ -16,6 +16,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
+  String _userName = '';
 
   @override
   void initState() {
@@ -29,6 +30,15 @@ class _DashboardScreenState extends State<DashboardScreen>
       curve: Curves.easeOut,
     );
     _animController.forward();
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    final appState = context.read<AppState>();
+    final name = await appState.getSetting('businessName');
+    if (mounted) {
+      setState(() => _userName = name ?? '');
+    }
   }
 
   @override
@@ -63,56 +73,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _getGreeting(),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(fontSize: 15),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Dashboard',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineLarge,
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.calendar_today,
-                                    size: 16, color: AppColors.primary),
-                                const SizedBox(width: 6),
-                                Text(
-                                  AppFormatters.date(DateTime.now()),
-                                  style: const TextStyle(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                      // ✨ Neon Gradient Greeting Banner
+                      _buildNeonGreeting(context),
                       const SizedBox(height: 24),
 
                       // Stat Cards
@@ -138,6 +100,132 @@ class _DashboardScreenState extends State<DashboardScreen>
         );
       },
     );
+  }
+
+  Widget _buildNeonGreeting(BuildContext context) {
+    final displayName = _userName.isNotEmpty ? _userName : 'Boss';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F0C29), Color(0xFF302B63), Color(0xFF24243E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: const Color(0xFF06B6D4).withValues(alpha: 0.15),
+            blurRadius: 40,
+            offset: const Offset(-10, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Greeting emoji + text
+          Row(
+            children: [
+              Text(
+                _getEmoji(),
+                style: const TextStyle(fontSize: 32),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.calendar_today, size: 14, color: Color(0xFF818CF8)),
+                    const SizedBox(width: 6),
+                    Text(
+                      AppFormatters.date(DateTime.now()),
+                      style: const TextStyle(
+                        color: Color(0xFF818CF8),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Main greeting with neon gradient
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [
+                Color(0xFF00F5A0), // Neon green
+                Color(0xFF00D9F5), // Neon cyan
+                Color(0xFFA855F7), // Neon purple
+                Color(0xFFEC4899), // Neon pink
+              ],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ).createShader(bounds),
+            child: Text(
+              '${_getGreetingText()}, $displayName!',
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: -0.5,
+                height: 1.2,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Motivational subtitle with softer neon glow
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [
+                Color(0xFF06B6D4), // Cyan
+                Color(0xFF818CF8), // Indigo
+              ],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ).createShader(bounds),
+            child: const Text(
+              '✨ Have a profitable day! Make it count 💰',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getEmoji() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return '☀️';
+    if (hour < 17) return '🌤️';
+    return '🌙';
+  }
+
+  String _getGreetingText() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
   }
 
   Widget _buildStatGrid(bool isWide, double todaySales, int todayCount,
@@ -368,11 +456,5 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     );
   }
-
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return '☀️ Good Morning';
-    if (hour < 17) return '🌤️ Good Afternoon';
-    return '🌙 Good Evening';
-  }
 }
+

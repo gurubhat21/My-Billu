@@ -25,6 +25,9 @@ dependencies:
   google_fonts: ^6.2.1
   fl_chart: ^1.0.0
   share_plus: ^10.1.4
+  # Excel Import
+  excel: ^4.0.6
+  file_picker: ^8.3.7
 
 dev_dependencies:
   flutter_test:

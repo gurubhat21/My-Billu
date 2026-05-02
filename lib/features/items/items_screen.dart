@@ -4,6 +4,7 @@ import '../../core/models/item.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/excel_importer.dart';
 import '../../widgets/common_widgets.dart';
 
 class ItemsScreen extends StatefulWidget {
@@ -50,6 +51,12 @@ class _ItemsScreenState extends State<ItemsScreen> {
                                   Theme.of(context).textTheme.headlineLarge,
                             ),
                           ),
+                          OutlinedButton.icon(
+                            onPressed: () => _importFromExcel(context),
+                            icon: const Icon(Icons.upload_file, size: 20),
+                            label: Text(isWide ? 'Import Excel' : 'Import'),
+                          ),
+                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             onPressed: () => _showItemDialog(context),
                             icon: const Icon(Icons.add, size: 20),
@@ -443,5 +450,51 @@ class _ItemsScreenState extends State<ItemsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _importFromExcel(BuildContext context) async {
+    try {
+      final items = await ExcelImporter.importItems();
+      if (items == null) return; // User cancelled
+      if (items.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No items found in the Excel file')),
+          );
+        }
+        return;
+      }
+
+      final appState = context.read<AppState>();
+      int count = 0;
+      for (final item in items) {
+        await appState.addItem(item);
+        count++;
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 10),
+              Text('Successfully imported $count items!'),
+            ]),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error importing: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 }

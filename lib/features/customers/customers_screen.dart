@@ -4,6 +4,7 @@ import '../../core/models/customer.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/excel_importer.dart';
 import '../../widgets/common_widgets.dart';
 
 class CustomersScreen extends StatefulWidget {
@@ -50,6 +51,12 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                   Theme.of(context).textTheme.headlineLarge,
                             ),
                           ),
+                          OutlinedButton.icon(
+                            onPressed: () => _importFromExcel(context),
+                            icon: const Icon(Icons.upload_file, size: 20),
+                            label: Text(isWide ? 'Import Excel' : 'Import'),
+                          ),
+                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             onPressed: () => _showCustomerDialog(context),
                             icon: const Icon(Icons.person_add, size: 20),
@@ -302,5 +309,51 @@ class _CustomersScreenState extends State<CustomersScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _importFromExcel(BuildContext context) async {
+    try {
+      final customers = await ExcelImporter.importCustomers();
+      if (customers == null) return;
+      if (customers.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No customers found in the Excel file')),
+          );
+        }
+        return;
+      }
+
+      final appState = context.read<AppState>();
+      int count = 0;
+      for (final customer in customers) {
+        await appState.addCustomer(customer);
+        count++;
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 10),
+              Text('Successfully imported $count customers!'),
+            ]),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error importing: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 }
