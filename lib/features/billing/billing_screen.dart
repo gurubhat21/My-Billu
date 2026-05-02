@@ -6,6 +6,7 @@ import '../../core/models/customer.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/invoice_generator.dart';
 import '../../widgets/common_widgets.dart';
 
 class _CartItem {
@@ -258,6 +259,31 @@ class _BillingScreenState extends State<BillingScreen> {
         content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10), Text('Bill $billNumber created!')]),
         backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+
+      // Offer to print invoice
+      final shouldPrint = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.print, color: AppColors.primary), SizedBox(width: 10), Text('Print Invoice?')]),
+        content: Text('Bill $billNumber created successfully.\nWould you like to print/download the invoice?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Skip')),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.print, size: 18),
+            label: const Text('Print Invoice'),
+          ),
+        ],
+      ));
+
+      if (shouldPrint == true && mounted) {
+        final settings = await appState.getAllSettings();
+        await InvoiceGenerator.generateAndPrint(bill,
+          businessName: settings['businessName'] ?? 'My Billu',
+          businessAddress: settings['businessAddress'] ?? '',
+          businessPhone: settings['businessPhone'] ?? '',
+          businessGstin: settings['businessGstin'] ?? '',
+        );
+      }
     }
   }
 }

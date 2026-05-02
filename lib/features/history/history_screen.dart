@@ -4,6 +4,7 @@ import '../../core/models/bill.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/invoice_generator.dart';
 import '../../core/database/excel_exporter.dart';
 import '../../widgets/common_widgets.dart';
 
@@ -114,6 +115,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Navigator.pop(ctx);
           _confirmDelete(context, bill);
         }, child: const Text('Delete', style: TextStyle(color: AppColors.error))),
+        OutlinedButton.icon(
+          onPressed: () async {
+            Navigator.pop(ctx);
+            final appState = context.read<AppState>();
+            final settings = await appState.getAllSettings();
+            await InvoiceGenerator.generateAndPrint(bill,
+              businessName: settings['businessName'] ?? 'My Billu',
+              businessAddress: settings['businessAddress'] ?? '',
+              businessPhone: settings['businessPhone'] ?? '',
+              businessGstin: settings['businessGstin'] ?? '',
+            );
+          },
+          icon: const Icon(Icons.print, size: 18),
+          label: const Text('Print Invoice'),
+        ),
         ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
       ],
     ));
