@@ -6,6 +6,7 @@ import '../../core/models/customer.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/web_helper.dart' as web_helper;
+import '../../core/utils/biometric_helper.dart' as bio;
 import '../../widgets/common_widgets.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -252,6 +253,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   label: const Text('Change Password'),
                 )),
               ]),
+              const SizedBox(height: 16),
+              // Biometric toggle
+              FutureBuilder<List<dynamic>>(
+                future: Future.wait([
+                  bio.isBiometricAvailable(),
+                  context.read<AppState>().getSetting('biometricEnabled'),
+                ]),
+                builder: (ctx, snap) {
+                  if (!snap.hasData) return const SizedBox();
+                  final isAvailable = snap.data![0] as bool;
+                  final isEnabled = snap.data![1] == 'true';
+                  if (!isAvailable) return const SizedBox();
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08))),
+                    child: Row(children: [
+                      const Icon(Icons.fingerprint, size: 22, color: Color(0xFF00F5A0)),
+                      const SizedBox(width: 10),
+                      const Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Biometric Login', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          Text('Use fingerprint/face to login', style: TextStyle(fontSize: 10)),
+                        ])),
+                      Switch(
+                        value: isEnabled,
+                        activeColor: const Color(0xFF00F5A0),
+                        onChanged: (val) async {
+                          await context.read<AppState>().saveSetting('biometricEnabled', val ? 'true' : 'false');
+                          setState(() {});
+                        }),
+                    ]),
+                  );
+                }),
             ])),
           const SizedBox(height: 20),
           // Backup & Restore
