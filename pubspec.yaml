@@ -15,6 +15,7 @@ dependencies:
   # Database
   sqflite: ^2.4.2
   sqflite_common_ffi: ^2.3.4+4
+  sqflite_common_ffi_web: ^0.4.5+3
   path: ^1.9.1
   # PDF
   pdf: ^3.11.2
