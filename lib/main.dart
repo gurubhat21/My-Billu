@@ -90,8 +90,8 @@ class _MainShellState extends State<MainShell> {
     SettingsScreen(),     // 8
   ];
 
-  // Bottom bar maps to indices: 1=Sales, 2=Purchase, 3=Payments
-  static const _bottomBarMapping = [1, 2, 3];
+  // Bottom bar maps to indices: 0=Dashboard, 1=New Bill, 2=Purchase, 3=Payments
+  static const _bottomBarMapping = [0, 1, 2, 3];
 
   int get _bottomBarIndex {
     final idx = _bottomBarMapping.indexOf(_currentIndex);
@@ -182,9 +182,14 @@ class _MainShellState extends State<MainShell> {
           height: 70,
           destinations: const [
             NavigationDestination(
-              icon: Icon(Icons.point_of_sale_outlined),
-              selectedIcon: Icon(Icons.point_of_sale),
-              label: 'Sales',
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: 'Dashboard',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.add_circle_outline),
+              selectedIcon: Icon(Icons.add_circle),
+              label: 'New Bill',
             ),
             NavigationDestination(
               icon: Icon(Icons.shopping_bag_outlined),

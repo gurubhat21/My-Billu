@@ -1,11 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
-
-final _auth = LocalAuthentication();
 
 Future<bool> isBiometricAvailable() async {
   try {
-    final canCheck = await _auth.canCheckBiometrics;
-    final isSupported = await _auth.isDeviceSupported();
+    // Only works on Android/iOS, not Windows
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      return false;
+    }
+    final auth = LocalAuthentication();
+    final canCheck = await auth.canCheckBiometrics;
+    final isSupported = await auth.isDeviceSupported();
     return canCheck && isSupported;
   } catch (_) {
     return false;
@@ -14,7 +19,12 @@ Future<bool> isBiometricAvailable() async {
 
 Future<bool> authenticateWithBiometrics() async {
   try {
-    return await _auth.authenticate(
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      return false;
+    }
+    final auth = LocalAuthentication();
+    return await auth.authenticate(
       localizedReason: 'Scan your fingerprint to login to My Billu',
       options: const AuthenticationOptions(
         stickyAuth: true,

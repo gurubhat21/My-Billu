@@ -1,4 +1,4 @@
-/// Biometric auth stub for web - always returns false/unavailable
+/// Stub for web - biometrics not available
 Future<bool> isBiometricAvailable() async => false;
 
 Future<bool> authenticateWithBiometrics() async => false;

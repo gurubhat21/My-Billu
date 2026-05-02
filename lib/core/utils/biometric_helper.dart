@@ -1,4 +1,5 @@
 /// Platform-agnostic biometric helper
-/// Uses conditional import to load native or stub
+/// Web gets the stub (no biometric), native platforms get local_auth
 export 'biometric_stub.dart'
+    if (dart.library.html) 'biometric_stub.dart'
     if (dart.library.io) 'biometric_native.dart';
