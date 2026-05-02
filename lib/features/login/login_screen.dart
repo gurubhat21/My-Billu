@@ -40,7 +40,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   void _login() async {
     final appState = context.read<AppState>();
     final savedPassword = await appState.getSetting('loginPassword') ?? '12345';
-    if (_userCtrl.text.trim() == 'admin' && _passCtrl.text == savedPassword) {
+    final savedUsername = await appState.getSetting('loginUsername') ?? 'admin';
+    if (_userCtrl.text.trim() == savedUsername && _passCtrl.text == savedPassword) {
       widget.onLogin();
     } else {
       setState(() => _error = 'Invalid username or password');

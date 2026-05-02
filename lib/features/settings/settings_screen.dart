@@ -156,23 +156,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _aboutRow('Email', 'sumukhatech21@gmail.com'),
             ])),
           const SizedBox(height: 20),
-          // Change Password
+          // Account (Username & Password)
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Container(padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.lock_outline, size: 22, color: AppColors.error)),
+                  child: const Icon(Icons.admin_panel_settings, size: 22, color: AppColors.error)),
                 const SizedBox(width: 12),
-                Text('Change Password', style: Theme.of(context).textTheme.titleLarge),
+                Text('Account', style: Theme.of(context).textTheme.titleLarge),
               ]),
               const SizedBox(height: 16),
-              SizedBox(width: double.infinity,
-                child: OutlinedButton.icon(
+              // Current username display
+              FutureBuilder<String?>(
+                future: context.read<AppState>().getSetting('loginUsername'),
+                builder: (ctx, snap) {
+                  final username = snap.data ?? 'admin';
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08))),
+                    child: Row(children: [
+                      const Icon(Icons.person, size: 20, color: AppColors.primary),
+                      const SizedBox(width: 10),
+                      const Text('Username: ', style: TextStyle(fontSize: 13)),
+                      Text(username, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.primary)),
+                    ]));
+                }),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: OutlinedButton.icon(
+                  onPressed: () => _showChangeUsername(context),
+                  icon: const Icon(Icons.person_outline, size: 20),
+                  label: const Text('Change Username'),
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: OutlinedButton.icon(
                   onPressed: () => _showChangePassword(context),
                   icon: const Icon(Icons.key, size: 20),
-                  label: const Text('Change Login Password'),
+                  label: const Text('Change Password'),
                 )),
+              ]),
             ])),
           const SizedBox(height: 20),
           // Backup & Restore
@@ -224,6 +250,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _bizGstinCtrl.dispose();
     _bizLogoCtrl.dispose();
     super.dispose();
+  }
+  void _showChangeUsername(BuildContext context) {
+    final currentPassCtrl = TextEditingController();
+    final newUsernameCtrl = TextEditingController();
+
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.person, color: AppColors.primary), SizedBox(width: 10), Text('Change Username')]),
+      content: SizedBox(width: 350, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: currentPassCtrl, obscureText: true,
+          decoration: const InputDecoration(labelText: 'Current Password', prefixIcon: Icon(Icons.lock_outline))),
+        const SizedBox(height: 12),
+        TextField(controller: newUsernameCtrl,
+          decoration: const InputDecoration(labelText: 'New Username', prefixIcon: Icon(Icons.person_outline))),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ElevatedButton(onPressed: () async {
+          final appState = context.read<AppState>();
+          final savedPassword = await appState.getSetting('loginPassword') ?? '12345';
+
+          if (currentPassCtrl.text != savedPassword) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Password is incorrect'), backgroundColor: AppColors.error));
+            return;
+          }
+          if (newUsernameCtrl.text.trim().isEmpty || newUsernameCtrl.text.trim().length < 3) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Username must be at least 3 characters'), backgroundColor: AppColors.error));
+            return;
+          }
+
+          await appState.saveSetting('loginUsername', newUsernameCtrl.text.trim());
+          if (mounted) {
+            Navigator.pop(ctx);
+            setState(() {});
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Row(children: [
+                const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
+                Text('Username changed to "${newUsernameCtrl.text.trim()}"')]),
+              backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+          }
+        }, child: const Text('Change Username')),
+      ],
+    ));
   }
 
   void _showChangePassword(BuildContext context) {
