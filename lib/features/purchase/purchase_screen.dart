@@ -13,7 +13,49 @@ class PurchaseScreen extends StatefulWidget {
   State<PurchaseScreen> createState() => _PurchaseScreenState();
 }
 
-class _PurchaseScreenState extends State<PurchaseScreen> {
+class _PurchaseScreenState extends State<PurchaseScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      Container(
+        color: Theme.of(context).brightness == Brightness.dark ? AppColors.darkSurface : AppColors.lightSurface,
+        child: TabBar(controller: _tabCtrl, tabs: const [
+          Tab(icon: Icon(Icons.add_shopping_cart), text: 'New Purchase'),
+          Tab(icon: Icon(Icons.history), text: 'Purchase History'),
+        ], indicatorColor: AppColors.primary, labelColor: AppColors.primary),
+      ),
+      Expanded(child: TabBarView(controller: _tabCtrl, children: [
+        _NewPurchaseTab(onSaved: () => _tabCtrl.animateTo(1)),
+        const _PurchaseHistoryTab(),
+      ])),
+    ]);
+  }
+}
+
+// ========== NEW PURCHASE TAB ==========
+
+class _NewPurchaseTab extends StatefulWidget {
+  final VoidCallback onSaved;
+  const _NewPurchaseTab({required this.onSaved});
+  @override
+  State<_NewPurchaseTab> createState() => _NewPurchaseTabState();
+}
+
+class _NewPurchaseTabState extends State<_NewPurchaseTab> {
   final _supplierCtrl = TextEditingController();
   final _supplierPhoneCtrl = TextEditingController();
   final _invoiceCtrl = TextEditingController();
@@ -26,6 +68,16 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
   double get _subtotal => _cart.fold(0, (sum, e) => sum + e.subtotal);
   double get _totalTax => _cart.fold(0, (sum, e) => sum + e.taxAmount);
   double get _total => _subtotal + _totalTax;
+
+  /// Find last purchase cost for a given item from purchase history
+  double? _getLastPurchaseCost(AppState appState, String itemId) {
+    for (final purchase in appState.purchases) {
+      for (final pi in purchase.items) {
+        if (pi.itemId == itemId) return pi.unitCost;
+      }
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,10 +146,47 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                     label: const Text('Add'),
                   ),
                 ]),
+                // Show last purchase price when item is selected
+                if (_selectedItem != null) ...[
+                  const SizedBox(height: 10),
+                  Builder(builder: (_) {
+                    final lastCost = _getLastPurchaseCost(appState, _selectedItem!.id);
+                    if (lastCost == null) {
+                      return Text('ℹ️ First time purchasing this item',
+                        style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5)));
+                    }
+                    final currentCost = double.tryParse(_costCtrl.text) ?? _selectedItem!.price;
+                    final diff = currentCost - lastCost;
+                    final pct = lastCost > 0 ? (diff / lastCost * 100) : 0.0;
+                    final color = diff > 0 ? AppColors.error : diff < 0 ? AppColors.success : AppColors.accent;
+                    final icon = diff > 0 ? Icons.trending_up : diff < 0 ? Icons.trending_down : Icons.trending_flat;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: color.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(children: [
+                        Icon(icon, size: 18, color: color),
+                        const SizedBox(width: 8),
+                        Text('Last: ${AppFormatters.currency(lastCost)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                        const SizedBox(width: 8),
+                        Text('|', style: TextStyle(color: color.withValues(alpha: 0.4))),
+                        const SizedBox(width: 8),
+                        Text(
+                          diff == 0 ? 'No change'
+                            : '${diff > 0 ? '+' : ''}${AppFormatters.currency(diff)} (${pct.toStringAsFixed(1)}%)',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
+                        ),
+                      ]),
+                    );
+                  }),
+                ],
               ])),
             const SizedBox(height: 16),
 
-            // Cart
+            // Cart with price comparison
             if (_cart.isNotEmpty) ...[
               GlassCard(padding: const EdgeInsets.all(16), child: Column(children: [
                 Row(children: [
@@ -108,17 +197,49 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                 ..._cart.asMap().entries.map((entry) {
                   final i = entry.key;
                   final e = entry.value;
-                  return Padding(padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(children: [
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(e.item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        Text('${e.qty} × ${AppFormatters.currency(e.costPrice)} + ${e.item.taxRate}% GST',
-                          style: Theme.of(context).textTheme.bodySmall),
-                      ])),
-                      Text(AppFormatters.currency(e.total), style: const TextStyle(fontWeight: FontWeight.w700)),
-                      IconButton(icon: const Icon(Icons.close, size: 18, color: AppColors.error),
-                        onPressed: () => setState(() => _cart.removeAt(i))),
-                    ]));
+                  final lastCost = _getLastPurchaseCost(appState, e.item.id);
+                  final diff = lastCost != null ? e.costPrice - lastCost : null;
+
+                  return Padding(padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(e.item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            Text('${e.qty} × ${AppFormatters.currency(e.costPrice)} + ${e.item.taxRate}% GST',
+                              style: Theme.of(context).textTheme.bodySmall),
+                          ])),
+                          Text(AppFormatters.currency(e.total), style: const TextStyle(fontWeight: FontWeight.w700)),
+                          IconButton(icon: const Icon(Icons.close, size: 18, color: AppColors.error),
+                            onPressed: () => setState(() => _cart.removeAt(i))),
+                        ]),
+                        // Price difference badge
+                        if (diff != null && diff != 0)
+                          Padding(padding: const EdgeInsets.only(top: 6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: (diff > 0 ? AppColors.error : AppColors.success).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(diff > 0 ? Icons.arrow_upward : Icons.arrow_downward, size: 12,
+                                  color: diff > 0 ? AppColors.error : AppColors.success),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${diff > 0 ? '+' : ''}${AppFormatters.currency(diff)} from last (${AppFormatters.currency(lastCost!)})',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                                    color: diff > 0 ? AppColors.error : AppColors.success),
+                                ),
+                              ]),
+                            )),
+                      ]),
+                    ));
                 }),
                 const Divider(),
                 _totalRow('Subtotal', AppFormatters.currency(_subtotal)),
@@ -127,12 +248,10 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
               ])),
               const SizedBox(height: 16),
 
-              // Notes
               TextField(controller: _notesCtrl, maxLines: 2,
                 decoration: const InputDecoration(labelText: 'Notes (optional)', prefixIcon: Icon(Icons.notes))),
               const SizedBox(height: 20),
 
-              // Save Button
               SizedBox(width: double.infinity, height: 52,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
@@ -150,10 +269,8 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
   Widget _totalRow(String label, String value, {bool bold = false}) {
     return Padding(padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(label, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
-          fontSize: bold ? 18 : 14)),
-        Text(value, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-          fontSize: bold ? 18 : 14, color: bold ? AppColors.primary : null)),
+        Text(label, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w500, fontSize: bold ? 18 : 14)),
+        Text(value, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600, fontSize: bold ? 18 : 14, color: bold ? AppColors.primary : null)),
       ]));
   }
 
@@ -162,7 +279,6 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
     final qty = int.tryParse(_qtyCtrl.text) ?? 0;
     final cost = double.tryParse(_costCtrl.text) ?? 0;
     if (qty <= 0 || cost <= 0) return;
-
     setState(() {
       _cart.add(_CartEntry(item: _selectedItem!, qty: qty, costPrice: cost));
       _selectedItem = null;
@@ -173,12 +289,10 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
 
   Future<void> _savePurchase(BuildContext context, AppState appState) async {
     if (_supplierCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Supplier name is required')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Supplier name is required')));
       return;
     }
     if (_cart.isEmpty) return;
-
     try {
       final poNumber = await appState.getNextPurchaseNumber();
       final purchaseItems = _cart.map((e) => PurchaseItem(
@@ -186,48 +300,207 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
         unitCost: e.costPrice, quantity: e.qty,
         taxRate: e.item.taxRate, unit: e.item.unit,
       )).toList();
-
       final purchase = Purchase(
         purchaseNumber: poNumber,
         supplierName: _supplierCtrl.text.trim(),
         supplierPhone: _supplierPhoneCtrl.text.trim().isEmpty ? null : _supplierPhoneCtrl.text.trim(),
         invoiceNumber: _invoiceCtrl.text.trim().isEmpty ? null : _invoiceCtrl.text.trim(),
         items: purchaseItems,
-        subtotal: _subtotal,
-        totalTax: _totalTax,
-        totalAmount: _total,
-        paidAmount: _total,
-        status: PurchaseStatus.received,
+        subtotal: _subtotal, totalTax: _totalTax, totalAmount: _total,
+        paidAmount: _total, status: PurchaseStatus.received,
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       );
-
       await appState.createPurchase(purchase);
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Row(children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 10),
+            const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
             Text('Purchase $poNumber saved! Stock updated.'),
           ]),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
-        setState(() {
-          _cart.clear();
-          _supplierCtrl.clear();
-          _supplierPhoneCtrl.clear();
-          _invoiceCtrl.clear();
-          _notesCtrl.clear();
-        });
+        setState(() { _cart.clear(); _supplierCtrl.clear(); _supplierPhoneCtrl.clear(); _invoiceCtrl.clear(); _notesCtrl.clear(); });
+        widget.onSaved();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
       }
     }
+  }
+}
+
+// ========== PURCHASE HISTORY TAB ==========
+
+class _PurchaseHistoryTab extends StatelessWidget {
+  const _PurchaseHistoryTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppState>(builder: (context, appState, _) {
+      final purchases = appState.purchases;
+      if (purchases.isEmpty) {
+        return const EmptyState(icon: Icons.shopping_bag_outlined, title: 'No purchases yet', subtitle: 'Your purchase history will appear here');
+      }
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: purchases.length,
+        itemBuilder: (ctx, i) => _purchaseTile(context, purchases[i], appState),
+      );
+    });
+  }
+
+  Widget _purchaseTile(BuildContext context, Purchase purchase, AppState appState) {
+    final statusColor = purchase.status == PurchaseStatus.received ? AppColors.success
+        : purchase.status == PurchaseStatus.pending ? AppColors.warning : AppColors.error;
+
+    return Padding(padding: const EdgeInsets.only(bottom: 10),
+      child: GlassCard(
+        onTap: () => _showPurchaseDetail(context, purchase, appState),
+        padding: const EdgeInsets.all(16),
+        child: Row(children: [
+          // PO icon
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(child: Icon(Icons.shopping_bag, color: AppColors.accent, size: 22)),
+          ),
+          const SizedBox(width: 14),
+          // Info
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text(purchase.purchaseNumber, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                child: Text(purchase.status.name.toUpperCase(),
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: statusColor)),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Text(purchase.supplierName, style: Theme.of(context).textTheme.bodySmall),
+            Text('${purchase.items.length} items · ${AppFormatters.date(purchase.createdAt)}',
+              style: Theme.of(context).textTheme.bodySmall),
+          ])),
+          // Total
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(AppFormatters.currency(purchase.totalAmount),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
+            if (purchase.invoiceNumber != null && purchase.invoiceNumber!.isNotEmpty)
+              Text('Inv: ${purchase.invoiceNumber}', style: Theme.of(context).textTheme.bodySmall),
+          ]),
+        ]),
+      ));
+  }
+
+  void _showPurchaseDetail(BuildContext context, Purchase purchase, AppState appState) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        const Icon(Icons.shopping_bag, color: AppColors.accent),
+        const SizedBox(width: 10),
+        Expanded(child: Text(purchase.purchaseNumber)),
+      ]),
+      content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          _detailRow('Supplier', purchase.supplierName),
+          if (purchase.supplierPhone != null) _detailRow('Phone', purchase.supplierPhone!),
+          if (purchase.invoiceNumber != null) _detailRow('Invoice #', purchase.invoiceNumber!),
+          _detailRow('Date', AppFormatters.dateTime(purchase.createdAt)),
+          _detailRow('Status', purchase.status.name.toUpperCase()),
+          if (purchase.notes != null && purchase.notes!.isNotEmpty) _detailRow('Notes', purchase.notes!),
+          const Divider(height: 20),
+          const Text('Items', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 8),
+          ...purchase.items.map((item) {
+            // Find current item price for comparison
+            final currentItem = appState.items.where((i) => i.id == item.itemId);
+            final currentPrice = currentItem.isNotEmpty ? currentItem.first.price : null;
+
+            return Padding(padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(child: Text(item.itemName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                    Text(AppFormatters.currency(item.total), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text('${item.quantity} ${item.unit} × ${AppFormatters.currency(item.unitCost)} + ${item.taxRate}% GST',
+                    style: Theme.of(context).textTheme.bodySmall),
+                  // Show price comparison with current selling price
+                  if (currentPrice != null) ...[
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      Text('Purchase: ${AppFormatters.currency(item.unitCost)}',
+                        style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                      const SizedBox(width: 8),
+                      Text('→', style: TextStyle(color: Colors.white.withValues(alpha: 0.3))),
+                      const SizedBox(width: 8),
+                      Text('Selling: ${AppFormatters.currency(currentPrice)}',
+                        style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: (currentPrice > item.unitCost ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Margin: ${((currentPrice - item.unitCost) / item.unitCost * 100).toStringAsFixed(1)}%',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                            color: currentPrice > item.unitCost ? AppColors.success : AppColors.error),
+                        ),
+                      ),
+                    ]),
+                  ],
+                ]),
+              ));
+          }),
+          const Divider(height: 20),
+          _detailRow('Subtotal', AppFormatters.currency(purchase.subtotal)),
+          _detailRow('GST', AppFormatters.currency(purchase.totalTax)),
+          const SizedBox(height: 4),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            Text(AppFormatters.currency(purchase.totalAmount),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.primary)),
+          ]),
+        ]))),
+      actions: [
+        TextButton(onPressed: () async {
+          Navigator.pop(ctx);
+          final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
+            title: const Text('Delete Purchase?'),
+            content: const Text('This will not reverse stock changes.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+              ElevatedButton(onPressed: () => Navigator.pop(c, true),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+                child: const Text('Delete')),
+            ],
+          ));
+          if (confirm == true) await appState.deletePurchase(purchase.id);
+        }, child: const Text('Delete', style: TextStyle(color: AppColors.error))),
+        ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+      ],
+    ));
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(padding: const EdgeInsets.only(bottom: 6),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(width: 100, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
+        Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+      ]));
   }
 }
 
@@ -235,9 +508,7 @@ class _CartEntry {
   final Item item;
   final int qty;
   final double costPrice;
-
   _CartEntry({required this.item, required this.qty, required this.costPrice});
-
   double get subtotal => costPrice * qty;
   double get taxAmount => subtotal * item.taxRate / 100;
   double get total => subtotal + taxAmount;
