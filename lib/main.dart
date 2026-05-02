@@ -13,6 +13,7 @@ import 'features/purchase/purchase_screen.dart';
 import 'features/stock/stock_screen.dart';
 import 'features/history/history_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/reports/reports_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -85,7 +86,8 @@ class _MainShellState extends State<MainShell> {
     ItemsScreen(),        // 4
     StockScreen(),        // 5
     CustomersScreen(),    // 6
-    SettingsScreen(),     // 7
+    ReportsScreen(),      // 7
+    SettingsScreen(),     // 8
   ];
 
   // Bottom bar maps to indices: 1=Sales, 2=Purchase, 3=Payments
@@ -105,7 +107,8 @@ class _MainShellState extends State<MainShell> {
     _DrawerItem(icon: Icons.inventory_2, label: 'Items', index: 4),
     _DrawerItem(icon: Icons.warehouse, label: 'Stock', index: 5),
     _DrawerItem(icon: Icons.people, label: 'Customers', index: 6),
-    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 7),
+    _DrawerItem(icon: Icons.bar_chart, label: 'Reports', index: 7),
+    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 8),
   ];
 
   void _goTo(int index) {
