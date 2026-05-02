@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/utils/biometric_helper.dart' as bio;
+
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
@@ -16,8 +16,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final _passCtrl = TextEditingController();
   bool _showPassword = false;
   String? _error;
-  bool _biometricAvailable = false;
-  bool _biometricEnabled = false;
+
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
@@ -30,34 +29,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
         .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
     _animCtrl.forward();
-    _checkBiometric();
   }
-
-  Future<void> _checkBiometric() async {
-    final available = await bio.isBiometricAvailable();
-    final appState = context.read<AppState>();
-    final enabled = await appState.getSetting('biometricEnabled');
-    if (mounted) {
-      setState(() {
-        _biometricAvailable = available;
-        _biometricEnabled = enabled == 'true';
-      });
-      // Auto-trigger if enabled
-      if (available && _biometricEnabled) {
-        _loginWithBiometric();
-      }
-    }
-  }
-
-  Future<void> _loginWithBiometric() async {
-    final success = await bio.authenticateWithBiometrics();
-    if (success && mounted) {
-      widget.onLogin();
-    } else if (mounted) {
-      setState(() => _error = 'Biometric authentication failed');
-    }
-  }
-
   @override
   void dispose() {
     _animCtrl.dispose();
@@ -219,44 +191,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             ),
                           )),
 
-                        // Biometric button
-                        if (_biometricAvailable && _biometricEnabled) ...[
-                          const SizedBox(height: 16),
-                          Row(children: [
-                            Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
-                            Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text('or', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12))),
-                            Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
-                          ]),
-                          const SizedBox(height: 16),
-                          SizedBox(width: double.infinity, height: 50,
-                            child: OutlinedButton.icon(
-                              onPressed: _loginWithBiometric,
-                              icon: const Icon(Icons.fingerprint, size: 24),
-                              label: const Text('Login with Biometrics', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF00F5A0),
-                                side: BorderSide(color: const Color(0xFF00F5A0).withValues(alpha: 0.3)),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                            )),
-                        ],
 
-                        // Enable biometric toggle (show if available but not enabled)
-                        if (_biometricAvailable && !_biometricEnabled) ...[
-                          const SizedBox(height: 16),
-                          Center(child: TextButton.icon(
-                            onPressed: () async {
-                              final appState = context.read<AppState>();
-                              await appState.saveSetting('biometricEnabled', 'true');
-                              setState(() => _biometricEnabled = true);
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                                content: Text('Biometric login enabled!'),
-                                backgroundColor: AppColors.success));
-                            },
-                            icon: Icon(Icons.fingerprint, size: 18, color: Colors.white.withValues(alpha: 0.5)),
-                            label: Text('Enable Fingerprint Login', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
-                          )),
-                        ],
                       ]),
                     ),
                   ],
