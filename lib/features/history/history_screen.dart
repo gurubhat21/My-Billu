@@ -4,6 +4,7 @@ import '../../core/models/bill.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/database/excel_exporter.dart';
 import '../../widgets/common_widgets.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -28,7 +29,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return Column(children: [
           Padding(padding: EdgeInsets.all(isWide ? 24 : 16), child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Bill History', style: Theme.of(context).textTheme.headlineLarge),
+              Row(children: [
+                Expanded(child: Text('Bill History', style: Theme.of(context).textTheme.headlineLarge)),
+                OutlinedButton.icon(
+                  onPressed: () => _exportBills(context, appState.bills),
+                  icon: const Icon(Icons.download, size: 20),
+                  label: Text(isWide ? 'Export Excel' : 'Export'),
+                ),
+              ]),
               const SizedBox(height: 16),
               TextField(onChanged: (v) => setState(() => _search = v),
                 decoration: const InputDecoration(hintText: 'Search bills...', prefixIcon: Icon(Icons.search, color: AppColors.primary))),
@@ -130,5 +138,37 @@ class _HistoryScreenState extends State<HistoryScreen> {
           child: const Text('Delete')),
       ],
     ));
+  }
+
+  Future<void> _exportBills(BuildContext context, List<Bill> bills) async {
+    if (bills.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No bills to export')),
+      );
+      return;
+    }
+    try {
+      await ExcelExporter.exportBills(bills);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 10),
+              Text('Bills exported successfully!'),
+            ]),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export error: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
   }
 }

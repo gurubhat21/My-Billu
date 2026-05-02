@@ -5,6 +5,7 @@ import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/excel_importer.dart';
+import '../../core/database/excel_exporter.dart';
 import '../../widgets/common_widgets.dart';
 
 class ItemsScreen extends StatefulWidget {
@@ -55,6 +56,12 @@ class _ItemsScreenState extends State<ItemsScreen> {
                             onPressed: () => _importFromExcel(context),
                             icon: const Icon(Icons.upload_file, size: 20),
                             label: Text(isWide ? 'Import Excel' : 'Import'),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => _exportToExcel(context, appState.items),
+                            icon: const Icon(Icons.download, size: 20),
+                            label: Text(isWide ? 'Export Excel' : 'Export'),
                           ),
                           const SizedBox(width: 8),
                           ElevatedButton.icon(
@@ -493,6 +500,38 @@ class _ItemsScreenState extends State<ItemsScreen> {
             content: Text('Error importing: $e'),
             backgroundColor: AppColors.error,
           ),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportToExcel(BuildContext context, List<Item> items) async {
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No items to export')),
+      );
+      return;
+    }
+    try {
+      await ExcelExporter.exportItems(items);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 10),
+              Text('Items exported successfully!'),
+            ]),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export error: $e'), backgroundColor: AppColors.error),
         );
       }
     }

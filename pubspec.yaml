@@ -15,8 +15,8 @@ dependencies:
   # Database
   sqflite: ^2.4.2
   sqflite_common_ffi: ^2.3.4+4
-  sqflite_common_ffi_web: ^0.4.5+3
   path: ^1.9.1
+  path_provider: ^2.1.5
   # PDF
   pdf: ^3.11.2
   printing: ^5.14.2
@@ -26,7 +26,7 @@ dependencies:
   google_fonts: ^6.2.1
   fl_chart: ^1.0.0
   share_plus: ^10.1.4
-  # Excel Import
+  # Excel Import/Export
   excel: ^4.0.6
   file_picker: ^8.3.7
 
