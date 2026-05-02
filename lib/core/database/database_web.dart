@@ -4,6 +4,7 @@ import 'dart:html' as html;
 import '../models/item.dart';
 import '../models/customer.dart';
 import '../models/bill.dart';
+import '../models/purchase.dart';
 
 /// Web storage wrapper using localStorage
 class WebDB {
@@ -14,7 +15,7 @@ class WebDB {
   }
 
   void _loadFromStorage() {
-    for (final table in ['items', 'customers', 'bills', 'settings']) {
+    for (final table in ['items', 'customers', 'bills', 'purchases', 'settings']) {
       final data = html.window.localStorage['mybillu_$table'];
       if (data != null) {
         _tables[table] = List<Map<String, dynamic>>.from(
@@ -207,6 +208,30 @@ Future<Map<String, dynamic>> getDashboardStats(WebDB db) async {
     'itemCount': db.getAll('items').length,
     'dailySales': <Map<String, dynamic>>[],
   };
+}
+
+// ===== PURCHASES =====
+Future<int> insertPurchase(WebDB db, Purchase purchase) async {
+  db.insert('purchases', purchase.toMap());
+  return 1;
+}
+
+Future<List<Purchase>> getAllPurchases(WebDB db) async {
+  final purchases = db.getAll('purchases').map((m) => Purchase.fromMap(m)).toList();
+  purchases.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  return purchases;
+}
+
+Future<int> deletePurchase(WebDB db, String id) async {
+  db.delete('purchases', id);
+  return 1;
+}
+
+Future<String> getNextPurchaseNumber(WebDB db) async {
+  final count = db.getAll('purchases').length;
+  final now = DateTime.now();
+  final prefix = 'PO${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}';
+  return '$prefix-${(count + 1).toString().padLeft(4, '0')}';
 }
 
 // ===== SETTINGS =====

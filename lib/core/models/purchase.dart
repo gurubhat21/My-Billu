@@ -1,0 +1,119 @@
+import 'package:uuid/uuid.dart';
+
+class PurchaseItem {
+  final String itemId;
+  final String itemName;
+  final double unitCost;
+  final int quantity;
+  final double taxRate;
+  final String unit;
+
+  PurchaseItem({
+    required this.itemId,
+    required this.itemName,
+    required this.unitCost,
+    required this.quantity,
+    required this.taxRate,
+    this.unit = 'pcs',
+  });
+
+  double get subtotal => unitCost * quantity;
+  double get taxAmount => subtotal * taxRate / 100;
+  double get total => subtotal + taxAmount;
+
+  Map<String, dynamic> toMap() => {
+    'itemId': itemId,
+    'itemName': itemName,
+    'unitCost': unitCost,
+    'quantity': quantity,
+    'taxRate': taxRate,
+    'unit': unit,
+  };
+
+  factory PurchaseItem.fromMap(Map<String, dynamic> map) => PurchaseItem(
+    itemId: map['itemId'] as String,
+    itemName: map['itemName'] as String,
+    unitCost: (map['unitCost'] as num).toDouble(),
+    quantity: (map['quantity'] as num).toInt(),
+    taxRate: (map['taxRate'] as num).toDouble(),
+    unit: map['unit'] as String? ?? 'pcs',
+  );
+}
+
+enum PurchaseStatus { received, pending, cancelled }
+
+class Purchase {
+  final String id;
+  final String purchaseNumber;
+  final String supplierName;
+  final String? supplierPhone;
+  final String? supplierGstin;
+  final String? invoiceNumber;
+  final List<PurchaseItem> items;
+  final double subtotal;
+  final double totalTax;
+  final double totalAmount;
+  double paidAmount;
+  PurchaseStatus status;
+  String? notes;
+  final DateTime createdAt;
+
+  Purchase({
+    String? id,
+    required this.purchaseNumber,
+    required this.supplierName,
+    this.supplierPhone,
+    this.supplierGstin,
+    this.invoiceNumber,
+    required this.items,
+    required this.subtotal,
+    required this.totalTax,
+    required this.totalAmount,
+    this.paidAmount = 0.0,
+    this.status = PurchaseStatus.received,
+    this.notes,
+    DateTime? createdAt,
+  })  : id = id ?? const Uuid().v4(),
+        createdAt = createdAt ?? DateTime.now();
+
+  double get balanceDue => totalAmount - paidAmount;
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'purchaseNumber': purchaseNumber,
+    'supplierName': supplierName,
+    'supplierPhone': supplierPhone,
+    'supplierGstin': supplierGstin,
+    'invoiceNumber': invoiceNumber,
+    'items': items.map((e) => e.toMap()).toList(),
+    'subtotal': subtotal,
+    'totalTax': totalTax,
+    'totalAmount': totalAmount,
+    'paidAmount': paidAmount,
+    'status': status.name,
+    'notes': notes,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  factory Purchase.fromMap(Map<String, dynamic> map) => Purchase(
+    id: map['id'] as String,
+    purchaseNumber: map['purchaseNumber'] as String,
+    supplierName: map['supplierName'] as String,
+    supplierPhone: map['supplierPhone'] as String?,
+    supplierGstin: map['supplierGstin'] as String?,
+    invoiceNumber: map['invoiceNumber'] as String?,
+    items: (map['items'] as List)
+        .map((e) => PurchaseItem.fromMap(e as Map<String, dynamic>))
+        .toList(),
+    subtotal: (map['subtotal'] as num).toDouble(),
+    totalTax: (map['totalTax'] as num).toDouble(),
+    totalAmount: (map['totalAmount'] as num).toDouble(),
+    paidAmount: (map['paidAmount'] as num?)?.toDouble() ?? 0.0,
+    status: PurchaseStatus.values.firstWhere(
+      (e) => e.name == map['status'],
+      orElse: () => PurchaseStatus.received,
+    ),
+    notes: map['notes'] as String?,
+    createdAt: DateTime.parse(map['createdAt'] as String),
+  );
+}

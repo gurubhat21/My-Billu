@@ -3,6 +3,7 @@ import '../database/database_helper.dart';
 import '../models/item.dart';
 import '../models/customer.dart';
 import '../models/bill.dart';
+import '../models/purchase.dart';
 
 class AppState extends ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
@@ -10,6 +11,7 @@ class AppState extends ChangeNotifier {
   List<Item> _items = [];
   List<Customer> _customers = [];
   List<Bill> _bills = [];
+  List<Purchase> _purchases = [];
   Map<String, dynamic> _dashboardStats = {};
   bool _isLoading = false;
   String? _error;
@@ -18,6 +20,7 @@ class AppState extends ChangeNotifier {
   List<Item> get items => _items;
   List<Customer> get customers => _customers;
   List<Bill> get bills => _bills;
+  List<Purchase> get purchases => _purchases;
   Map<String, dynamic> get dashboardStats => _dashboardStats;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -32,6 +35,7 @@ class AppState extends ChangeNotifier {
         loadItems(),
         loadCustomers(),
         loadBills(),
+        loadPurchases(),
         loadDashboardStats(),
       ]);
       _error = null;
@@ -98,6 +102,47 @@ class AppState extends ChangeNotifier {
   Future<List<Customer>> searchCustomers(String query) async {
     if (query.isEmpty) return _customers;
     return await _db.searchCustomers(query);
+  }
+
+  // ===== PURCHASES =====
+
+  Future<void> loadPurchases() async {
+    _purchases = await _db.getAllPurchases();
+    notifyListeners();
+  }
+
+  Future<String> getNextPurchaseNumber() async {
+    return await _db.getNextPurchaseNumber();
+  }
+
+  Future<void> createPurchase(Purchase purchase) async {
+    await _db.insertPurchase(purchase);
+
+    // Update stock quantities for received purchases
+    if (purchase.status == PurchaseStatus.received) {
+      for (final purchaseItem in purchase.items) {
+        final item = _items.firstWhere(
+          (i) => i.id == purchaseItem.itemId,
+          orElse: () => Item(name: '', price: 0),
+        );
+        if (item.name.isNotEmpty) {
+          item.stockQuantity += purchaseItem.quantity;
+          await _db.updateItem(item);
+        }
+      }
+    }
+
+    await Future.wait([
+      loadPurchases(),
+      loadItems(),
+      loadDashboardStats(),
+    ]);
+  }
+
+  Future<void> deletePurchase(String id) async {
+    await _db.deletePurchase(id);
+    await loadPurchases();
+    await loadDashboardStats();
   }
 
   // ===== BILLS =====

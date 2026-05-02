@@ -8,6 +8,8 @@ import 'features/dashboard/dashboard_screen.dart';
 import 'features/billing/billing_screen.dart';
 import 'features/items/items_screen.dart';
 import 'features/customers/customers_screen.dart';
+import 'features/purchase/purchase_screen.dart';
+import 'features/stock/stock_screen.dart';
 import 'features/history/history_screen.dart';
 import 'features/settings/settings_screen.dart';
 
@@ -56,7 +58,9 @@ class _MainShellState extends State<MainShell> {
   final _screens = const [
     DashboardScreen(),
     BillingScreen(),
+    PurchaseScreen(),
     ItemsScreen(),
+    StockScreen(),
     CustomersScreen(),
     HistoryScreen(),
     SettingsScreen(),
@@ -65,7 +69,9 @@ class _MainShellState extends State<MainShell> {
   final _navItems = const [
     NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Dashboard'),
     NavigationDestination(icon: Icon(Icons.add_circle_outline), selectedIcon: Icon(Icons.add_circle), label: 'New Bill'),
+    NavigationDestination(icon: Icon(Icons.shopping_bag_outlined), selectedIcon: Icon(Icons.shopping_bag), label: 'Purchase'),
     NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'Items'),
+    NavigationDestination(icon: Icon(Icons.warehouse_outlined), selectedIcon: Icon(Icons.warehouse), label: 'Stock'),
     NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: 'Customers'),
     NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'History'),
     NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),

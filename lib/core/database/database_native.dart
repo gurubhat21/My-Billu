@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import '../models/item.dart';
 import '../models/customer.dart';
 import '../models/bill.dart';
+import '../models/purchase.dart';
 
 Future<Database> initDatabase(String fileName) async {
   final dbPath = await getDatabasesPath();
@@ -38,6 +39,15 @@ Future<void> _createDB(Database db, int version) async {
   ''');
   await db.execute('''
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)
+  ''');
+  await db.execute('''
+    CREATE TABLE purchases (
+      id TEXT PRIMARY KEY, purchaseNumber TEXT NOT NULL UNIQUE, supplierName TEXT NOT NULL,
+      supplierPhone TEXT, supplierGstin TEXT, invoiceNumber TEXT,
+      items TEXT NOT NULL, subtotal REAL NOT NULL, totalTax REAL NOT NULL,
+      totalAmount REAL NOT NULL, paidAmount REAL DEFAULT 0.0,
+      status TEXT DEFAULT 'received', notes TEXT, createdAt TEXT NOT NULL
+    )
   ''');
 }
 
@@ -178,6 +188,33 @@ Future<Map<String, dynamic>> getDashboardStats(Database db) async {
     'itemCount': itemCount,
     'dailySales': <Map<String, dynamic>>[],
   };
+}
+
+// ===== PURCHASES =====
+Future<int> insertPurchase(Database db, Purchase purchase) async {
+  final map = purchase.toMap();
+  map['items'] = jsonEncode(map['items']);
+  return db.insert('purchases', map, conflictAlgorithm: ConflictAlgorithm.replace);
+}
+
+Future<List<Purchase>> getAllPurchases(Database db) async {
+  final maps = await db.query('purchases', orderBy: 'createdAt DESC');
+  return maps.map((map) {
+    final m = Map<String, dynamic>.from(map);
+    m['items'] = jsonDecode(m['items'] as String);
+    return Purchase.fromMap(m);
+  }).toList();
+}
+
+Future<int> deletePurchase(Database db, String id) async =>
+    db.delete('purchases', where: 'id = ?', whereArgs: [id]);
+
+Future<String> getNextPurchaseNumber(Database db) async {
+  final result = await db.rawQuery('SELECT COUNT(*) as count FROM purchases');
+  final count = Sqflite.firstIntValue(result) ?? 0;
+  final now = DateTime.now();
+  final prefix = 'PO${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}';
+  return '$prefix-${(count + 1).toString().padLeft(4, '0')}';
 }
 
 // ===== SETTINGS =====
