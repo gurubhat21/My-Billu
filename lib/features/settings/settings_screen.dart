@@ -101,19 +101,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text('Business Logo', style: Theme.of(context).textTheme.titleMedium),
                 ]),
                 const SizedBox(height: 12),
-                if (_bizLogoCtrl.text.isNotEmpty)
-                  Center(child: Container(
-                    width: 80, height: 80, margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2),
-                      image: DecorationImage(image: NetworkImage(_bizLogoCtrl.text), fit: BoxFit.cover),
-                    ),
-                  )),
+                // Show current logo
+                FutureBuilder<String?>(
+                  future: context.read<AppState>().getSetting('businessLogoData'),
+                  builder: (ctx, snap) {
+                    final logoData = snap.data;
+                    final logoUrl = _bizLogoCtrl.text;
+                    return Column(children: [
+                      if (logoData != null && logoData.isNotEmpty)
+                        Center(child: Container(
+                          width: 80, height: 80, margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2)),
+                          child: ClipRRect(borderRadius: BorderRadius.circular(12),
+                            child: Image.memory(
+                              Uri.parse(logoData).data!.contentAsBytes(),
+                              fit: BoxFit.cover)),
+                        ))
+                      else if (logoUrl.isNotEmpty)
+                        Center(child: Container(
+                          width: 80, height: 80, margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2),
+                            image: DecorationImage(image: NetworkImage(logoUrl), fit: BoxFit.cover)),
+                        )),
+                      Row(children: [
+                        Expanded(child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final dataUrl = await web_helper.triggerImageUpload();
+                            if (dataUrl != null) {
+                              final appState = context.read<AppState>();
+                              await appState.saveSetting('businessLogoData', dataUrl);
+                              setState(() {});
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: const Row(children: [
+                                  Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+                                  Text('Logo uploaded successfully!')]),
+                                backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+                            }
+                          },
+                          icon: const Icon(Icons.upload_file, size: 20),
+                          label: const Text('Upload Logo (PNG/JPEG)'),
+                        )),
+                        if (logoData != null && logoData.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: 'Remove Logo',
+                            icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                            onPressed: () async {
+                              await context.read<AppState>().saveSetting('businessLogoData', '');
+                              setState(() {});
+                            }),
+                        ],
+                      ]),
+                    ]);
+                  }),
+                const SizedBox(height: 8),
                 TextField(controller: _bizLogoCtrl,
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
-                    labelText: 'Logo URL (paste image link)',
+                    labelText: 'Or paste Logo URL',
                     prefixIcon: Icon(Icons.link),
                     hintText: 'https://example.com/logo.png',
                   )),
@@ -140,17 +190,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _aboutRow('Tax System', 'GST (India)'),
               _aboutRow('Currency', '₹ INR'),
               const Divider(height: 24),
-              Center(child: Container(
-                width: 100, height: 100,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.asset('assets/sumukha_logo.png', fit: BoxFit.contain),
-                ),
-              )),
+              Center(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Container(
+                  width: 80, height: 80,
+                  margin: const EdgeInsets.only(bottom: 12, right: 12),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+                  child: ClipRRect(borderRadius: BorderRadius.circular(16),
+                    child: Image.asset('assets/ganesh_logo.png', fit: BoxFit.contain))),
+                Container(
+                  width: 80, height: 80,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+                  child: ClipRRect(borderRadius: BorderRadius.circular(16),
+                    child: Image.asset('assets/sumukha_logo.png', fit: BoxFit.contain))),
+              ])),
               _aboutRow('Created By', 'Sumukha Tech Solutions'),
               _aboutRow('Mobile', '9449831316'),
               _aboutRow('Email', 'sumukhatech21@gmail.com'),

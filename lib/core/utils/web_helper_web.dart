@@ -22,3 +22,15 @@ Future<String?> triggerFileUpload() async {
   await reader.onLoadEnd.first;
   return reader.result as String?;
 }
+
+/// Upload image (png/jpeg) and return as base64 data URL
+Future<String?> triggerImageUpload() async {
+  final input = html.FileUploadInputElement()..accept = 'image/png,image/jpeg';
+  input.click();
+  await input.onChange.first;
+  if (input.files == null || input.files!.isEmpty) return null;
+  final reader = html.FileReader();
+  reader.readAsDataUrl(input.files!.first);
+  await reader.onLoadEnd.first;
+  return reader.result as String?;
+}

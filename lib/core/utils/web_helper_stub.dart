@@ -2,3 +2,5 @@
 void downloadJson(String jsonString, String filename) {}
 
 Future<String?> triggerFileUpload() async => null;
+
+Future<String?> triggerImageUpload() async => null;
