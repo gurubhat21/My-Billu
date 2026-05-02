@@ -4,6 +4,8 @@ import '../models/item.dart';
 import '../models/customer.dart';
 import '../models/bill.dart';
 import '../models/purchase.dart';
+import '../models/quotation.dart';
+import 'dart:convert';
 
 class AppState extends ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
@@ -13,6 +15,7 @@ class AppState extends ChangeNotifier {
   List<Bill> _bills = [];
   List<Purchase> _purchases = [];
   Map<String, dynamic> _dashboardStats = {};
+  List<Quotation> _quotations = [];
   bool _isLoading = false;
   String? _error;
 
@@ -22,6 +25,7 @@ class AppState extends ChangeNotifier {
   List<Bill> get bills => _bills;
   List<Purchase> get purchases => _purchases;
   Map<String, dynamic> get dashboardStats => _dashboardStats;
+  List<Quotation> get quotations => _quotations;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -37,6 +41,7 @@ class AppState extends ChangeNotifier {
         loadBills(),
         loadPurchases(),
         loadDashboardStats(),
+        loadQuotations(),
       ]);
       _error = null;
     } catch (e) {
@@ -251,5 +256,46 @@ class AppState extends ChangeNotifier {
 
   Future<Map<String, String>> getAllSettings() async {
     return await _db.getAllSettings();
+  }
+
+  // ===== QUOTATIONS =====
+
+  Future<void> loadQuotations() async {
+    final json = await _db.getSetting('quotations_data');
+    if (json != null && json.isNotEmpty) {
+      final list = jsonDecode(json) as List;
+      _quotations = list.map((e) => Quotation.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    _quotations.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    notifyListeners();
+  }
+
+  Future<void> _saveQuotations() async {
+    final json = jsonEncode(_quotations.map((q) => q.toMap()).toList());
+    await _db.setSetting('quotations_data', json);
+  }
+
+  Future<void> addQuotation(Quotation q) async {
+    _quotations.insert(0, q);
+    await _saveQuotations();
+    notifyListeners();
+  }
+
+  Future<void> updateQuotation(Quotation q) async {
+    final idx = _quotations.indexWhere((e) => e.id == q.id);
+    if (idx >= 0) _quotations[idx] = q;
+    await _saveQuotations();
+    notifyListeners();
+  }
+
+  Future<void> deleteQuotation(String id) async {
+    _quotations.removeWhere((e) => e.id == id);
+    await _saveQuotations();
+    notifyListeners();
+  }
+
+  String getNextQuotationNumber() {
+    final count = _quotations.length + 1;
+    return 'QT-${count.toString().padLeft(4, '0')}';
   }
 }

@@ -14,6 +14,7 @@ import 'features/stock/stock_screen.dart';
 import 'features/history/history_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/reports/reports_screen.dart';
+import 'features/quotation/quotation_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,17 +33,24 @@ void main() {
 class MyBilluApp extends StatelessWidget {
   const MyBilluApp({super.key});
 
+  static final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppState()..loadAll(),
-      child: MaterialApp(
-        title: 'My Billu',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.dark,
-        home: const AuthGate(),
+      child: ValueListenableBuilder<ThemeMode>(
+        valueListenable: themeNotifier,
+        builder: (_, mode, __) {
+          return MaterialApp(
+            title: 'My Billu',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: mode,
+            home: const AuthGate(),
+          );
+        },
       ),
     );
   }
@@ -86,8 +94,9 @@ class _MainShellState extends State<MainShell> {
     ItemsScreen(),        // 4
     StockScreen(),        // 5
     CustomersScreen(),    // 6
-    ReportsScreen(),      // 7
-    SettingsScreen(),     // 8
+    QuotationScreen(),    // 7
+    ReportsScreen(),      // 8
+    SettingsScreen(),     // 9
   ];
 
   // Bottom bar maps to indices: 0=Dashboard, 1=New Bill, 2=Purchase, 3=Payments
@@ -107,8 +116,9 @@ class _MainShellState extends State<MainShell> {
     _DrawerItem(icon: Icons.inventory_2, label: 'Items', index: 4),
     _DrawerItem(icon: Icons.warehouse, label: 'Stock', index: 5),
     _DrawerItem(icon: Icons.people, label: 'Customers', index: 6),
-    _DrawerItem(icon: Icons.bar_chart, label: 'Reports', index: 7),
-    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 8),
+    _DrawerItem(icon: Icons.description, label: 'Quotations', index: 7),
+    _DrawerItem(icon: Icons.bar_chart, label: 'Reports', index: 8),
+    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 9),
   ];
 
   void _goTo(int index) {
@@ -173,6 +183,20 @@ class _MainShellState extends State<MainShell> {
           ),
           backgroundColor: Colors.transparent,
           elevation: 0,
+          actions: [
+            IconButton(
+              icon: Icon(
+                MyBilluApp.themeNotifier.value == ThemeMode.dark
+                    ? Icons.light_mode
+                    : Icons.dark_mode,
+                size: 22),
+              tooltip: 'Toggle Theme',
+              onPressed: () {
+                final isDark = MyBilluApp.themeNotifier.value == ThemeMode.dark;
+                MyBilluApp.themeNotifier.value = isDark ? ThemeMode.light : ThemeMode.dark;
+                setState(() {});
+              }),
+          ],
         ),
         drawer: _buildDrawer(context),
         body: _allScreens[_currentIndex],
