@@ -6,6 +6,8 @@ import '../models/bill.dart';
 import '../models/purchase.dart';
 import '../models/quotation.dart';
 import '../models/expense.dart';
+import '../models/credit_note.dart';
+import '../models/purchase_return.dart';
 import 'dart:convert';
 
 class AppState extends ChangeNotifier {
@@ -18,6 +20,8 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic> _dashboardStats = {};
   List<Quotation> _quotations = [];
   List<Expense> _expenses = [];
+  List<CreditNote> _creditNotes = [];
+  List<PurchaseReturn> _purchaseReturns = [];
   bool _isLoading = false;
   String? _error;
 
@@ -29,6 +33,8 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic> get dashboardStats => _dashboardStats;
   List<Quotation> get quotations => _quotations;
   List<Expense> get expenses => _expenses;
+  List<CreditNote> get creditNotes => _creditNotes;
+  List<PurchaseReturn> get purchaseReturns => _purchaseReturns;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -46,6 +52,8 @@ class AppState extends ChangeNotifier {
         loadDashboardStats(),
         loadQuotations(),
         loadExpenses(),
+        loadCreditNotes(),
+        loadPurchaseReturns(),
       ]);
       _error = null;
     } catch (e) {
@@ -340,4 +348,110 @@ class AppState extends ChangeNotifier {
   }
 
   double get totalExpenses => _expenses.fold(0, (s, e) => s + e.amount);
+
+  // ===== CREDIT NOTES =====
+
+  Future<void> loadCreditNotes() async {
+    final json = await _db.getSetting('credit_notes_data');
+    if (json != null && json.isNotEmpty) {
+      final list = jsonDecode(json) as List;
+      _creditNotes = list.map((e) => CreditNote.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    _creditNotes.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    notifyListeners();
+  }
+
+  Future<void> _saveCreditNotes() async {
+    final json = jsonEncode(_creditNotes.map((e) => e.toMap()).toList());
+    await _db.setSetting('credit_notes_data', json);
+  }
+
+  Future<void> addCreditNote(CreditNote cn) async {
+    _creditNotes.insert(0, cn);
+    // Restore stock for returned items
+    for (final item in cn.items) {
+      final stockItem = _items.firstWhere((i) => i.id == item.itemId, orElse: () => Item(name: '', price: 0));
+      if (stockItem.name.isNotEmpty) {
+        stockItem.stockQuantity += item.quantity;
+        await _db.updateItem(stockItem);
+      }
+    }
+    await _saveCreditNotes();
+    await loadItems();
+    notifyListeners();
+  }
+
+  Future<void> deleteCreditNote(String id) async {
+    _creditNotes.removeWhere((e) => e.id == id);
+    await _saveCreditNotes();
+    notifyListeners();
+  }
+
+  String getNextCreditNoteNumber() {
+    final count = _creditNotes.length + 1;
+    return 'CN-${count.toString().padLeft(4, '0')}';
+  }
+
+  // ===== PURCHASE RETURNS =====
+
+  Future<void> loadPurchaseReturns() async {
+    final json = await _db.getSetting('purchase_returns_data');
+    if (json != null && json.isNotEmpty) {
+      final list = jsonDecode(json) as List;
+      _purchaseReturns = list.map((e) => PurchaseReturn.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    _purchaseReturns.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    notifyListeners();
+  }
+
+  Future<void> _savePurchaseReturns() async {
+    final json = jsonEncode(_purchaseReturns.map((e) => e.toMap()).toList());
+    await _db.setSetting('purchase_returns_data', json);
+  }
+
+  Future<void> addPurchaseReturn(PurchaseReturn pr) async {
+    _purchaseReturns.insert(0, pr);
+    // Deduct returned stock
+    for (final item in pr.items) {
+      final stockItem = _items.firstWhere((i) => i.id == item.itemId, orElse: () => Item(name: '', price: 0));
+      if (stockItem.name.isNotEmpty) {
+        stockItem.stockQuantity -= item.quantity;
+        if (stockItem.stockQuantity < 0) stockItem.stockQuantity = 0;
+        await _db.updateItem(stockItem);
+      }
+    }
+    await _savePurchaseReturns();
+    await loadItems();
+    notifyListeners();
+  }
+
+  Future<void> deletePurchaseReturn(String id) async {
+    _purchaseReturns.removeWhere((e) => e.id == id);
+    await _savePurchaseReturns();
+    notifyListeners();
+  }
+
+  String getNextPurchaseReturnNumber() {
+    final count = _purchaseReturns.length + 1;
+    return 'PR-${count.toString().padLeft(4, '0')}';
+  }
+
+  // ===== CUSTOMER LEDGER =====
+
+  List<Map<String, dynamic>> getCustomerLedger(String customerId) {
+    final entries = <Map<String, dynamic>>[];
+    // Bills (debit)
+    for (final b in _bills.where((b) => b.customerId == customerId)) {
+      entries.add({'date': b.createdAt, 'type': 'Invoice', 'ref': b.billNumber, 'debit': b.totalAmount, 'credit': 0.0});
+      if (b.paidAmount > 0) {
+        entries.add({'date': b.createdAt, 'type': 'Payment', 'ref': b.billNumber, 'debit': 0.0, 'credit': b.paidAmount});
+      }
+    }
+    // Credit notes (credit)
+    for (final cn in _creditNotes.where((c) => c.customerId == customerId)) {
+      entries.add({'date': cn.createdAt, 'type': 'Credit Note', 'ref': cn.creditNoteNumber, 'debit': 0.0, 'credit': cn.totalAmount});
+    }
+    entries.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+    return entries;
+  }
 }

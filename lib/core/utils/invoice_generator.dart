@@ -6,6 +6,8 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/bill.dart';
 
+enum InvoiceTemplate { modern, classic, thermal }
+
 class InvoiceGenerator {
   static Future<void> generateAndPrint(
     Bill bill, {
@@ -13,6 +15,7 @@ class InvoiceGenerator {
     String businessAddress = '',
     String businessPhone = '',
     String businessGstin = '',
+    InvoiceTemplate template = InvoiceTemplate.modern,
   }) async {
     final pdf = pw.Document();
 

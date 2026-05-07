@@ -6,6 +6,7 @@ import '../../core/models/bill.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -95,6 +96,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                       _buildStatGrid(isWide, todaySales, todayCount,
                           monthSales, monthCount, outstanding, itemCount),
 
+                      const SizedBox(height: 24),
+
+                      // 📊 Dashboard Charts
+                      _buildSalesChart(context, appState, isWide),
+                      const SizedBox(height: 20),
+                      _buildTopItemsChart(context, appState, isWide),
                       const SizedBox(height: 24),
 
                       // 🔴 Low Stock Alerts
@@ -457,6 +464,104 @@ class _DashboardScreenState extends State<DashboardScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildSalesChart(BuildContext context, AppState appState, bool isWide) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final now = DateTime.now();
+    final dailySales = <String, double>{};
+    for (int i = 6; i >= 0; i--) {
+      final d = now.subtract(Duration(days: i));
+      final key = '${d.day}/${d.month}';
+      dailySales[key] = 0;
+    }
+    for (final b in appState.bills) {
+      final d = b.createdAt;
+      if (d.isAfter(now.subtract(const Duration(days: 7)))) {
+        final key = '${d.day}/${d.month}';
+        dailySales[key] = (dailySales[key] ?? 0) + b.totalAmount;
+      }
+    }
+    final labels = dailySales.keys.toList();
+    final values = dailySales.values.toList();
+    final maxY = values.isEmpty ? 1000.0 : (values.reduce((a, b) => a > b ? a : b) * 1.2).clamp(100, double.infinity);
+
+    return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.show_chart, color: AppColors.primary, size: 20),
+          const SizedBox(width: 8),
+          Text('7-Day Sales Trend', style: Theme.of(context).textTheme.titleLarge),
+        ]),
+        const SizedBox(height: 20),
+        SizedBox(height: 180, child: LineChart(LineChartData(
+          gridData: FlGridData(show: true, drawVerticalLine: false,
+            getDrawingHorizontalLine: (_) => FlLine(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05), strokeWidth: 1)),
+          titlesData: FlTitlesData(
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 28,
+              getTitlesWidget: (v, _) => Padding(padding: const EdgeInsets.only(top: 8),
+                child: Text(v.toInt() < labels.length ? labels[v.toInt()] : '', style: TextStyle(fontSize: 9, color: isDark ? Colors.white38 : Colors.black38))))),
+            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 50,
+              getTitlesWidget: (v, _) => Text(AppFormatters.compactCurrency(v), style: TextStyle(fontSize: 8, color: isDark ? Colors.white38 : Colors.black38)))),
+          ),
+          borderData: FlBorderData(show: false),
+          minX: 0, maxX: 6, minY: 0, maxY: maxY.toDouble(),
+          lineBarsData: [LineChartBarData(
+            spots: values.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
+            isCurved: true, color: AppColors.primary, barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: FlDotData(show: true, getDotPainter: (_, __, ___, ____) =>
+              FlDotCirclePainter(radius: 4, color: AppColors.primary, strokeWidth: 2, strokeColor: Colors.white)),
+            belowBarData: BarAreaData(show: true,
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                colors: [AppColors.primary.withValues(alpha: 0.3), AppColors.primary.withValues(alpha: 0.0)])),
+          )],
+        ))),
+      ]));
+  }
+
+  Widget _buildTopItemsChart(BuildContext context, AppState appState, bool isWide) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final itemSales = <String, double>{};
+    for (final b in appState.bills) {
+      for (final item in b.items) {
+        itemSales[item.itemName] = (itemSales[item.itemName] ?? 0) + item.subtotal;
+      }
+    }
+    if (itemSales.isEmpty) return const SizedBox();
+    final sorted = itemSales.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final top5 = sorted.take(5).toList();
+    final maxVal = top5.first.value;
+    final colors = [AppColors.primary, AppColors.accent, AppColors.success, AppColors.warning, const Color(0xFFEC4899)];
+
+    return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.leaderboard, color: AppColors.accent, size: 20),
+          const SizedBox(width: 8),
+          Text('Top Selling Items', style: Theme.of(context).textTheme.titleLarge),
+        ]),
+        const SizedBox(height: 16),
+        ...top5.asMap().entries.map((e) {
+          final pct = maxVal > 0 ? (e.value.value / maxVal) : 0.0;
+          final color = colors[e.key % colors.length];
+          return Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(children: [
+            SizedBox(width: 20, child: Text('${e.key + 1}', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: color))),
+            const SizedBox(width: 8),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(e.value.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 4),
+              ClipRRect(borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(value: pct, backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+                  color: color, minHeight: 6)),
+            ])),
+            const SizedBox(width: 12),
+            Text(AppFormatters.currency(e.value.value), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: color)),
+          ]));
+        }),
+      ]));
   }
 
   Widget _buildLowStockAlerts(BuildContext context, AppState appState, bool isWide) {

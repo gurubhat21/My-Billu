@@ -16,6 +16,9 @@ import 'features/settings/settings_screen.dart';
 import 'features/reports/reports_screen.dart';
 import 'features/quotation/quotation_screen.dart';
 import 'features/expenses/expense_screen.dart';
+import 'features/credit_notes/credit_note_screen.dart';
+import 'features/purchase_returns/purchase_return_screen.dart';
+import 'features/customer_ledger/customer_ledger_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -88,17 +91,20 @@ class _MainShellState extends State<MainShell> {
 
   // All screens indexed
   static const _allScreens = [
-    DashboardScreen(),    // 0
-    BillingScreen(),      // 1 - Sales
-    PurchaseScreen(),     // 2 - Purchase
-    HistoryScreen(),      // 3 - Payments
-    ItemsScreen(),        // 4
-    StockScreen(),        // 5
-    CustomersScreen(),    // 6
-    QuotationScreen(),    // 7
-    ExpenseScreen(),      // 8
-    ReportsScreen(),      // 9
-    SettingsScreen(),     // 10
+    DashboardScreen(),          // 0
+    BillingScreen(),            // 1 - Sales
+    PurchaseScreen(),           // 2 - Purchase
+    HistoryScreen(),            // 3 - Payments
+    ItemsScreen(),              // 4
+    StockScreen(),              // 5
+    CustomersScreen(),          // 6
+    QuotationScreen(),          // 7
+    ExpenseScreen(),            // 8
+    ReportsScreen(),            // 9
+    CreditNoteScreen(),         // 10
+    PurchaseReturnScreen(),     // 11
+    CustomerLedgerScreen(),     // 12
+    SettingsScreen(),           // 13
   ];
 
   // Bottom bar maps to indices: 0=Dashboard, 1=New Bill, 2=Purchase, 3=Payments
@@ -120,8 +126,11 @@ class _MainShellState extends State<MainShell> {
     _DrawerItem(icon: Icons.people, label: 'Customers', index: 6),
     _DrawerItem(icon: Icons.description, label: 'Quotations', index: 7),
     _DrawerItem(icon: Icons.money_off, label: 'Expenses', index: 8),
+    _DrawerItem(icon: Icons.assignment_return, label: 'Credit Notes', index: 10),
+    _DrawerItem(icon: Icons.keyboard_return, label: 'Purchase Returns', index: 11),
+    _DrawerItem(icon: Icons.account_balance_wallet, label: 'Customer Ledger', index: 12),
     _DrawerItem(icon: Icons.bar_chart, label: 'Reports', index: 9),
-    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 10),
+    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 13),
   ];
 
   void _goTo(int index) {
