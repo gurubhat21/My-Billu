@@ -102,7 +102,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                       _buildSalesChart(context, appState, isWide),
                       const SizedBox(height: 20),
                       _buildTopItemsChart(context, appState, isWide),
+                      const SizedBox(height: 20),
+
+                      // 📈 Monthly Comparison (Sales vs Expenses)
+                      _buildMonthlyComparison(context, appState, isWide),
+                      const SizedBox(height: 20),
+
+                      // 💡 Profit Insights
+                      _buildProfitInsights(context, appState, isWide),
                       const SizedBox(height: 24),
+
+                      // 🔔 Payment Reminders
+                      _buildPaymentReminders(context, appState, isWide),
 
                       // 🔴 Low Stock Alerts
                       _buildLowStockAlerts(context, appState, isWide),
@@ -777,5 +788,200 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     );
   }
-}
 
+  // ===== MONTHLY COMPARISON CHART =====
+  Widget _buildMonthlyComparison(BuildContext context, AppState appState, bool isWide) {
+    final now = DateTime.now();
+    final months = <String>[];
+    final salesData = <double>[];
+    final expenseData = <double>[];
+
+    for (int i = 5; i >= 0; i--) {
+      final m = DateTime(now.year, now.month - i, 1);
+      final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      months.add(monthNames[m.month - 1]);
+
+      double mSales = 0, mExpense = 0;
+      for (final b in appState.bills) {
+        if (b.createdAt.year == m.year && b.createdAt.month == m.month) mSales += b.totalAmount;
+      }
+      for (final e in appState.expenses) {
+        if (e.date.year == m.year && e.date.month == m.month) mExpense += e.amount;
+      }
+      salesData.add(mSales);
+      expenseData.add(mExpense);
+    }
+
+    final maxVal = [...salesData, ...expenseData].fold<double>(1, (a, b) => a > b ? a : b);
+
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.compare_arrows, color: AppColors.accent, size: 20),
+          const SizedBox(width: 8),
+          const Text('Monthly Comparison', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          const Spacer(),
+          _legendDot(AppColors.success, 'Sales'),
+          const SizedBox(width: 12),
+          _legendDot(AppColors.error, 'Expenses'),
+        ]),
+        const SizedBox(height: 20),
+        SizedBox(
+          height: 200,
+          child: BarChart(BarChartData(
+            alignment: BarChartAlignment.spaceAround,
+            maxY: maxVal * 1.2,
+            barTouchData: BarTouchData(
+              touchTooltipData: BarTouchTooltipData(getTooltipColor: (_) => const Color(0xFF1A1A3E))),
+            titlesData: FlTitlesData(
+              leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 50,
+                getTitlesWidget: (v, _) => Text(AppFormatters.compactCurrency(v), style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.4))))),
+              bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true,
+                getTitlesWidget: (v, _) => Text(months[v.toInt()], style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5))))),
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            ),
+            gridData: FlGridData(
+              drawHorizontalLine: true, drawVerticalLine: false,
+              getDrawingHorizontalLine: (v) => FlLine(color: Colors.white.withValues(alpha: 0.05), strokeWidth: 1)),
+            borderData: FlBorderData(show: false),
+            barGroups: List.generate(6, (i) => BarChartGroupData(
+              x: i, barRods: [
+                BarChartRodData(toY: salesData[i], color: AppColors.success, width: isWide ? 14 : 10, borderRadius: BorderRadius.circular(4)),
+                BarChartRodData(toY: expenseData[i], color: AppColors.error, width: isWide ? 14 : 10, borderRadius: BorderRadius.circular(4)),
+              ])),
+          )),
+        ),
+      ]),
+    );
+  }
+
+  Widget _legendDot(Color color, String label) {
+    return Row(children: [
+      Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
+      const SizedBox(width: 4),
+      Text(label, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5))),
+    ]);
+  }
+
+  // ===== PAYMENT DUE REMINDERS =====
+  Widget _buildPaymentReminders(BuildContext context, AppState appState, bool isWide) {
+    final dueBills = appState.bills.where((b) =>
+      b.status == BillStatus.unpaid || b.status == BillStatus.partial).toList();
+    if (dueBills.isEmpty) return const SizedBox.shrink();
+
+    dueBills.sort((a, b) => a.createdAt.compareTo(b.createdAt)); // oldest first
+    final overdue = dueBills.where((b) => DateTime.now().difference(b.createdAt).inDays > 30).toList();
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.notifications_active, color: AppColors.warning, size: 20),
+        const SizedBox(width: 8),
+        Text('Payment Reminders (${dueBills.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        if (overdue.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
+            child: Text('${overdue.length} overdue', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.error))),
+        ],
+      ]),
+      const SizedBox(height: 12),
+      ...dueBills.take(5).map((bill) {
+        final daysOld = DateTime.now().difference(bill.createdAt).inDays;
+        final isOverdue = daysOld > 30;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: GlassCard(
+            padding: const EdgeInsets.all(12),
+            child: Row(children: [
+              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(
+                color: (isOverdue ? AppColors.error : AppColors.warning).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                child: Icon(isOverdue ? Icons.warning_amber : Icons.schedule, size: 18,
+                  color: isOverdue ? AppColors.error : AppColors.warning)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(bill.billNumber, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text('${bill.customerName ?? "Walk-in"} • ${daysOld}d ago',
+                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+              ])),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(AppFormatters.currency(bill.balanceDue),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: isOverdue ? AppColors.error : AppColors.warning)),
+                Text(isOverdue ? 'OVERDUE' : 'PENDING', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
+                  color: isOverdue ? AppColors.error : AppColors.warning)),
+              ]),
+            ])),
+        );
+      }),
+      const SizedBox(height: 20),
+    ]);
+  }
+
+  // ===== PROFIT INSIGHTS =====
+  Widget _buildProfitInsights(BuildContext context, AppState appState, bool isWide) {
+    final now = DateTime.now();
+    double monthSales = 0, monthExpenses = 0, monthPurchases = 0;
+    for (final b in appState.bills) {
+      if (b.createdAt.year == now.year && b.createdAt.month == now.month) monthSales += b.totalAmount;
+    }
+    for (final e in appState.expenses) {
+      if (e.date.year == now.year && e.date.month == now.month) monthExpenses += e.amount;
+    }
+    for (final p in appState.purchases) {
+      if (p.createdAt.year == now.year && p.createdAt.month == now.month) monthPurchases += p.totalAmount;
+    }
+    final profit = monthSales - monthExpenses - monthPurchases;
+
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.insights, color: AppColors.accent, size: 20),
+          SizedBox(width: 8),
+          Text('This Month Insights', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        ]),
+        const SizedBox(height: 16),
+        Row(children: [
+          _insightTile('Revenue', AppFormatters.currency(monthSales), AppColors.success),
+          const SizedBox(width: 12),
+          _insightTile('Purchases', AppFormatters.currency(monthPurchases), AppColors.warning),
+          const SizedBox(width: 12),
+          _insightTile('Expenses', AppFormatters.currency(monthExpenses), AppColors.error),
+        ]),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [
+              (profit >= 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.15),
+              (profit >= 0 ? AppColors.success : AppColors.error).withValues(alpha: 0.05)]),
+            borderRadius: BorderRadius.circular(12)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(profit >= 0 ? Icons.trending_up : Icons.trending_down, size: 22,
+              color: profit >= 0 ? AppColors.success : AppColors.error),
+            const SizedBox(width: 8),
+            Text('Net ${profit >= 0 ? "Profit" : "Loss"}: ${AppFormatters.currency(profit.abs())}',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16,
+                color: profit >= 0 ? AppColors.success : AppColors.error)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _insightTile(String label, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+        child: Column(children: [
+          Text(value, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: color)),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
+        ]),
+      ),
+    );
+  }
+}

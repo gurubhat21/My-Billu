@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/app_state.dart';
+import 'core/models/bill.dart';
 import 'features/login/login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/billing/billing_screen.dart';
@@ -177,7 +178,12 @@ class _MainShellState extends State<MainShell> {
             ),
             VerticalDivider(width: 1, color: Theme.of(context).brightness == Brightness.dark
                 ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
-            Expanded(child: _allScreens[_currentIndex]),
+            Expanded(child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: KeyedSubtree(key: ValueKey(_currentIndex), child: _allScreens[_currentIndex]),
+            )),
           ]),
         );
       }
@@ -222,7 +228,12 @@ class _MainShellState extends State<MainShell> {
           ],
         ),
         drawer: _buildDrawer(context),
-        body: _allScreens[_currentIndex],
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          child: KeyedSubtree(key: ValueKey(_currentIndex), child: _allScreens[_currentIndex]),
+        ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _bottomBarIndex >= 0 ? _bottomBarIndex : 0,
           onDestinationSelected: (i) => _goTo(_bottomBarMapping[i]),
@@ -296,6 +307,16 @@ class _MainShellState extends State<MainShell> {
         Expanded(child: ListView(padding: const EdgeInsets.symmetric(vertical: 8), children: [
           ..._drawerItems.map((item) {
             final isSelected = _currentIndex == item.index;
+            final appState = context.watch<AppState>();
+            // Compute badges
+            int badge = 0;
+            if (item.index == 5) { // Stock
+              badge = appState.items.where((i) => i.stockQuantity < 10).length;
+            } else if (item.index == 3) { // Payments
+              badge = appState.bills.where((b) => b.status == BillStatus.unpaid || b.status == BillStatus.partial).length;
+            } else if (item.index == 14) { // Recurring Bills
+              badge = appState.recurringBills.where((rb) => rb.isActive && DateTime.now().isAfter(rb.nextDueDate)).length;
+            }
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
               decoration: BoxDecoration(
@@ -310,6 +331,11 @@ class _MainShellState extends State<MainShell> {
                   fontSize: 14,
                   color: isSelected ? AppColors.primary : Colors.white.withValues(alpha: 0.8),
                 )),
+                trailing: badge > 0 ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(10)),
+                  child: Text('$badge', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                ) : null,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 onTap: () {
                   _goTo(item.index);
