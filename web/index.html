@@ -1,46 +1,87 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="My Billu - Smart Billing & Inventory Management Software for Indian Businesses. GST compliant invoicing, stock management, and financial reports.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0F0F23">
+  <meta name="color-scheme" content="dark light">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="my_billu">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="My Billu">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>my_billu</title>
+  <title>My Billu - Smart Billing Software</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- PWA Install Prompt + Offline Indicator styles -->
+  <style>
+    #pwa-install-banner {
+      display: none;
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(135deg, #00F5A0, #00D9F5);
+      color: #0F0F23; padding: 12px 24px; border-radius: 14px;
+      font-family: system-ui, sans-serif; font-weight: 700; font-size: 14px;
+      cursor: pointer; z-index: 9999; box-shadow: 0 8px 32px rgba(0,245,160,0.3);
+      animation: slideUp 0.5s ease;
+    }
+    #pwa-install-banner:hover { transform: translateX(-50%) scale(1.02); }
+    @keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(30px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    #offline-indicator {
+      display: none; position: fixed; top: 0; left: 0; right: 0;
+      background: #EF4444; color: white; text-align: center;
+      padding: 6px; font-family: system-ui; font-size: 12px; font-weight: 600; z-index: 99999;
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <!-- Offline Indicator -->
+  <div id="offline-indicator">⚠ You are offline. Some features may not work.</div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <!-- PWA Install Banner -->
+  <div id="pwa-install-banner" onclick="installPWA()">
+    📲 Install My Billu App
+    <span style="margin-left:8px;font-size:11px;opacity:0.7">×</span>
+  </div>
+
   <script src="flutter_bootstrap.js" async></script>
+
+  <script>
+    // PWA Install Prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('pwa-install-banner').style.display = 'block';
+    });
+    function installPWA() {
+      const banner = document.getElementById('pwa-install-banner');
+      banner.style.display = 'none';
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+      }
+    }
+    window.addEventListener('appinstalled', () => {
+      document.getElementById('pwa-install-banner').style.display = 'none';
+    });
+
+    // Offline Detection
+    function updateOnlineStatus() {
+      document.getElementById('offline-indicator').style.display = navigator.onLine ? 'none' : 'block';
+    }
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
+  </script>
 </body>
 </html>

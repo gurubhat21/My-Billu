@@ -1,13 +1,16 @@
 {
-    "name": "my_billu",
-    "short_name": "my_billu",
+    "name": "My Billu - Smart Billing",
+    "short_name": "My Billu",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#0F0F23",
+    "theme_color": "#00F5A0",
+    "description": "Smart Billing & Inventory Management Software for Indian Businesses",
+    "orientation": "any",
     "prefer_related_applications": false,
+    "categories": ["business", "finance", "productivity"],
+    "lang": "en",
+    "scope": ".",
     "icons": [
         {
             "src": "icons/Icon-192.png",
@@ -30,6 +33,22 @@
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"
+        }
+    ],
+    "screenshots": [],
+    "related_applications": [],
+    "shortcuts": [
+        {
+            "name": "New Bill",
+            "short_name": "Bill",
+            "url": "./#/billing",
+            "icons": [{"src": "icons/Icon-192.png", "sizes": "192x192"}]
+        },
+        {
+            "name": "Dashboard",
+            "short_name": "Home",
+            "url": ".",
+            "icons": [{"src": "icons/Icon-192.png", "sizes": "192x192"}]
         }
     ]
 }

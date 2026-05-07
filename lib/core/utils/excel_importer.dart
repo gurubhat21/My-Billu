@@ -3,6 +3,8 @@ import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/item.dart';
 import '../models/customer.dart';
+import '../models/supplier.dart';
+import '../models/bill.dart';
 
 class ExcelImporter {
   /// Import items from an Excel file.
@@ -39,7 +41,6 @@ class ExcelImporter {
 
   /// Import customers from an Excel file.
   /// Expected columns: Name, Phone, Email, Address, GSTIN
-  /// First row is treated as header and skipped.
   static Future<List<Customer>?> importCustomers() async {
     final bytes = await _pickExcelFile();
     if (bytes == null) return null;
@@ -65,6 +66,82 @@ class ExcelImporter {
       ));
     }
     return customers;
+  }
+
+  /// Import suppliers from an Excel file.
+  /// Expected columns: Name, Phone, Email, Address, GSTIN
+  static Future<List<Supplier>?> importSuppliers() async {
+    final bytes = await _pickExcelFile();
+    if (bytes == null) return null;
+
+    final excel = Excel.decodeBytes(bytes);
+    final sheet = excel.tables[excel.tables.keys.first];
+    if (sheet == null) return null;
+
+    final suppliers = <Supplier>[];
+    for (int i = 1; i < sheet.maxRows; i++) {
+      final row = sheet.row(i);
+      if (row.isEmpty || row[0]?.value == null) continue;
+
+      final name = _cellToString(row[0]);
+      if (name.isEmpty) continue;
+
+      suppliers.add(Supplier(
+        name: name,
+        phone: row.length > 1 ? _cellToString(row[1]) : null,
+        email: row.length > 2 ? _cellToString(row[2]) : null,
+        address: row.length > 3 ? _cellToString(row[3]) : null,
+        gstin: row.length > 4 ? _cellToString(row[4]) : null,
+      ));
+    }
+    return suppliers;
+  }
+
+  /// Import ledger/bills from an Excel file.
+  /// Expected columns: BillNo, Date, CustomerName, Subtotal, Tax, Total, PaidAmount, Status, PaymentMethod
+  static Future<List<Bill>?> importLedger() async {
+    final bytes = await _pickExcelFile();
+    if (bytes == null) return null;
+
+    final excel = Excel.decodeBytes(bytes);
+    final sheet = excel.tables[excel.tables.keys.first];
+    if (sheet == null) return null;
+
+    final bills = <Bill>[];
+    for (int i = 1; i < sheet.maxRows; i++) {
+      final row = sheet.row(i);
+      if (row.isEmpty || row[0]?.value == null) continue;
+
+      final billNo = _cellToString(row[0]);
+      if (billNo.isEmpty) continue;
+
+      final subtotal = row.length > 3 ? _cellToDouble(row[3]) : 0.0;
+      final tax = row.length > 4 ? _cellToDouble(row[4]) : 0.0;
+      final total = row.length > 5 ? _cellToDouble(row[5]) : subtotal + tax;
+      final paid = row.length > 6 ? _cellToDouble(row[6]) : 0.0;
+      final statusStr = row.length > 7 ? _cellToString(row[7]) : 'unpaid';
+      final pmStr = row.length > 8 ? _cellToString(row[8]) : 'cash';
+
+      DateTime? date;
+      if (row.length > 1) {
+        final ds = _cellToString(row[1]);
+        date = DateTime.tryParse(ds);
+      }
+
+      bills.add(Bill(
+        billNumber: billNo,
+        customerName: row.length > 2 ? _cellToString(row[2]) : null,
+        items: [],
+        subtotal: subtotal,
+        totalTax: tax,
+        totalAmount: total,
+        paidAmount: paid,
+        paymentMethod: PaymentMethod.values.firstWhere((e) => e.name == pmStr, orElse: () => PaymentMethod.cash),
+        status: BillStatus.values.firstWhere((e) => e.name == statusStr, orElse: () => BillStatus.unpaid),
+        createdAt: date,
+      ));
+    }
+    return bills;
   }
 
   static Future<Uint8List?> _pickExcelFile() async {

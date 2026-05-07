@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/web_helper.dart' as web_helper;
 import '../../core/database/full_backup_exporter.dart';
 import '../../core/utils/app_strings.dart';
+import '../../core/utils/excel_importer.dart';
 import 'package:printing/printing.dart';
 
 import '../../widgets/common_widgets.dart';
@@ -106,6 +107,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     }
                   },
                   icon: const Icon(Icons.download, size: 18), label: const Text('Export Full Backup (Excel)'))),
+              ]),
+            ])),
+          const SizedBox(height: 20),
+
+          // Bulk Import from Excel
+          GlassCard(padding: const EdgeInsets.all(20), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.upload_file, size: 22, color: AppColors.primary)),
+                const SizedBox(width: 12),
+                Text('Bulk Import from Excel', style: Theme.of(context).textTheme.titleLarge),
+              ]),
+              const SizedBox(height: 8),
+              Text('Upload .xlsx files to import data. First row should be headers.',
+                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
+              const SizedBox(height: 16),
+              Wrap(spacing: 12, runSpacing: 10, children: [
+                _importButton(context, Icons.inventory_2, 'Import Items', 'Name, Price, Tax%, HSN, Unit, Stock, Category', () async {
+                  final items = await ExcelImporter.importItems();
+                  if (items == null || !mounted) return;
+                  final appState = context.read<AppState>();
+                  int added = 0;
+                  for (final item in items) {
+                    try { await appState.addItem(item); added++; } catch (_) {}
+                  }
+                  if (mounted) _showImportResult(context, 'Items', added, items.length);
+                }),
+                _importButton(context, Icons.people, 'Import Customers', 'Name, Phone, Email, Address, GSTIN', () async {
+                  final customers = await ExcelImporter.importCustomers();
+                  if (customers == null || !mounted) return;
+                  final appState = context.read<AppState>();
+                  int added = 0;
+                  for (final c in customers) {
+                    try { await appState.addCustomer(c); added++; } catch (_) {}
+                  }
+                  if (mounted) _showImportResult(context, 'Customers', added, customers.length);
+                }),
+                _importButton(context, Icons.local_shipping, 'Import Suppliers', 'Name, Phone, Email, Address, GSTIN', () async {
+                  final suppliers = await ExcelImporter.importSuppliers();
+                  if (suppliers == null || !mounted) return;
+                  final appState = context.read<AppState>();
+                  int added = 0;
+                  for (final s in suppliers) {
+                    try { await appState.addSupplier(s); added++; } catch (_) {}
+                  }
+                  if (mounted) _showImportResult(context, 'Suppliers', added, suppliers.length);
+                }),
+                _importButton(context, Icons.receipt_long, 'Import Ledger/Bills', 'BillNo, Date, Customer, Subtotal, Tax, Total, Paid, Status, PaymentMethod', () async {
+                  final bills = await ExcelImporter.importLedger();
+                  if (bills == null || !mounted) return;
+                  final appState = context.read<AppState>();
+                  int added = 0;
+                  for (final b in bills) {
+                    try { await appState.createBill(b); added++; } catch (_) {}
+                  }
+                  if (mounted) _showImportResult(context, 'Ledger entries', added, bills.length);
+                }),
               ]),
             ])),
           const SizedBox(height: 20),
@@ -701,5 +761,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       );
     }));
+  }
+
+  Widget _importButton(BuildContext context, IconData icon, String label, String hint, VoidCallback onTap) {
+    return SizedBox(
+      width: 200,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        onPressed: onTap,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Flexible(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+          ]),
+          const SizedBox(height: 4),
+          Text(hint, style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.35)), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ]),
+      ),
+    );
+  }
+
+  void _showImportResult(BuildContext context, String type, int added, int total) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        const Icon(Icons.check_circle, color: Colors.white),
+        const SizedBox(width: 10),
+        Text('Imported $added / $total $type successfully'),
+      ]),
+      backgroundColor: added > 0 ? AppColors.success : AppColors.warning,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
   }
 }
