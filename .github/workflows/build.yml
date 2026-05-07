@@ -1,26 +1,31 @@
-name: Build My Billu
+name: Build & Deploy My Billu
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
 jobs:
+  # ===== BUILD WEB & DEPLOY TO GITHUB PAGES =====
   build-web:
+    name: 🌐 Build Web
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.29.3'
           channel: stable
       - run: flutter pub get
-      - run: flutter build web --release --base-href "/My-Billu/" --no-wasm-dry-run
+      - run: dart analyze lib/ --fatal-infos || true
+      - run: flutter build web --release --base-href "/My-Billu/"
       - uses: actions/upload-artifact@v4
         with:
           name: web-build
@@ -30,6 +35,7 @@ jobs:
           path: build/web/
 
   deploy-web:
+    name: 🚀 Deploy to GitHub Pages
     needs: build-web
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -44,7 +50,9 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
+  # ===== BUILD ANDROID APK =====
   build-android:
+    name: 📱 Build Android APK
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -55,27 +63,49 @@ jobs:
           java-version: 17
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.29.3'
           channel: stable
       - run: flutter pub get
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: android-apk
+          name: MyBillu-Android-APK
           path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
 
+  # ===== BUILD WINDOWS EXE =====
   build-windows:
+    name: 🖥️ Build Windows
     runs-on: windows-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.29.3'
           channel: stable
       - run: flutter pub get
       - run: flutter build windows --release
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: windows-build
+          name: MyBillu-Windows
           path: build/windows/x64/runner/Release/
+          retention-days: 30
+
+  # ===== CREATE RELEASE ON TAG =====
+  release:
+    name: 🏷️ Create Release
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: MyBillu-Android-APK
+          path: ./apk/
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ./apk/app-release.apk
+          generate_release_notes: true
