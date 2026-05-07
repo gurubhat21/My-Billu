@@ -5,8 +5,6 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/app_state.dart';
 import 'core/models/bill.dart';
-import 'features/splash/splash_screen.dart';
-import 'features/onboarding/onboarding_screen.dart';
 import 'features/login/login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/billing/billing_screen.dart';
@@ -65,9 +63,7 @@ class MyBilluApp extends StatelessWidget {
   }
 }
 
-/// Flow: Splash → Onboarding (first time) → Login → MainShell
-enum _AppPhase { splash, onboarding, login, main }
-
+/// Gate that shows Login first, then MainShell after authentication
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
   @override
@@ -75,26 +71,14 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  _AppPhase _phase = _AppPhase.splash;
+  bool _loggedIn = false;
 
   @override
   Widget build(BuildContext context) {
-    switch (_phase) {
-      case _AppPhase.splash:
-        return SplashScreen(onComplete: () async {
-          final appState = context.read<AppState>();
-          final done = await appState.getSetting('onboarding_done');
-          if (mounted) {
-            setState(() => _phase = (done == 'true') ? _AppPhase.login : _AppPhase.onboarding);
-          }
-        });
-      case _AppPhase.onboarding:
-        return OnboardingScreen(onComplete: () => setState(() => _phase = _AppPhase.login));
-      case _AppPhase.login:
-        return LoginScreen(onLogin: () => setState(() => _phase = _AppPhase.main));
-      case _AppPhase.main:
-        return const MainShell();
+    if (!_loggedIn) {
+      return LoginScreen(onLogin: () => setState(() => _loggedIn = true));
     }
+    return const MainShell();
   }
 }
 
