@@ -103,8 +103,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -1)),
                     ),
                     const SizedBox(height: 6),
-                    Text('Smart Billing Software', style: TextStyle(
-                      fontSize: 14, color: Colors.white.withValues(alpha: 0.5), fontWeight: FontWeight.w500)),
+                    Text('Smart Billing Software by Sumukha Tech Solutions', style: TextStyle(
+                      fontSize: 13, color: Colors.white.withValues(alpha: 0.5), fontWeight: FontWeight.w500)),
                     const SizedBox(height: 40),
 
                     // Login Card
