@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/app_state.dart';
+import '../../core/models/bill.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../widgets/common_widgets.dart';
@@ -95,6 +96,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                           monthSales, monthCount, outstanding, itemCount),
 
                       const SizedBox(height: 24),
+
+                      // 🔴 Low Stock Alerts
+                      _buildLowStockAlerts(context, appState, isWide),
+
+                      // 💰 Outstanding Dues
+                      _buildOutstandingDues(context, appState, isWide),
 
                       // Recent Bills
                       _buildRecentBills(context, appState, isWide),
@@ -450,6 +457,175 @@ class _DashboardScreenState extends State<DashboardScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildLowStockAlerts(BuildContext context, AppState appState, bool isWide) {
+    final lowStockItems = appState.items.where((i) => i.stockQuantity <= 5).toList()
+      ..sort((a, b) => a.stockQuantity.compareTo(b.stockQuantity));
+    if (lowStockItems.isEmpty) return const SizedBox();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(children: [
+      GlassCard(
+        padding: const EdgeInsets.all(20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 20)),
+            const SizedBox(width: 10),
+            Text('Low Stock Alerts', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(10)),
+              child: Text('${lowStockItems.length}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
+          ]),
+          const SizedBox(height: 14),
+          ...lowStockItems.take(10).map((item) {
+            final isOut = item.stockQuantity == 0;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (isOut ? AppColors.error : AppColors.warning).withValues(alpha: isDark ? 0.06 : 0.05),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: (isOut ? AppColors.error : AppColors.warning).withValues(alpha: 0.15))),
+              child: Row(children: [
+                Icon(isOut ? Icons.error : Icons.inventory, size: 18,
+                  color: isOut ? AppColors.error : AppColors.warning),
+                const SizedBox(width: 10),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  Text(item.category ?? item.unit, style: TextStyle(fontSize: 10,
+                    color: isDark ? Colors.white54 : Colors.black45)),
+                ])),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (isOut ? AppColors.error : AppColors.warning).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(isOut ? Icons.remove_shopping_cart : Icons.inventory_2,
+                      size: 12, color: isOut ? AppColors.error : AppColors.warning),
+                    const SizedBox(width: 4),
+                    Text(isOut ? 'OUT OF STOCK' : '${item.stockQuantity} ${item.unit} left',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                        color: isOut ? AppColors.error : AppColors.warning)),
+                  ])),
+              ]));
+          }),
+          if (lowStockItems.length > 10)
+            Padding(padding: const EdgeInsets.only(top: 4), child:
+              Text('+ ${lowStockItems.length - 10} more items low on stock',
+                style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black38))),
+        ])),
+      const SizedBox(height: 24),
+    ]);
+  }
+
+  Widget _buildOutstandingDues(BuildContext context, AppState appState, bool isWide) {
+    final unpaidBills = appState.bills.where((b) => b.status != BillStatus.paid && b.balanceDue > 0).toList()
+      ..sort((a, b) => b.balanceDue.compareTo(a.balanceDue));
+    if (unpaidBills.isEmpty) return const SizedBox();
+
+    final totalDue = unpaidBills.fold<double>(0, (s, b) => s + b.balanceDue);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Group by customer
+    final customerDues = <String, double>{};
+    for (final b in unpaidBills) {
+      final name = b.customerName ?? 'Walk-in';
+      customerDues[name] = (customerDues[name] ?? 0) + b.balanceDue;
+    }
+    final sortedCustomers = customerDues.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+    return Column(children: [
+      GlassCard(
+        padding: const EdgeInsets.all(20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.account_balance_wallet, color: AppColors.warning, size: 20)),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Outstanding Dues', style: Theme.of(context).textTheme.titleLarge),
+              Text('${unpaidBills.length} unpaid bills', style: TextStyle(fontSize: 11,
+                color: isDark ? Colors.white54 : Colors.black45)),
+            ])),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: AppColors.warningGradient,
+                borderRadius: BorderRadius.circular(10)),
+              child: Text(AppFormatters.currency(totalDue),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Colors.white))),
+          ]),
+          const SizedBox(height: 16),
+          // Customer-wise dues
+          const Text('By Customer', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+          const SizedBox(height: 8),
+          ...sortedCustomers.take(8).map((entry) {
+            final pct = totalDue > 0 ? (entry.value / totalDue) : 0.0;
+            return Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [
+              Container(
+                width: 28, height: 28,
+                decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(7)),
+                child: Center(child: Text(entry.key[0].toUpperCase(),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.warning)))),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                const SizedBox(height: 3),
+                ClipRRect(borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: pct,
+                    backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+                    color: AppColors.warning,
+                    minHeight: 4)),
+              ])),
+              const SizedBox(width: 10),
+              Text(AppFormatters.currency(entry.value),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.warning)),
+            ]));
+          }),
+          const SizedBox(height: 10),
+          // Recent unpaid bills
+          const Divider(),
+          const SizedBox(height: 8),
+          const Text('Recent Unpaid', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+          const SizedBox(height: 8),
+          ...unpaidBills.take(5).map((bill) => Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
+              borderRadius: BorderRadius.circular(8)),
+            child: Row(children: [
+              Container(width: 4, height: 28,
+                decoration: BoxDecoration(
+                  color: bill.status == BillStatus.partial ? AppColors.warning : AppColors.error,
+                  borderRadius: BorderRadius.circular(2))),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(bill.billNumber, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                Text('${bill.customerName ?? 'Walk-in'} · ${AppFormatters.date(bill.createdAt)}',
+                  style: TextStyle(fontSize: 10, color: isDark ? Colors.white38 : Colors.black38)),
+              ])),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(AppFormatters.currency(bill.balanceDue),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.error)),
+                if (bill.paidAmount > 0)
+                  Text('Paid: ${AppFormatters.currency(bill.paidAmount)}',
+                    style: const TextStyle(fontSize: 9, color: AppColors.success)),
+              ]),
+            ]))),
+        ])),
+      const SizedBox(height: 24),
+    ]);
   }
 
   Widget _buildQuickStats(
