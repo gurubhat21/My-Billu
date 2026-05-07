@@ -148,35 +148,80 @@ class _MainShellState extends State<MainShell> {
       final isWide = constraints.maxWidth > 800;
 
       if (isWide) {
-        // Desktop / Web wide layout - permanent side navigation rail
+        // Desktop / Web wide layout - custom scrollable sidebar
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final appState = context.watch<AppState>();
         return Scaffold(
           body: Row(children: [
-            NavigationRail(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: (i) => _goTo(i),
-              labelType: NavigationRailLabelType.all,
-              backgroundColor: Theme.of(context).brightness == Brightness.dark
-                  ? AppColors.darkSurface : AppColors.lightSurface,
-              leading: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Column(children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(14),
+            Container(
+              width: 220,
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              child: Column(children: [
+                // Logo header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                  child: Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.receipt_long, color: Colors.white, size: 22),
                     ),
-                    child: const Icon(Icons.receipt_long, color: Colors.white, size: 26),
+                    const SizedBox(width: 10),
+                    const Text('My Billu', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
+                  ]),
+                ),
+                Divider(height: 1, color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
+                // Scrollable menu items
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(children: _drawerItems.map((item) {
+                      final isSelected = _currentIndex == item.index;
+                      // Compute badges
+                      int badge = 0;
+                      if (item.index == 5) badge = appState.items.where((i) => i.stockQuantity < 10).length;
+                      else if (item.index == 3) badge = appState.bills.where((b) => b.status == BillStatus.unpaid || b.status == BillStatus.partial).length;
+                      else if (item.index == 14) badge = appState.recurringBills.where((rb) => rb.isActive && DateTime.now().isAfter(rb.nextDueDate)).length;
+
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary.withValues(alpha: 0.12) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: ListTile(
+                          dense: true,
+                          visualDensity: const VisualDensity(vertical: -2),
+                          leading: Icon(item.icon, size: 20,
+                            color: isSelected ? AppColors.primary : (isDark ? Colors.white.withValues(alpha: 0.6) : Colors.black54)),
+                          title: Text(item.label, style: TextStyle(
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            fontSize: 13,
+                            color: isSelected ? AppColors.primary : (isDark ? Colors.white.withValues(alpha: 0.8) : Colors.black87),
+                          )),
+                          trailing: badge > 0 ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(8)),
+                            child: Text('$badge', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                          ) : null,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          onTap: () => _goTo(item.index),
+                        ),
+                      );
+                    }).toList()),
                   ),
-                  const SizedBox(height: 8),
-                  const Text('My Billu', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.primary)),
-                ]),
-              ),
-              destinations: _drawerItems.map((d) => NavigationRailDestination(
-                icon: Icon(d.icon), selectedIcon: Icon(d.icon), label: Text(d.label),
-              )).toList(),
+                ),
+                // Footer
+                Padding(padding: const EdgeInsets.all(12),
+                  child: Text('Sumukha Tech Solutions', style: TextStyle(
+                    fontSize: 10, color: isDark ? Colors.white.withValues(alpha: 0.25) : Colors.black26, fontWeight: FontWeight.w500)),
+                ),
+              ]),
             ),
-            VerticalDivider(width: 1, color: Theme.of(context).brightness == Brightness.dark
+            VerticalDivider(width: 1, color: isDark
                 ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
             Expanded(child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
