@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
+import 'dart:convert';
 
 
 class LoginScreen extends StatefulWidget {
@@ -42,11 +43,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final appState = context.read<AppState>();
     final savedPassword = await appState.getSetting('loginPassword') ?? '12345';
     final savedUsername = await appState.getSetting('loginUsername') ?? 'admin';
+    // Check admin credentials
     if (_userCtrl.text.trim() == savedUsername && _passCtrl.text == savedPassword) {
       widget.onLogin();
-    } else {
-      setState(() => _error = 'Invalid username or password');
+      return;
     }
+    // Check staff accounts
+    final staffJson = await appState.getSetting('staff_list');
+    if (staffJson != null && staffJson.isNotEmpty) {
+      final staffList = (jsonDecode(staffJson) as List).cast<Map<String, dynamic>>();
+      for (final staff in staffList) {
+        if (_userCtrl.text.trim() == staff['username'] && _passCtrl.text == staff['password']) {
+          widget.onLogin();
+          return;
+        }
+      }
+    }
+    setState(() => _error = 'Invalid username or password');
   }
 
   @override

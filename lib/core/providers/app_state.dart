@@ -8,6 +8,8 @@ import '../models/quotation.dart';
 import '../models/expense.dart';
 import '../models/credit_note.dart';
 import '../models/purchase_return.dart';
+import '../models/supplier.dart';
+import '../models/recurring_bill.dart';
 import 'dart:convert';
 
 class AppState extends ChangeNotifier {
@@ -22,6 +24,8 @@ class AppState extends ChangeNotifier {
   List<Expense> _expenses = [];
   List<CreditNote> _creditNotes = [];
   List<PurchaseReturn> _purchaseReturns = [];
+  List<Supplier> _suppliers = [];
+  List<RecurringBill> _recurringBills = [];
   bool _isLoading = false;
   String? _error;
 
@@ -35,6 +39,8 @@ class AppState extends ChangeNotifier {
   List<Expense> get expenses => _expenses;
   List<CreditNote> get creditNotes => _creditNotes;
   List<PurchaseReturn> get purchaseReturns => _purchaseReturns;
+  List<Supplier> get suppliers => _suppliers;
+  List<RecurringBill> get recurringBills => _recurringBills;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -54,6 +60,8 @@ class AppState extends ChangeNotifier {
         loadExpenses(),
         loadCreditNotes(),
         loadPurchaseReturns(),
+        loadSuppliers(),
+        loadRecurringBills(),
       ]);
       _error = null;
     } catch (e) {
@@ -453,5 +461,118 @@ class AppState extends ChangeNotifier {
     }
     entries.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
     return entries;
+  }
+
+  // ===== SUPPLIERS =====
+
+  Future<void> loadSuppliers() async {
+    final json = await _db.getSetting('suppliers_data');
+    if (json != null && json.isNotEmpty) {
+      final list = jsonDecode(json) as List;
+      _suppliers = list.map((e) => Supplier.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    notifyListeners();
+  }
+
+  Future<void> _saveSuppliers() async {
+    final json = jsonEncode(_suppliers.map((e) => e.toMap()).toList());
+    await _db.setSetting('suppliers_data', json);
+  }
+
+  Future<void> addSupplier(Supplier s) async {
+    _suppliers.add(s);
+    await _saveSuppliers();
+    notifyListeners();
+  }
+
+  Future<void> updateSupplier(Supplier s) async {
+    final idx = _suppliers.indexWhere((e) => e.id == s.id);
+    if (idx >= 0) _suppliers[idx] = s;
+    await _saveSuppliers();
+    notifyListeners();
+  }
+
+  Future<void> deleteSupplier(String id) async {
+    _suppliers.removeWhere((e) => e.id == id);
+    await _saveSuppliers();
+    notifyListeners();
+  }
+
+  // ===== RECURRING BILLS =====
+
+  Future<void> loadRecurringBills() async {
+    final json = await _db.getSetting('recurring_bills_data');
+    if (json != null && json.isNotEmpty) {
+      final list = jsonDecode(json) as List;
+      _recurringBills = list.map((e) => RecurringBill.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    notifyListeners();
+  }
+
+  Future<void> _saveRecurringBills() async {
+    final json = jsonEncode(_recurringBills.map((e) => e.toMap()).toList());
+    await _db.setSetting('recurring_bills_data', json);
+  }
+
+  Future<void> addRecurringBill(RecurringBill rb) async {
+    _recurringBills.add(rb);
+    await _saveRecurringBills();
+    notifyListeners();
+  }
+
+  Future<void> toggleRecurringBill(String id) async {
+    final idx = _recurringBills.indexWhere((e) => e.id == id);
+    if (idx >= 0) {
+      _recurringBills[idx] = _recurringBills[idx].copyWith(isActive: !_recurringBills[idx].isActive);
+      await _saveRecurringBills();
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteRecurringBill(String id) async {
+    _recurringBills.removeWhere((e) => e.id == id);
+    await _saveRecurringBills();
+    notifyListeners();
+  }
+
+  /// Generate bills for all due recurring bills
+  Future<int> processRecurringBills() async {
+    int generated = 0;
+    final now = DateTime.now();
+    for (int i = 0; i < _recurringBills.length; i++) {
+      final rb = _recurringBills[i];
+      if (!rb.isActive) continue;
+      if (rb.endDate != null && now.isAfter(rb.endDate!)) continue;
+      if (now.isBefore(rb.nextDueDate)) continue;
+
+      // Generate bill
+      final billNum = await getNextBillNumber();
+      final bill = Bill(
+        billNumber: billNum,
+        customerId: rb.customerId,
+        customerName: rb.customerName,
+        items: rb.items,
+        subtotal: rb.items.fold(0.0, (s, i) => s + i.subtotal),
+        totalTax: rb.items.fold(0.0, (s, i) => s + i.taxAmount),
+        totalAmount: rb.totalAmount,
+        discount: 0,
+        paymentMethod: rb.paymentMethod,
+        status: BillStatus.unpaid,
+      );
+      await createBill(bill);
+      generated++;
+
+      // Advance next due date
+      DateTime next = rb.nextDueDate;
+      switch (rb.frequency) {
+        case RecurringFrequency.weekly: next = next.add(const Duration(days: 7));
+        case RecurringFrequency.monthly: next = DateTime(next.year, next.month + 1, next.day);
+        case RecurringFrequency.quarterly: next = DateTime(next.year, next.month + 3, next.day);
+        case RecurringFrequency.yearly: next = DateTime(next.year + 1, next.month, next.day);
+      }
+      _recurringBills[i] = rb.copyWith(nextDueDate: next);
+    }
+    if (generated > 0) await _saveRecurringBills();
+    return generated;
   }
 }

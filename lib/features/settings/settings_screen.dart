@@ -6,6 +6,8 @@ import '../../core/models/customer.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/web_helper.dart' as web_helper;
+import '../../core/database/full_backup_exporter.dart';
+import 'package:printing/printing.dart';
 
 import '../../widgets/common_widgets.dart';
 
@@ -68,6 +70,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Settings', style: Theme.of(context).textTheme.headlineLarge),
           const SizedBox(height: 24),
+
+          // Data Export Section
+          GlassCard(padding: const EdgeInsets.all(20), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.backup, size: 22, color: AppColors.success)),
+                const SizedBox(width: 12),
+                Text('Data Backup', style: Theme.of(context).textTheme.titleLarge),
+              ]),
+              const SizedBox(height: 16),
+              Row(children: [
+                Expanded(child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: () async {
+                    final appState = context.read<AppState>();
+                    try {
+                      final bytes = await FullBackupExporter.exportAll(
+                        items: appState.items, customers: appState.customers,
+                        bills: appState.bills, purchases: appState.purchases,
+                        expenses: appState.expenses, suppliers: appState.suppliers);
+                      await Printing.sharePdf(bytes: bytes, filename: 'MyBillu_Backup_${DateTime.now().millisecondsSinceEpoch}.xlsx');
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('✅ Backup exported!'), backgroundColor: AppColors.success));
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Export failed: $e'), backgroundColor: AppColors.error));
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.download, size: 18), label: const Text('Export Full Backup (Excel)'))),
+              ]),
+            ])),
+          const SizedBox(height: 20),
+
+          // Staff Management
+          GlassCard(padding: const EdgeInsets.all(20), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.people, size: 22, color: AppColors.accent)),
+                const SizedBox(width: 12),
+                Text('Staff / Multi-User', style: Theme.of(context).textTheme.titleLarge),
+                const Spacer(),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+                  onPressed: () => _showStaffDialog(context),
+                  icon: const Icon(Icons.person_add, size: 16), label: const Text('Add Staff', style: TextStyle(fontSize: 12))),
+              ]),
+              const SizedBox(height: 12),
+              FutureBuilder<String?>(
+                future: context.read<AppState>().getSetting('staff_list'),
+                builder: (ctx, snap) {
+                  if (!snap.hasData || snap.data == null || snap.data!.isEmpty) {
+                    return Text('No staff accounts. Admin login: admin / 12345',
+                      style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4)));
+                  }
+                  final staffList = (jsonDecode(snap.data!) as List).cast<Map<String, dynamic>>();
+                  return Column(children: staffList.map((s) => ListTile(
+                    dense: true,
+                    leading: CircleAvatar(radius: 16, backgroundColor: AppColors.accent.withValues(alpha: 0.2),
+                      child: Text((s['name'] as String)[0].toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent))),
+                    title: Text(s['name'] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    subtitle: Text('Role: ${s['role']} • User: ${s['username']}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+                    trailing: IconButton(icon: const Icon(Icons.delete, size: 16, color: AppColors.error),
+                      onPressed: () async {
+                        staffList.removeWhere((x) => x['username'] == s['username']);
+                        await context.read<AppState>().saveSetting('staff_list', jsonEncode(staffList));
+                        setState(() {});
+                      }),
+                  )).toList());
+                }),
+            ])),
+          const SizedBox(height: 20),
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
@@ -492,5 +573,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(content: Text('Restore error: $e'), backgroundColor: AppColors.error));
       }
     }
+  }
+
+  void _showStaffDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final userCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    String role = 'staff';
+
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
+      return AlertDialog(
+        title: const Text('Add Staff Account'),
+        content: SizedBox(width: 400, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Full Name *', border: OutlineInputBorder())),
+          const SizedBox(height: 10),
+          TextField(controller: userCtrl, decoration: const InputDecoration(labelText: 'Username *', border: OutlineInputBorder())),
+          const SizedBox(height: 10),
+          TextField(controller: passCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Password *', border: OutlineInputBorder())),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            decoration: const InputDecoration(labelText: 'Role', border: OutlineInputBorder()),
+            value: role,
+            items: const [
+              DropdownMenuItem(value: 'admin', child: Text('Admin (Full Access)')),
+              DropdownMenuItem(value: 'staff', child: Text('Staff (Billing + Stock)')),
+              DropdownMenuItem(value: 'viewer', child: Text('Viewer (Read Only)')),
+            ],
+            onChanged: (v) => setDialogState(() => role = v!)),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () async {
+            if (nameCtrl.text.trim().isEmpty || userCtrl.text.trim().isEmpty || passCtrl.text.trim().isEmpty) return;
+            final appState = context.read<AppState>();
+            final existing = await appState.getSetting('staff_list');
+            final staffList = existing != null && existing.isNotEmpty
+                ? (jsonDecode(existing) as List).cast<Map<String, dynamic>>()
+                : <Map<String, dynamic>>[];
+            staffList.add({'name': nameCtrl.text.trim(), 'username': userCtrl.text.trim(),
+              'password': passCtrl.text.trim(), 'role': role});
+            await appState.saveSetting('staff_list', jsonEncode(staffList));
+            if (ctx.mounted) Navigator.pop(ctx);
+            setState(() {});
+          }, child: const Text('Add')),
+        ],
+      );
+    }));
   }
 }

@@ -19,6 +19,8 @@ import 'features/expenses/expense_screen.dart';
 import 'features/credit_notes/credit_note_screen.dart';
 import 'features/purchase_returns/purchase_return_screen.dart';
 import 'features/customer_ledger/customer_ledger_screen.dart';
+import 'features/suppliers/supplier_screen.dart';
+import 'features/recurring/recurring_bill_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -104,18 +106,18 @@ class _MainShellState extends State<MainShell> {
     CreditNoteScreen(),         // 10
     PurchaseReturnScreen(),     // 11
     CustomerLedgerScreen(),     // 12
-    SettingsScreen(),           // 13
+    SupplierScreen(),           // 13
+    RecurringBillScreen(),      // 14
+    SettingsScreen(),           // 15
   ];
 
-  // Bottom bar maps to indices: 0=Dashboard, 1=New Bill, 2=Purchase, 3=Payments
   static const _bottomBarMapping = [0, 1, 2, 3];
 
   int get _bottomBarIndex {
     final idx = _bottomBarMapping.indexOf(_currentIndex);
-    return idx >= 0 ? idx : -1; // -1 means not a bottom-bar screen
+    return idx >= 0 ? idx : -1;
   }
 
-  // Drawer menu items
   static const _drawerItems = [
     _DrawerItem(icon: Icons.dashboard, label: 'Dashboard', index: 0),
     _DrawerItem(icon: Icons.add_circle, label: 'New Bill / Sales', index: 1),
@@ -124,13 +126,15 @@ class _MainShellState extends State<MainShell> {
     _DrawerItem(icon: Icons.inventory_2, label: 'Items', index: 4),
     _DrawerItem(icon: Icons.warehouse, label: 'Stock', index: 5),
     _DrawerItem(icon: Icons.people, label: 'Customers', index: 6),
+    _DrawerItem(icon: Icons.local_shipping, label: 'Suppliers', index: 13),
     _DrawerItem(icon: Icons.description, label: 'Quotations', index: 7),
     _DrawerItem(icon: Icons.money_off, label: 'Expenses', index: 8),
+    _DrawerItem(icon: Icons.repeat, label: 'Recurring Bills', index: 14),
     _DrawerItem(icon: Icons.assignment_return, label: 'Credit Notes', index: 10),
     _DrawerItem(icon: Icons.keyboard_return, label: 'Purchase Returns', index: 11),
     _DrawerItem(icon: Icons.account_balance_wallet, label: 'Customer Ledger', index: 12),
     _DrawerItem(icon: Icons.bar_chart, label: 'Reports', index: 9),
-    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 13),
+    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 15),
   ];
 
   void _goTo(int index) {
@@ -196,6 +200,13 @@ class _MainShellState extends State<MainShell> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           actions: [
+            IconButton(
+              icon: const Icon(Icons.search, size: 22),
+              tooltip: 'Global Search',
+              onPressed: () {
+                final appState = context.read<AppState>();
+                showSearch(context: context, delegate: _GlobalSearchDelegate(appState, _goTo));
+              }),
             IconButton(
               icon: Icon(
                 MyBilluApp.themeNotifier.value == ThemeMode.dark
@@ -324,4 +335,94 @@ class _DrawerItem {
   final String label;
   final int index;
   const _DrawerItem({required this.icon, required this.label, required this.index});
+}
+
+// ===== GLOBAL SEARCH =====
+class _GlobalSearchDelegate extends SearchDelegate<String> {
+  final AppState appState;
+  final void Function(int) goTo;
+
+  _GlobalSearchDelegate(this.appState, this.goTo);
+
+  @override
+  String get searchFieldLabel => 'Search items, customers, bills...';
+
+  @override
+  List<Widget> buildActions(BuildContext context) => [
+    IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
+  ];
+
+  @override
+  Widget buildLeading(BuildContext context) =>
+    IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => close(context, ''));
+
+  @override
+  Widget buildResults(BuildContext context) => _buildSuggestionList(context);
+
+  @override
+  Widget buildSuggestions(BuildContext context) => _buildSuggestionList(context);
+
+  Widget _buildSuggestionList(BuildContext context) {
+    if (query.isEmpty) {
+      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.search, size: 64, color: Colors.grey.withValues(alpha: 0.3)),
+        const SizedBox(height: 12),
+        Text('Type to search across items, customers, suppliers & bills',
+          style: TextStyle(color: Colors.grey.withValues(alpha: 0.5))),
+      ]));
+    }
+
+    final q = query.toLowerCase();
+    final results = <_SearchResult>[];
+
+    // Items
+    for (final item in appState.items) {
+      if (item.name.toLowerCase().contains(q) || (item.hsnCode ?? '').toLowerCase().contains(q)) {
+        results.add(_SearchResult(Icons.inventory_2, item.name, 'Item • ₹${item.price.toStringAsFixed(2)} • Stock: ${item.stockQuantity}', 4));
+      }
+    }
+    // Customers
+    for (final c in appState.customers) {
+      if (c.name.toLowerCase().contains(q) || (c.phone ?? '').contains(q)) {
+        results.add(_SearchResult(Icons.person, c.name, 'Customer • ${c.phone ?? "No phone"}', 6));
+      }
+    }
+    // Suppliers
+    for (final s in appState.suppliers) {
+      if (s.name.toLowerCase().contains(q) || (s.phone ?? '').contains(q)) {
+        results.add(_SearchResult(Icons.local_shipping, s.name, 'Supplier • ${s.phone ?? "No phone"}', 13));
+      }
+    }
+    // Bills
+    for (final b in appState.bills) {
+      if (b.billNumber.toLowerCase().contains(q) || (b.customerName ?? '').toLowerCase().contains(q)) {
+        results.add(_SearchResult(Icons.receipt, b.billNumber, 'Bill • ${b.customerName ?? "Walk-in"} • ₹${b.totalAmount.toStringAsFixed(2)}', 3));
+      }
+    }
+
+    if (results.isEmpty) {
+      return Center(child: Text('No results for "$query"', style: TextStyle(color: Colors.grey.withValues(alpha: 0.5))));
+    }
+
+    return ListView.builder(
+      itemCount: results.length,
+      itemBuilder: (ctx, i) {
+        final r = results[i];
+        return ListTile(
+          leading: Icon(r.icon, color: AppColors.primary),
+          title: Text(r.title),
+          subtitle: Text(r.subtitle, style: const TextStyle(fontSize: 12)),
+          onTap: () { close(context, ''); goTo(r.screenIndex); },
+        );
+      },
+    );
+  }
+}
+
+class _SearchResult {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final int screenIndex;
+  _SearchResult(this.icon, this.title, this.subtitle, this.screenIndex);
 }
