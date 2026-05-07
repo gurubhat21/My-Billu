@@ -7,6 +7,7 @@ import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/web_helper.dart' as web_helper;
 import '../../core/database/full_backup_exporter.dart';
+import '../../core/utils/app_strings.dart';
 import 'package:printing/printing.dart';
 
 import '../../widgets/common_widgets.dart';
@@ -106,6 +107,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                   icon: const Icon(Icons.download, size: 18), label: const Text('Export Full Backup (Excel)'))),
               ]),
+            ])),
+          const SizedBox(height: 20),
+
+          // Language Selection
+          GlassCard(padding: const EdgeInsets.all(20), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.language, size: 22, color: AppColors.warning)),
+                const SizedBox(width: 12),
+                Text('Language / ಭಾಷೆ', style: Theme.of(context).textTheme.titleLarge),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                _langChip(context, 'English', 'en'),
+                const SizedBox(width: 12),
+                _langChip(context, 'ಕನ್ನಡ', 'kn'),
+              ]),
+            ])),
+          const SizedBox(height: 20),
+
+          // Barcode / HSN Lookup
+          GlassCard(padding: const EdgeInsets.all(20), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.qr_code_scanner, size: 22, color: Color(0xFF8B5CF6))),
+                const SizedBox(width: 12),
+                Text('Barcode / HSN Lookup', style: Theme.of(context).textTheme.titleLarge),
+              ]),
+              const SizedBox(height: 12),
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Enter barcode or HSN code...',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  suffixIcon: const Icon(Icons.qr_code_scanner)),
+                onSubmitted: (val) {
+                  if (val.trim().isEmpty) return;
+                  final appState = context.read<AppState>();
+                  final matches = appState.items.where((i) =>
+                    (i.hsnCode ?? '').toLowerCase() == val.trim().toLowerCase() ||
+                    i.name.toLowerCase().contains(val.trim().toLowerCase())).toList();
+                  showDialog(context: context, builder: (ctx) => AlertDialog(
+                    title: Text('Results for "$val"'),
+                    content: SizedBox(width: 400, child: matches.isEmpty
+                      ? const Text('No items found with this code')
+                      : Column(mainAxisSize: MainAxisSize.min, children: matches.take(10).map((item) =>
+                        ListTile(dense: true,
+                          leading: const Icon(Icons.inventory_2, color: AppColors.primary),
+                          title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text('HSN: ${item.hsnCode ?? "N/A"} • ₹${item.price.toStringAsFixed(2)} • Stock: ${item.stockQuantity}'),
+                        )).toList())),
+                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+                  ));
+                }),
+              const SizedBox(height: 8),
+              Text('Type HSN code or item name and press Enter to look up', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
             ])),
           const SizedBox(height: 20),
 
@@ -573,6 +634,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(content: Text('Restore error: $e'), backgroundColor: AppColors.error));
       }
     }
+  }
+
+  Widget _langChip(BuildContext context, String label, String code) {
+    final isSelected = AppStrings.currentLanguage == code;
+    return GestureDetector(
+      onTap: () async {
+        AppStrings.setLanguage(code);
+        await context.read<AppState>().saveSetting('app_language', code);
+        setState(() {});
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          border: Border.all(color: isSelected ? AppColors.primary : Colors.white.withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(10)),
+        child: Text(label, style: TextStyle(
+          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.6))),
+      ),
+    );
   }
 
   void _showStaffDialog(BuildContext context) {
