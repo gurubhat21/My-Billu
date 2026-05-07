@@ -6,6 +6,7 @@ import '../../core/models/expense.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/report_pdf_exporter.dart';
 import '../../widgets/common_widgets.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -74,6 +75,11 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
   }
 }
 
+Future<String> _getBusinessName(AppState appState) async {
+  final name = await appState.getSetting('businessName');
+  return name ?? 'My Billu';
+}
+
 // ═══════════════════════════════════════════════
 //  SALES REPORT TAB
 // ═══════════════════════════════════════════════
@@ -140,8 +146,27 @@ class _SalesReportTabState extends State<_SalesReportTab> {
                   selectedColor: AppColors.primary,
                   onSelected: (_) => setState(() => _period = p),
                 )).toList()),
-            const SizedBox(height: 20),
-
+            const SizedBox(height: 12),
+            Row(children: [
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final name = await _getBusinessName(appState);
+                  final bytes = await ReportPdfExporter.generateSalesReport(bills: bills, period: _period, businessName: name);
+                  await ReportPdfExporter.printReport(bytes);
+                },
+                icon: const Icon(Icons.picture_as_pdf, size: 16),
+                label: const Text('Export PDF', style: TextStyle(fontSize: 12))),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final name = await _getBusinessName(appState);
+                  final bytes = await ReportPdfExporter.generateSalesReport(bills: bills, period: _period, businessName: name);
+                  await ReportPdfExporter.shareReport(bytes, 'Sales_Report_$_period.pdf');
+                },
+                icon: const Icon(Icons.share, size: 16),
+                label: const Text('Share', style: TextStyle(fontSize: 12))),
+            ]),
+            const SizedBox(height: 16),
             // Summary cards
             _buildSummaryCards(isWide, totalSales, bills.length, totalTax, totalDiscount, totalPaid, totalDue, avgBill),
             const SizedBox(height: 20),
@@ -374,8 +399,27 @@ class _GSTReportTabState extends State<_GSTReportTab> {
                   selectedColor: AppColors.primary,
                   onSelected: (_) => setState(() => _period = p),
                 )).toList()),
-            const SizedBox(height: 20),
-
+            const SizedBox(height: 12),
+            Row(children: [
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final name = await _getBusinessName(appState);
+                  final bytes = await ReportPdfExporter.generateGSTReport(bills: bills, period: _period, businessName: name);
+                  await ReportPdfExporter.printReport(bytes);
+                },
+                icon: const Icon(Icons.picture_as_pdf, size: 16),
+                label: const Text('Export PDF', style: TextStyle(fontSize: 12))),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final name = await _getBusinessName(appState);
+                  final bytes = await ReportPdfExporter.generateGSTReport(bills: bills, period: _period, businessName: name);
+                  await ReportPdfExporter.shareReport(bytes, 'GST_Report_$_period.pdf');
+                },
+                icon: const Icon(Icons.share, size: 16),
+                label: const Text('Share', style: TextStyle(fontSize: 12))),
+            ]),
+            const SizedBox(height: 16),
             // GST Summary cards
             _buildGSTSummary(isWide, totalTaxable, totalCGST, totalSGST, totalGST, totalInvoice, bills.length),
             const SizedBox(height: 20),
@@ -605,8 +649,31 @@ class _PnLReportTabState extends State<_PnLReportTab> {
                   selectedColor: AppColors.primary,
                   onSelected: (_) => setState(() => _period = p),
                 )).toList()),
-            const SizedBox(height: 20),
-
+            const SizedBox(height: 12),
+            Row(children: [
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final name = await _getBusinessName(appState);
+                  final bytes = await ReportPdfExporter.generatePnLReport(
+                    bills: bills, purchases: purchases, expenses: filteredExpenses,
+                    period: _period, businessName: name);
+                  await ReportPdfExporter.printReport(bytes);
+                },
+                icon: const Icon(Icons.picture_as_pdf, size: 16),
+                label: const Text('Export PDF', style: TextStyle(fontSize: 12))),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final name = await _getBusinessName(appState);
+                  final bytes = await ReportPdfExporter.generatePnLReport(
+                    bills: bills, purchases: purchases, expenses: filteredExpenses,
+                    period: _period, businessName: name);
+                  await ReportPdfExporter.shareReport(bytes, 'PnL_Report_$_period.pdf');
+                },
+                icon: const Icon(Icons.share, size: 16),
+                label: const Text('Share', style: TextStyle(fontSize: 12))),
+            ]),
+            const SizedBox(height: 16),
             // Profit highlight
             Container(
               padding: const EdgeInsets.all(20),

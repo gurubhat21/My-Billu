@@ -148,7 +148,30 @@ class _HistoryScreenState extends State<HistoryScreen> {
             );
           },
           icon: const Icon(Icons.print, size: 18),
-          label: const Text('Print Invoice'),
+          label: const Text('Print'),
+        ),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+          onPressed: () async {
+            Navigator.pop(ctx);
+            final appState = context.read<AppState>();
+            final settings = await appState.getAllSettings();
+            try {
+              await InvoiceGenerator.shareInvoice(bill,
+                businessName: settings['businessName'] ?? 'My Billu',
+                businessAddress: settings['businessAddress'] ?? '',
+                businessPhone: settings['businessPhone'] ?? '',
+                businessGstin: settings['businessGstin'] ?? '',
+              );
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Share error: $e'), backgroundColor: AppColors.error));
+              }
+            }
+          },
+          icon: const Icon(Icons.share, size: 18),
+          label: const Text('Share'),
         ),
         ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
       ],
