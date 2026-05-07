@@ -257,6 +257,11 @@ class AppState extends ChangeNotifier {
     return await _db.getBillsByDate(date);
   }
 
+  Future<void> updateBillRecord(Bill bill) async {
+    await _db.updateBill(bill);
+    await Future.wait([loadBills(), loadDashboardStats()]);
+  }
+
   // ===== DASHBOARD =====
 
   Future<void> loadDashboardStats() async {

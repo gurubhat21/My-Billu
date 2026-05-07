@@ -125,6 +125,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Navigator.pop(ctx);
           _confirmDelete(context, bill);
         }, child: const Text('Delete', style: TextStyle(color: AppColors.error))),
+        TextButton(onPressed: () {
+          Navigator.pop(ctx);
+          _showEditBill(context, bill);
+        }, child: const Text('Edit')),
         if (bill.status != BillStatus.paid)
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
@@ -275,6 +279,81 @@ class _HistoryScreenState extends State<HistoryScreen> {
           },
           icon: const Icon(Icons.check, size: 18),
           label: const Text('Collect'),
+        ),
+      ],
+    ));
+  }
+
+  void _showEditBill(BuildContext context, Bill bill) {
+    final customerCtrl = TextEditingController(text: bill.customerName ?? '');
+    final notesCtrl = TextEditingController(text: bill.notes ?? '');
+    final discountCtrl = TextEditingController(text: bill.discount.toStringAsFixed(2));
+    final paidCtrl = TextEditingController(text: bill.paidAmount.toStringAsFixed(2));
+    String status = bill.status.name;
+
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.edit, color: AppColors.primary), SizedBox(width: 10), Text('Edit Bill')]),
+      content: SingleChildScrollView(child: SizedBox(width: 400, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        _detailRow('Bill No', bill.billNumber),
+        const SizedBox(height: 12),
+        TextField(controller: customerCtrl,
+          decoration: const InputDecoration(labelText: 'Customer Name', prefixIcon: Icon(Icons.person_outline))),
+        const SizedBox(height: 12),
+        TextField(controller: discountCtrl, keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Discount (₹)', prefixIcon: Icon(Icons.discount))),
+        const SizedBox(height: 12),
+        TextField(controller: paidCtrl, keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Paid Amount (₹)', prefixIcon: Icon(Icons.currency_rupee))),
+        const SizedBox(height: 12),
+        StatefulBuilder(builder: (ctx2, setDropState) => DropdownButtonFormField<String>(
+          value: status,
+          decoration: const InputDecoration(labelText: 'Status', prefixIcon: Icon(Icons.flag)),
+          items: BillStatus.values.map((s) => DropdownMenuItem(value: s.name,
+            child: Text(s.name[0].toUpperCase() + s.name.substring(1)))).toList(),
+          onChanged: (v) => setDropState(() => status = v ?? status),
+        )),
+        const SizedBox(height: 12),
+        TextField(controller: notesCtrl, maxLines: 2,
+          decoration: const InputDecoration(labelText: 'Notes', prefixIcon: Icon(Icons.notes))),
+      ]))),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ElevatedButton.icon(
+          onPressed: () async {
+            final discount = double.tryParse(discountCtrl.text) ?? bill.discount;
+            final paid = double.tryParse(paidCtrl.text) ?? bill.paidAmount;
+            final updatedBill = Bill(
+              id: bill.id,
+              billNumber: bill.billNumber,
+              customerId: bill.customerId,
+              customerName: customerCtrl.text.trim().isEmpty ? null : customerCtrl.text.trim(),
+              items: bill.items,
+              subtotal: bill.subtotal,
+              discount: discount,
+              totalTax: bill.totalTax,
+              totalAmount: bill.subtotal - discount + bill.totalTax,
+              paidAmount: paid,
+              paymentMethod: bill.paymentMethod,
+              status: BillStatus.values.firstWhere((e) => e.name == status, orElse: () => bill.status),
+              notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+              createdAt: bill.createdAt,
+            );
+            Navigator.pop(ctx);
+            await context.read<AppState>().updateBillRecord(updatedBill);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Row(children: [
+                  const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
+                  Text('Bill ${bill.billNumber} updated'),
+                ]),
+                backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ));
+            }
+          },
+          icon: const Icon(Icons.save, size: 18),
+          label: const Text('Save Changes'),
         ),
       ],
     ));
