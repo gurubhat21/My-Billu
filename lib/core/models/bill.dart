@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:uuid/uuid.dart';
 
 class BillItem {
@@ -109,18 +110,25 @@ class Bill {
   }
 
   factory Bill.fromMap(Map<String, dynamic> map) {
+    // Handle items being either a List or a JSON string
+    var rawItems = map['items'];
+    if (rawItems is String) {
+      rawItems = jsonDecode(rawItems);
+    }
+    final itemsList = (rawItems as List?)
+        ?.map((e) => BillItem.fromMap(Map<String, dynamic>.from(e)))
+        .toList() ?? [];
+
     return Bill(
       id: map['id'] as String,
-      billNumber: map['billNumber'] as String,
+      billNumber: map['billNumber'] as String? ?? 'BILL-0',
       customerId: map['customerId'] as String?,
       customerName: map['customerName'] as String?,
-      items: (map['items'] as List)
-          .map((e) => BillItem.fromMap(e as Map<String, dynamic>))
-          .toList(),
-      subtotal: (map['subtotal'] as num).toDouble(),
+      items: itemsList,
+      subtotal: (map['subtotal'] as num?)?.toDouble() ?? 0.0,
       discount: (map['discount'] as num?)?.toDouble() ?? 0.0,
-      totalTax: (map['totalTax'] as num).toDouble(),
-      totalAmount: (map['totalAmount'] as num).toDouble(),
+      totalTax: (map['totalTax'] as num?)?.toDouble() ?? 0.0,
+      totalAmount: (map['totalAmount'] as num?)?.toDouble() ?? 0.0,
       paidAmount: (map['paidAmount'] as num?)?.toDouble() ?? 0.0,
       paymentMethod: PaymentMethod.values.firstWhere(
         (e) => e.name == map['paymentMethod'],
@@ -131,7 +139,7 @@ class Bill {
         orElse: () => BillStatus.paid,
       ),
       notes: map['notes'] as String?,
-      createdAt: DateTime.parse(map['createdAt'] as String),
+      createdAt: map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null,
     );
   }
 }

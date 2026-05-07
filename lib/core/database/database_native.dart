@@ -9,7 +9,10 @@ import '../models/purchase.dart';
 Future<Database> initDatabase(String fileName) async {
   final dbPath = await getDatabasesPath();
   final path = p.join(dbPath, fileName);
-  return await openDatabase(path, version: 1, onCreate: _createDB);
+  return await openDatabase(path, version: 2,
+    onCreate: _createDB,
+    onUpgrade: _upgradeDB,
+  );
 }
 
 Future<void> _createDB(Database db, int version) async {
@@ -32,6 +35,7 @@ Future<void> _createDB(Database db, int version) async {
     CREATE TABLE bills (
       id TEXT PRIMARY KEY, billNumber TEXT NOT NULL UNIQUE, customerId TEXT,
       customerName TEXT, items TEXT NOT NULL, subtotal REAL NOT NULL,
+      discount REAL DEFAULT 0.0,
       totalTax REAL NOT NULL, totalAmount REAL NOT NULL,
       paidAmount REAL DEFAULT 0.0, paymentMethod TEXT DEFAULT 'cash',
       status TEXT DEFAULT 'paid', notes TEXT, createdAt TEXT NOT NULL
@@ -49,6 +53,17 @@ Future<void> _createDB(Database db, int version) async {
       status TEXT DEFAULT 'received', notes TEXT, createdAt TEXT NOT NULL
     )
   ''');
+}
+
+Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+  if (oldVersion < 2) {
+    // Add discount column to bills if it doesn't exist
+    try {
+      await db.execute('ALTER TABLE bills ADD COLUMN discount REAL DEFAULT 0.0');
+    } catch (_) {
+      // Column may already exist
+    }
+  }
 }
 
 // ===== ITEMS =====
