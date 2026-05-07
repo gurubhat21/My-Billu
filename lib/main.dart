@@ -15,6 +15,7 @@ import 'features/history/history_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/reports/reports_screen.dart';
 import 'features/quotation/quotation_screen.dart';
+import 'features/expenses/expense_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -95,8 +96,9 @@ class _MainShellState extends State<MainShell> {
     StockScreen(),        // 5
     CustomersScreen(),    // 6
     QuotationScreen(),    // 7
-    ReportsScreen(),      // 8
-    SettingsScreen(),     // 9
+    ExpenseScreen(),      // 8
+    ReportsScreen(),      // 9
+    SettingsScreen(),     // 10
   ];
 
   // Bottom bar maps to indices: 0=Dashboard, 1=New Bill, 2=Purchase, 3=Payments
@@ -117,8 +119,9 @@ class _MainShellState extends State<MainShell> {
     _DrawerItem(icon: Icons.warehouse, label: 'Stock', index: 5),
     _DrawerItem(icon: Icons.people, label: 'Customers', index: 6),
     _DrawerItem(icon: Icons.description, label: 'Quotations', index: 7),
-    _DrawerItem(icon: Icons.bar_chart, label: 'Reports', index: 8),
-    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 9),
+    _DrawerItem(icon: Icons.money_off, label: 'Expenses', index: 8),
+    _DrawerItem(icon: Icons.bar_chart, label: 'Reports', index: 9),
+    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 10),
   ];
 
   void _goTo(int index) {

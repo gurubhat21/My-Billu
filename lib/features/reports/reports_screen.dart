@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/bill.dart';
 import '../../core/models/purchase.dart';
+import '../../core/models/expense.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -551,6 +552,7 @@ class _PnLReportTabState extends State<_PnLReportTab> {
     return Consumer<AppState>(builder: (context, appState, _) {
       final bills = _filterByPeriod(appState.bills, (b) => b.createdAt);
       final purchases = _filterByPeriod(appState.purchases, (p) => p.createdAt);
+      final filteredExpenses = _filterByPeriod(appState.expenses, (e) => e.date);
 
       // Revenue
       final totalSales = bills.fold<double>(0, (s, b) => s + b.totalAmount);
@@ -563,9 +565,16 @@ class _PnLReportTabState extends State<_PnLReportTab> {
       final purchaseSubtotal = purchases.fold<double>(0, (s, p) => s + p.subtotal);
       final purchaseTax = purchases.fold<double>(0, (s, p) => s + p.totalTax);
 
+      // Operating Expenses
+      final totalExpenses = filteredExpenses.fold<double>(0, (s, e) => s + e.amount);
+      final expByCat = <ExpenseCategory, double>{};
+      for (final e in filteredExpenses) {
+        expByCat[e.category] = (expByCat[e.category] ?? 0) + e.amount;
+      }
+
       // Profit
       final grossProfit = salesSubtotal - purchaseSubtotal;
-      final netProfit = totalSales - totalPurchases;
+      final netProfit = totalSales - totalPurchases - totalExpenses;
       final netTaxLiability = salesTax - purchaseTax;
       final marginPct = salesSubtotal > 0 ? (grossProfit / salesSubtotal * 100) : 0.0;
 
@@ -626,6 +635,8 @@ class _PnLReportTabState extends State<_PnLReportTab> {
                   _miniStat('Sales', AppFormatters.compactCurrency(totalSales)),
                   const SizedBox(height: 8),
                   _miniStat('Purchases', AppFormatters.compactCurrency(totalPurchases)),
+                  const SizedBox(height: 8),
+                  _miniStat('Expenses', AppFormatters.compactCurrency(totalExpenses)),
                 ]),
               ])),
             const SizedBox(height: 20),
@@ -654,9 +665,18 @@ class _PnLReportTabState extends State<_PnLReportTab> {
                 _pnlRow('GST on Purchase', purchaseTax, indent: true),
                 _pnlRow('Total Purchases', totalPurchases, indent: false, bold: true, color: AppColors.error),
                 const Divider(height: 24),
+                _sectionHeader('OPERATING EXPENSES'),
+                ...expByCat.entries.map((e) =>
+                  _pnlRow('${e.key.icon} ${e.key.label}', e.value, indent: true)),
+                if (totalExpenses > 0)
+                  _pnlRow('Total Expenses', totalExpenses, indent: false, bold: true, color: AppColors.warning),
+                if (totalExpenses == 0)
+                  _pnlRow('Total Expenses', 0, indent: false, bold: true),
+                const Divider(height: 24),
                 _sectionHeader('PROFIT'),
                 _pnlRow('Gross Profit', grossProfit, indent: false, bold: true,
                   color: grossProfit >= 0 ? AppColors.success : AppColors.error),
+                _pnlRow('Less: Operating Expenses', totalExpenses, indent: true, isNeg: true),
                 _pnlRow('Net Tax Liability', netTaxLiability, indent: true),
                 const Divider(height: 24),
                 Container(
@@ -707,6 +727,7 @@ class _PnLReportTabState extends State<_PnLReportTab> {
                 _metricRow('Avg Bill Value', bills.isNotEmpty ? AppFormatters.currency(totalSales / bills.length) : '₹0'),
                 _metricRow('Avg Purchase Value', purchases.isNotEmpty ? AppFormatters.currency(totalPurchases / purchases.length) : '₹0'),
                 _metricRow('Gross Margin', '${marginPct.toStringAsFixed(1)}%'),
+                _metricRow('Operating Expenses', AppFormatters.currency(totalExpenses)),
                 _metricRow('Tax Liability', AppFormatters.currency(netTaxLiability)),
               ])),
           ]),

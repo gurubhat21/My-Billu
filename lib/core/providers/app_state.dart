@@ -5,6 +5,7 @@ import '../models/customer.dart';
 import '../models/bill.dart';
 import '../models/purchase.dart';
 import '../models/quotation.dart';
+import '../models/expense.dart';
 import 'dart:convert';
 
 class AppState extends ChangeNotifier {
@@ -16,6 +17,7 @@ class AppState extends ChangeNotifier {
   List<Purchase> _purchases = [];
   Map<String, dynamic> _dashboardStats = {};
   List<Quotation> _quotations = [];
+  List<Expense> _expenses = [];
   bool _isLoading = false;
   String? _error;
 
@@ -26,6 +28,7 @@ class AppState extends ChangeNotifier {
   List<Purchase> get purchases => _purchases;
   Map<String, dynamic> get dashboardStats => _dashboardStats;
   List<Quotation> get quotations => _quotations;
+  List<Expense> get expenses => _expenses;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -42,6 +45,7 @@ class AppState extends ChangeNotifier {
         loadPurchases(),
         loadDashboardStats(),
         loadQuotations(),
+        loadExpenses(),
       ]);
       _error = null;
     } catch (e) {
@@ -298,4 +302,42 @@ class AppState extends ChangeNotifier {
     final count = _quotations.length + 1;
     return 'QT-${count.toString().padLeft(4, '0')}';
   }
+
+  // ===== EXPENSES =====
+
+  Future<void> loadExpenses() async {
+    final json = await _db.getSetting('expenses_data');
+    if (json != null && json.isNotEmpty) {
+      final list = jsonDecode(json) as List;
+      _expenses = list.map((e) => Expense.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    _expenses.sort((a, b) => b.date.compareTo(a.date));
+    notifyListeners();
+  }
+
+  Future<void> _saveExpenses() async {
+    final json = jsonEncode(_expenses.map((e) => e.toMap()).toList());
+    await _db.setSetting('expenses_data', json);
+  }
+
+  Future<void> addExpense(Expense e) async {
+    _expenses.insert(0, e);
+    await _saveExpenses();
+    notifyListeners();
+  }
+
+  Future<void> updateExpense(Expense e) async {
+    final idx = _expenses.indexWhere((x) => x.id == e.id);
+    if (idx >= 0) _expenses[idx] = e;
+    await _saveExpenses();
+    notifyListeners();
+  }
+
+  Future<void> deleteExpense(String id) async {
+    _expenses.removeWhere((e) => e.id == id);
+    await _saveExpenses();
+    notifyListeners();
+  }
+
+  double get totalExpenses => _expenses.fold(0, (s, e) => s + e.amount);
 }
