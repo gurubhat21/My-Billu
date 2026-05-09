@@ -22,6 +22,7 @@ import 'features/purchase_returns/purchase_return_screen.dart';
 import 'features/customer_ledger/customer_ledger_screen.dart';
 import 'features/suppliers/supplier_screen.dart';
 import 'features/recurring/recurring_bill_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,7 +64,7 @@ class MyBilluApp extends StatelessWidget {
   }
 }
 
-/// Gate that shows Login first, then MainShell after authentication
+/// Gate that shows Onboarding → Login → MainShell
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
   @override
@@ -72,9 +73,33 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   bool _loggedIn = false;
+  bool? _onboardingDone; // null = loading, true/false = checked
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboarding();
+  }
+
+  Future<void> _checkOnboarding() async {
+    final appState = context.read<AppState>();
+    final result = await appState.getSetting('onboarding_complete');
+    setState(() => _onboardingDone = result == 'true');
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Loading state
+    if (_onboardingDone == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+    // Show onboarding for first-time users
+    if (!_onboardingDone!) {
+      return OnboardingScreen(onComplete: () => setState(() => _onboardingDone = true));
+    }
+    // Show login
     if (!_loggedIn) {
       return LoginScreen(onLogin: () => setState(() => _loggedIn = true));
     }
