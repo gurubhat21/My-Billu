@@ -24,6 +24,7 @@ import 'features/customer_ledger/customer_ledger_screen.dart';
 import 'features/suppliers/supplier_screen.dart';
 import 'features/recurring/recurring_bill_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
+import 'features/audit/audit_trail_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -136,6 +137,7 @@ class _MainShellState extends State<MainShell> {
     SupplierScreen(),           // 13
     RecurringBillScreen(),      // 14
     SettingsScreen(),           // 15
+    AuditTrailScreen(),         // 16
   ];
 
   static const _bottomBarMapping = [0, 1, 2, 3];
@@ -161,6 +163,7 @@ class _MainShellState extends State<MainShell> {
     _DrawerItem(icon: Icons.keyboard_return, label: 'Purchase Returns', index: 11),
     _DrawerItem(icon: Icons.account_balance_wallet, label: 'Customer Ledger', index: 12),
     _DrawerItem(icon: Icons.bar_chart, label: 'Reports', index: 9),
+    _DrawerItem(icon: Icons.history, label: 'Audit Trail', index: 16),
     _DrawerItem(icon: Icons.settings, label: 'Settings', index: 15),
   ];
 

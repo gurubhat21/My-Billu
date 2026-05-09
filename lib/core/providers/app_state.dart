@@ -10,6 +10,7 @@ import '../models/credit_note.dart';
 import '../models/purchase_return.dart';
 import '../models/supplier.dart';
 import '../models/recurring_bill.dart';
+import '../models/audit_entry.dart';
 import 'dart:convert';
 
 class AppState extends ChangeNotifier {
@@ -26,6 +27,7 @@ class AppState extends ChangeNotifier {
   List<PurchaseReturn> _purchaseReturns = [];
   List<Supplier> _suppliers = [];
   List<RecurringBill> _recurringBills = [];
+  List<AuditEntry> _auditLog = [];
   bool _isLoading = false;
   String? _error;
 
@@ -41,6 +43,7 @@ class AppState extends ChangeNotifier {
   List<PurchaseReturn> get purchaseReturns => _purchaseReturns;
   List<Supplier> get suppliers => _suppliers;
   List<RecurringBill> get recurringBills => _recurringBills;
+  List<AuditEntry> get auditLog => _auditLog;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -62,12 +65,49 @@ class AppState extends ChangeNotifier {
         loadPurchaseReturns(),
         loadSuppliers(),
         loadRecurringBills(),
+        _loadAuditLog(),
       ]);
       _error = null;
     } catch (e) {
       _error = e.toString();
     }
     _isLoading = false;
+    notifyListeners();
+  }
+
+  // ===== AUDIT TRAIL =====
+
+  Future<void> _loadAuditLog() async {
+    final json = await _db.getSetting('audit_log');
+    if (json != null && json.isNotEmpty) {
+      try {
+        final list = jsonDecode(json) as List;
+        _auditLog = list.map((e) => AuditEntry.fromMap(e as Map<String, dynamic>)).toList();
+      } catch (_) {
+        _auditLog = [];
+      }
+    }
+  }
+
+  Future<void> _saveAuditLog() async {
+    // Keep last 500 entries
+    if (_auditLog.length > 500) {
+      _auditLog = _auditLog.sublist(0, 500);
+    }
+    final json = jsonEncode(_auditLog.map((e) => e.toMap()).toList());
+    await _db.setSetting('audit_log', json);
+  }
+
+  Future<void> logAudit(AuditAction action, AuditEntity entity, String name, {String? details}) async {
+    _auditLog.insert(0, AuditEntry(
+      action: action, entity: entity, entityName: name, details: details));
+    await _saveAuditLog();
+    notifyListeners();
+  }
+
+  Future<void> clearAuditLog() async {
+    _auditLog.clear();
+    await _saveAuditLog();
     notifyListeners();
   }
 
@@ -80,17 +120,21 @@ class AppState extends ChangeNotifier {
 
   Future<void> addItem(Item item) async {
     await _db.insertItem(item);
+    await logAudit(AuditAction.created, AuditEntity.item, item.name, details: '₹${item.price.toStringAsFixed(2)}, Stock: ${item.stockQuantity}');
     await loadItems();
     await loadDashboardStats();
   }
 
   Future<void> updateItem(Item item) async {
     await _db.updateItem(item);
+    await logAudit(AuditAction.updated, AuditEntity.item, item.name);
     await loadItems();
   }
 
   Future<void> deleteItem(String id) async {
+    final item = _items.firstWhere((i) => i.id == id, orElse: () => Item(name: 'Unknown', price: 0));
     await _db.deleteItem(id);
+    await logAudit(AuditAction.deleted, AuditEntity.item, item.name);
     await loadItems();
     await loadDashboardStats();
   }
@@ -109,17 +153,21 @@ class AppState extends ChangeNotifier {
 
   Future<void> addCustomer(Customer customer) async {
     await _db.insertCustomer(customer);
+    await logAudit(AuditAction.created, AuditEntity.customer, customer.name, details: customer.phone);
     await loadCustomers();
     await loadDashboardStats();
   }
 
   Future<void> updateCustomer(Customer customer) async {
     await _db.updateCustomer(customer);
+    await logAudit(AuditAction.updated, AuditEntity.customer, customer.name);
     await loadCustomers();
   }
 
   Future<void> deleteCustomer(String id) async {
+    final cust = _customers.firstWhere((c) => c.id == id, orElse: () => Customer(name: 'Unknown'));
     await _db.deleteCustomer(id);
+    await logAudit(AuditAction.deleted, AuditEntity.customer, cust.name);
     await loadCustomers();
     await loadDashboardStats();
   }
@@ -142,6 +190,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> createPurchase(Purchase purchase) async {
     await _db.insertPurchase(purchase);
+    await logAudit(AuditAction.created, AuditEntity.purchase, purchase.purchaseNumber, details: '₹${purchase.totalAmount.toStringAsFixed(2)} from ${purchase.supplierName}');
 
     // Update stock quantities for received purchases
     if (purchase.status == PurchaseStatus.received) {
@@ -165,7 +214,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deletePurchase(String id) async {
+    final p = _purchases.firstWhere((p) => p.id == id, orElse: () => Purchase(purchaseNumber: '?', supplierName: '?', items: [], subtotal: 0, totalTax: 0, totalAmount: 0));
     await _db.deletePurchase(id);
+    await logAudit(AuditAction.deleted, AuditEntity.purchase, p.purchaseNumber);
     await loadPurchases();
     await loadDashboardStats();
   }
@@ -183,6 +234,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> createBill(Bill bill) async {
     await _db.insertBill(bill);
+    await logAudit(AuditAction.created, AuditEntity.bill, bill.billNumber, details: '₹${bill.totalAmount.toStringAsFixed(2)} - ${bill.customerName ?? "Walk-in"}');
 
     // Update stock quantities
     for (final billItem in bill.items) {
@@ -221,7 +273,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteBill(String id) async {
+    final bill = _bills.firstWhere((b) => b.id == id, orElse: () => Bill(billNumber: '?', items: [], subtotal: 0, totalTax: 0, totalAmount: 0));
     await _db.deleteBill(id);
+    await logAudit(AuditAction.deleted, AuditEntity.bill, bill.billNumber);
     await loadBills();
     await loadDashboardStats();
   }
