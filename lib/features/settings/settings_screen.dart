@@ -378,6 +378,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ])),
           const SizedBox(height: 20),
+
+          // Keyboard Shortcuts Reference
+          GlassCard(padding: const EdgeInsets.all(20), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.keyboard, size: 22, color: AppColors.warning)),
+                const SizedBox(width: 12),
+                Text('Keyboard Shortcuts', style: Theme.of(context).textTheme.titleLarge),
+              ]),
+              const SizedBox(height: 16),
+              Text('Navigation', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary.withValues(alpha: 0.8))),
+              const SizedBox(height: 8),
+              _shortcutRow('Ctrl + D', 'Dashboard'),
+              _shortcutRow('Ctrl + N', 'New Bill / Sales'),
+              _shortcutRow('Ctrl + H', 'Payments / History'),
+              _shortcutRow('Ctrl + I', 'Items'),
+              _shortcutRow('Ctrl + U', 'Customers'),
+              _shortcutRow('Ctrl + R', 'Reports'),
+              _shortcutRow('Ctrl + ,', 'Settings'),
+              const Divider(height: 20),
+              Text('Actions', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary.withValues(alpha: 0.8))),
+              const SizedBox(height: 8),
+              _shortcutRow('Ctrl + ?', 'Show shortcuts dialog'),
+            ])),
+          const SizedBox(height: 20),
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
@@ -488,6 +515,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary)),
+      ]));
+  }
+
+  Widget _shortcutRow(String keys, String action) {
+    return Padding(padding: const EdgeInsets.only(bottom: 6),
+      child: Row(children: [
+        Container(
+          width: 100,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.15))),
+          child: Text(keys, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, fontFamily: 'monospace', color: AppColors.primary)),
+        ),
+        const SizedBox(width: 14),
+        Expanded(child: Text(action, style: const TextStyle(fontSize: 13))),
       ]));
   }
 

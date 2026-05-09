@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'core/theme/app_theme.dart';
@@ -167,8 +168,73 @@ class _MainShellState extends State<MainShell> {
     setState(() => _currentIndex = index);
   }
 
+  void _showShortcutsHelp() {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.keyboard, color: AppColors.primary), SizedBox(width: 10), Text('Keyboard Shortcuts')]),
+      content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        _shortcutSection('Navigation', [
+          _shortcutRow('Ctrl + D', 'Dashboard'),
+          _shortcutRow('Ctrl + N', 'New Bill / Sales'),
+          _shortcutRow('Ctrl + H', 'Payments / History'),
+          _shortcutRow('Ctrl + I', 'Items'),
+          _shortcutRow('Ctrl + U', 'Customers'),
+          _shortcutRow('Ctrl + R', 'Reports'),
+          _shortcutRow('Ctrl + ,', 'Settings'),
+        ]),
+        _shortcutSection('Actions', [
+          _shortcutRow('Ctrl + F', 'Global Search'),
+          _shortcutRow('Ctrl + ?', 'Show this help'),
+        ]),
+      ]))),
+      actions: [ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
+  }
+
+  Widget _shortcutSection(String title, List<Widget> children) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.primary))),
+      ...children,
+      const Divider(height: 16),
+    ]);
+  }
+
+  Widget _shortcutRow(String keys, String action) {
+    return Padding(padding: const EdgeInsets.only(bottom: 6),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2))),
+          child: Text(keys, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, fontFamily: 'monospace', color: AppColors.primary))),
+        const SizedBox(width: 14),
+        Expanded(child: Text(action, style: const TextStyle(fontSize: 13))),
+      ]));
+  }
+
   @override
   Widget build(BuildContext context) {
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyD, control: true): () => _goTo(0),   // Dashboard
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true): () => _goTo(1),   // New Bill
+        const SingleActivator(LogicalKeyboardKey.keyH, control: true): () => _goTo(3),   // History
+        const SingleActivator(LogicalKeyboardKey.keyI, control: true): () => _goTo(4),   // Items
+        const SingleActivator(LogicalKeyboardKey.keyU, control: true): () => _goTo(6),   // Customers
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true): () => _goTo(9),   // Reports
+        const SingleActivator(LogicalKeyboardKey.comma, control: true): () => _goTo(15), // Settings
+        const SingleActivator(LogicalKeyboardKey.slash, control: true, shift: true): () => _showShortcutsHelp(),
+      },
+      child: Focus(
+        autofocus: true,
+        child: _buildBody(context),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final isWide = constraints.maxWidth > 800;
 
