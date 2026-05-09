@@ -5,6 +5,7 @@ import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../widgets/common_widgets.dart';
+import '../../core/utils/validators.dart';
 
 class SupplierScreen extends StatefulWidget {
   const SupplierScreen({super.key});
@@ -96,24 +97,44 @@ class _SupplierScreenState extends State<SupplierScreen> {
         const SizedBox(height: 10),
         TextField(controller: addressCtrl, decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder())),
         const SizedBox(height: 10),
-        TextField(controller: gstinCtrl, decoration: const InputDecoration(labelText: 'GSTIN', border: OutlineInputBorder())),
+        TextField(controller: gstinCtrl, textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(labelText: 'GSTIN', border: OutlineInputBorder(), hintText: 'e.g. 29ABCDE1234F1Z5')),
       ])),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
         ElevatedButton(onPressed: () async {
           if (nameCtrl.text.trim().isEmpty) return;
+          // GSTIN validation
+          final gstinError = Validators.validateGstin(gstinCtrl.text);
+          if (gstinError != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(gstinError), backgroundColor: AppColors.error));
+            return;
+          }
+          // Duplicate detection
           if (supplier == null) {
+            final existingNames = appState.suppliers.map((s) => s.name).toList();
+            final dupError = Validators.checkDuplicateSupplier(nameCtrl.text, existingNames);
+            if (dupError != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Row(children: [
+                  const Icon(Icons.warning_amber, color: Colors.white), const SizedBox(width: 8),
+                  Expanded(child: Text(dupError)),
+                ]), backgroundColor: AppColors.warning));
+              return;
+            }
+            final gstVal = gstinCtrl.text.trim().toUpperCase();
             await appState.addSupplier(Supplier(name: nameCtrl.text.trim(),
               phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
               email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
               address: addressCtrl.text.trim().isEmpty ? null : addressCtrl.text.trim(),
-              gstin: gstinCtrl.text.trim().isEmpty ? null : gstinCtrl.text.trim()));
+              gstin: gstVal.isEmpty ? null : gstVal));
           } else {
             supplier.name = nameCtrl.text.trim();
             supplier.phone = phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim();
             supplier.email = emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim();
             supplier.address = addressCtrl.text.trim().isEmpty ? null : addressCtrl.text.trim();
-            supplier.gstin = gstinCtrl.text.trim().isEmpty ? null : gstinCtrl.text.trim();
+            supplier.gstin = gstinCtrl.text.trim().isEmpty ? null : gstinCtrl.text.trim().toUpperCase();
             await appState.updateSupplier(supplier);
           }
           if (ctx.mounted) Navigator.pop(ctx);

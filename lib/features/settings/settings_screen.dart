@@ -12,6 +12,7 @@ import '../../core/utils/excel_importer.dart';
 import 'package:printing/printing.dart';
 
 import '../../widgets/common_widgets.dart';
+import '../../core/utils/validators.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -47,11 +48,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _save() async {
+    // Validate GSTIN before saving
+    final gstinError = Validators.validateGstin(_bizGstinCtrl.text);
+    if (gstinError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(gstinError), backgroundColor: AppColors.error));
+      return;
+    }
     final appState = context.read<AppState>();
     await appState.saveSetting('businessName', _bizNameCtrl.text.trim());
     await appState.saveSetting('businessAddress', _bizAddressCtrl.text.trim());
     await appState.saveSetting('businessPhone', _bizPhoneCtrl.text.trim());
-    await appState.saveSetting('businessGstin', _bizGstinCtrl.text.trim());
+    await appState.saveSetting('businessGstin', _bizGstinCtrl.text.trim().toUpperCase());
     await appState.saveSetting('businessLogo', _bizLogoCtrl.text.trim());
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

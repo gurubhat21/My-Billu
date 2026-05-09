@@ -8,6 +8,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/excel_importer.dart';
 import '../../core/database/excel_exporter.dart';
 import '../../widgets/common_widgets.dart';
+import '../../core/utils/validators.dart';
 
 class ItemsScreen extends StatefulWidget {
   const ItemsScreen({super.key});
@@ -408,6 +409,20 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   const SnackBar(content: Text('Name and price are required')),
                 );
                 return;
+              }
+              // Duplicate detection (only when adding new)
+              if (!isEditing) {
+                final appState = context.read<AppState>();
+                final existingNames = appState.items.map((i) => i.name).toList();
+                final dupError = Validators.checkDuplicateItem(nameCtrl.text, existingNames);
+                if (dupError != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Row(children: [
+                      const Icon(Icons.warning_amber, color: Colors.white), const SizedBox(width: 8),
+                      Expanded(child: Text(dupError)),
+                    ]), backgroundColor: AppColors.warning));
+                  return;
+                }
               }
               final newItem = isEditing
                   ? item.copyWith(

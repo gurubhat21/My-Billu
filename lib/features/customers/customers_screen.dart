@@ -8,6 +8,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/excel_importer.dart';
 import '../../core/database/excel_exporter.dart';
 import '../../widgets/common_widgets.dart';
+import '../../core/utils/validators.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -240,9 +241,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: gstinCtrl,
+                  textCapitalization: TextCapitalization.characters,
                   decoration: const InputDecoration(
                     labelText: 'GSTIN',
                     prefixIcon: Icon(Icons.badge_outlined),
+                    hintText: 'e.g. 29ABCDE1234F1Z5',
                   ),
                 ),
               ],
@@ -293,20 +296,43 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 );
                 return;
               }
+              // GSTIN validation
+              final gstinError = Validators.validateGstin(gstinCtrl.text);
+              if (gstinError != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(gstinError), backgroundColor: AppColors.error));
+                return;
+              }
+              // Duplicate detection (only when adding new)
+              if (!isEditing) {
+                final appState = context.read<AppState>();
+                final existing = appState.customers
+                    .map((c) => {'name': c.name, 'phone': c.phone ?? ''}).toList();
+                final dupError = Validators.checkDuplicateCustomer(
+                    nameCtrl.text, phoneCtrl.text, existing);
+                if (dupError != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Row(children: [
+                      const Icon(Icons.warning_amber, color: Colors.white), const SizedBox(width: 8),
+                      Expanded(child: Text(dupError)),
+                    ]), backgroundColor: AppColors.warning));
+                  return;
+                }
+              }
               final newCustomer = isEditing
                   ? customer.copyWith(
                       name: nameCtrl.text.trim(),
                       phone: phoneCtrl.text.trim(),
                       email: emailCtrl.text.trim(),
                       address: addressCtrl.text.trim(),
-                      gstin: gstinCtrl.text.trim(),
+                      gstin: gstinCtrl.text.trim().toUpperCase(),
                     )
                   : Customer(
                       name: nameCtrl.text.trim(),
                       phone: phoneCtrl.text.trim(),
                       email: emailCtrl.text.trim(),
                       address: addressCtrl.text.trim(),
-                      gstin: gstinCtrl.text.trim(),
+                      gstin: gstinCtrl.text.trim().toUpperCase(),
                     );
 
               final appState = context.read<AppState>();
