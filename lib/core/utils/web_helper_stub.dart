@@ -61,8 +61,13 @@ Future<String?> triggerImageUpload() async {
     );
     if (result == null || result.files.isEmpty) return null;
     final file = result.files.first;
-    if (file.bytes != null) {
-      final base64Str = base64Encode(file.bytes!);
+    List<int>? bytes = file.bytes;
+    // On Android, bytes may be null — read from path
+    if (bytes == null && file.path != null) {
+      bytes = await File(file.path!).readAsBytes();
+    }
+    if (bytes != null) {
+      final base64Str = base64Encode(bytes);
       final ext = file.extension ?? 'png';
       return 'data:image/$ext;base64,$base64Str';
     }
