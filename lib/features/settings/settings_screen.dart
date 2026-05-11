@@ -13,6 +13,8 @@ import 'package:printing/printing.dart';
 
 import '../../widgets/common_widgets.dart';
 import '../../core/utils/validators.dart';
+import '../../core/services/google_drive_sync.dart';
+import 'package:intl/intl.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -80,6 +82,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Settings', style: Theme.of(context).textTheme.headlineLarge),
           const SizedBox(height: 24),
+
+          // Cloud Sync Section
+          _buildCloudSyncCard(context),
+          const SizedBox(height: 20),
 
           // Data Export Section
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
@@ -516,6 +522,209 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ]),
       );
     });
+  }
+
+  bool _syncing = false;
+  DateTime? _lastSyncTime;
+
+  Widget _buildCloudSyncCard(BuildContext context) {
+    final signedIn = GoogleDriveSync.isSignedIn;
+    return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF4285F4), Color(0xFF34A853)]),
+              borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.cloud_sync, size: 22, color: Colors.white)),
+          const SizedBox(width: 12),
+          Text('Cloud Sync', style: Theme.of(context).textTheme.titleLarge),
+          const Spacer(),
+          if (signedIn)
+            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.check_circle, size: 14, color: AppColors.success),
+                const SizedBox(width: 4),
+                Text('Connected', style: TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.w600)),
+              ])),
+        ]),
+        const SizedBox(height: 12),
+        Text('Sync your data across devices using Google Drive',
+          style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
+        const SizedBox(height: 16),
+
+        if (!signedIn) ...[
+          // Sign-in button
+          SizedBox(width: double.infinity, child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4285F4),
+              padding: const EdgeInsets.symmetric(vertical: 14)),
+            onPressed: _syncing ? null : () async {
+              setState(() => _syncing = true);
+              final ok = await GoogleDriveSync.signIn();
+              setState(() => _syncing = false);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(ok ? '✅ Signed in as ${GoogleDriveSync.userEmail}' : '❌ Sign-in failed or cancelled'),
+                  backgroundColor: ok ? AppColors.success : AppColors.error));
+              }
+            },
+            icon: _syncing
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.login, size: 18),
+            label: Text(_syncing ? 'Signing in...' : 'Sign in with Google'),
+          )),
+        ] else ...[
+          // Signed-in user info
+          Container(padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08))),
+            child: Row(children: [
+              CircleAvatar(radius: 18, backgroundColor: const Color(0xFF4285F4),
+                backgroundImage: GoogleDriveSync.userPhotoUrl != null
+                    ? NetworkImage(GoogleDriveSync.userPhotoUrl!) : null,
+                child: GoogleDriveSync.userPhotoUrl == null
+                    ? Text((GoogleDriveSync.userDisplayName ?? 'U')[0].toUpperCase(),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700))
+                    : null),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(GoogleDriveSync.userDisplayName ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(GoogleDriveSync.userEmail ?? '', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+              ])),
+              TextButton(onPressed: () async {
+                await GoogleDriveSync.signOut();
+                setState(() {});
+              }, child: const Text('Sign Out', style: TextStyle(fontSize: 11))),
+            ]),
+          ),
+          const SizedBox(height: 14),
+
+          // Backup & Restore buttons
+          Row(children: [
+            Expanded(child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: _syncing ? null : () => _backupToDrive(context),
+              icon: _syncing
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.cloud_upload, size: 18),
+              label: const Text('Backup to Drive'),
+            )),
+            const SizedBox(width: 12),
+            Expanded(child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: _syncing ? null : () => _restoreFromDrive(context),
+              icon: const Icon(Icons.cloud_download, size: 18),
+              label: const Text('Restore from Drive'),
+            )),
+          ]),
+
+          if (_lastSyncTime != null) ...[
+            const SizedBox(height: 10),
+            Center(child: Text('Last sync: ${DateFormat('dd MMM yyyy, hh:mm a').format(_lastSyncTime!)}',
+              style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3)))),
+          ],
+        ],
+      ]));
+  }
+
+  Future<void> _backupToDrive(BuildContext context) async {
+    setState(() => _syncing = true);
+    try {
+      final appState = context.read<AppState>();
+      final settings = await appState.getAllSettings();
+      final ok = await GoogleDriveSync.uploadBackup(
+        items: appState.items,
+        customers: appState.customers,
+        bills: appState.bills,
+        purchases: appState.purchases,
+        settings: settings,
+      );
+      setState(() { _syncing = false; if (ok) _lastSyncTime = DateTime.now(); });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(ok ? '✅ Backup uploaded to Google Drive!' : '❌ Backup failed'),
+          backgroundColor: ok ? AppColors.success : AppColors.error));
+      }
+    } catch (e) {
+      setState(() => _syncing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Backup error: $e'), backgroundColor: AppColors.error));
+      }
+    }
+  }
+
+  Future<void> _restoreFromDrive(BuildContext context) async {
+    // Confirm before restoring
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Restore from Drive?'),
+      content: const Text('This will replace ALL local data with the cloud backup. This cannot be undone.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning),
+          onPressed: () => Navigator.pop(ctx, true), child: const Text('Restore')),
+      ],
+    ));
+    if (ok != true) return;
+
+    setState(() => _syncing = true);
+    try {
+      final backup = await GoogleDriveSync.downloadBackup();
+      if (backup == null) {
+        setState(() => _syncing = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('No backup found on Google Drive'), backgroundColor: AppColors.warning));
+        }
+        return;
+      }
+
+      final appState = context.read<AppState>();
+
+      // Restore items
+      if (backup['items'] != null) {
+        for (final m in (backup['items'] as List)) {
+          final item = Item.fromMap(m as Map<String, dynamic>);
+          try { await appState.addItem(item); } catch (_) {}
+        }
+      }
+      // Restore customers
+      if (backup['customers'] != null) {
+        for (final m in (backup['customers'] as List)) {
+          final cust = Customer.fromMap(m as Map<String, dynamic>);
+          try { await appState.addCustomer(cust); } catch (_) {}
+        }
+      }
+      // Restore settings
+      if (backup['settings'] != null) {
+        final settings = (backup['settings'] as Map<String, dynamic>);
+        for (final entry in settings.entries) {
+          await appState.saveSetting(entry.key, entry.value.toString());
+        }
+      }
+
+      await appState.loadAll();
+      setState(() { _syncing = false; _lastSyncTime = DateTime.now(); });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Data restored from Google Drive!'), backgroundColor: AppColors.success));
+      }
+    } catch (e) {
+      setState(() => _syncing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Restore error: $e'), backgroundColor: AppColors.error));
+      }
+    }
   }
 
   Widget _aboutRow(String label, String value) {
