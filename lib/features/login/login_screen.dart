@@ -13,7 +13,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
-  final _userCtrl = TextEditingController();
+  final _userCtrl = TextEditingController(text: 'admin');
   final _passCtrl = TextEditingController();
   bool _showPassword = false;
   String? _error;
