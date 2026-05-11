@@ -222,20 +222,53 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyD, control: true): () => _goTo(0),   // Dashboard
-        const SingleActivator(LogicalKeyboardKey.keyN, control: true): () => _goTo(1),   // New Bill
-        const SingleActivator(LogicalKeyboardKey.keyH, control: true): () => _goTo(3),   // History
-        const SingleActivator(LogicalKeyboardKey.keyI, control: true): () => _goTo(4),   // Items
-        const SingleActivator(LogicalKeyboardKey.keyU, control: true): () => _goTo(6),   // Customers
-        const SingleActivator(LogicalKeyboardKey.keyR, control: true): () => _goTo(9),   // Reports
-        const SingleActivator(LogicalKeyboardKey.comma, control: true): () => _goTo(15), // Settings
-        const SingleActivator(LogicalKeyboardKey.slash, control: true, shift: true): () => _showShortcutsHelp(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        // On back press at root, show exit dialog
+        if (_currentIndex != 0) {
+          // If not on dashboard, go to dashboard first
+          setState(() => _currentIndex = 0);
+          return;
+        }
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Row(children: [
+              Icon(Icons.exit_to_app, color: AppColors.error), SizedBox(width: 10),
+              Text('Exit My Billu?')]),
+            content: const Text('Are you sure you want to exit the app?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Exit')),
+            ],
+          ),
+        );
+        if (shouldExit == true) {
+          SystemNavigator.pop();
+        }
       },
-      child: Focus(
-        autofocus: true,
-        child: _buildBody(context),
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyD, control: true): () => _goTo(0),   // Dashboard
+          const SingleActivator(LogicalKeyboardKey.keyN, control: true): () => _goTo(1),   // New Bill
+          const SingleActivator(LogicalKeyboardKey.keyH, control: true): () => _goTo(3),   // History
+          const SingleActivator(LogicalKeyboardKey.keyI, control: true): () => _goTo(4),   // Items
+          const SingleActivator(LogicalKeyboardKey.keyU, control: true): () => _goTo(6),   // Customers
+          const SingleActivator(LogicalKeyboardKey.keyR, control: true): () => _goTo(9),   // Reports
+          const SingleActivator(LogicalKeyboardKey.comma, control: true): () => _goTo(15), // Settings
+          const SingleActivator(LogicalKeyboardKey.slash, control: true, shift: true): () => _showShortcutsHelp(),
+        },
+        child: Focus(
+          autofocus: true,
+          child: _buildBody(context),
+        ),
       ),
     );
   }
