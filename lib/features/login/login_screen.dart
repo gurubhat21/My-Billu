@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import 'dart:convert';
+import 'package:local_auth/local_auth.dart';
 
 
 class LoginScreen extends StatefulWidget {
@@ -17,10 +19,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final _passCtrl = TextEditingController();
   bool _showPassword = false;
   String? _error;
+  bool _biometricAvailable = false;
+  bool _biometricEnabled = false;
 
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
+
+  final LocalAuthentication _localAuth = LocalAuthentication();
 
   @override
   void initState() {
@@ -30,7 +36,47 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
         .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
     _animCtrl.forward();
+    _checkBiometric();
   }
+
+  Future<void> _checkBiometric() async {
+    // Only on Android/iOS (not web or desktop)
+    if (kIsWeb) return;
+    try {
+      final isAvailable = await _localAuth.canCheckBiometrics;
+      final isDeviceSupported = await _localAuth.isDeviceSupported();
+      if (isAvailable && isDeviceSupported) {
+        final appState = context.read<AppState>();
+        final enabled = await appState.getSetting('biometric_enabled');
+        setState(() {
+          _biometricAvailable = true;
+          _biometricEnabled = enabled == 'true';
+        });
+        // Auto-trigger biometric if enabled
+        if (_biometricEnabled) {
+          _authenticateWithBiometric();
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _authenticateWithBiometric() async {
+    try {
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Scan your fingerprint to login to My Billu',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+      if (authenticated) {
+        widget.onLogin();
+      }
+    } catch (e) {
+      setState(() => _error = 'Biometric auth failed');
+    }
+  }
+
   @override
   void dispose() {
     _animCtrl.dispose();
@@ -204,6 +250,28 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             ),
                           )),
 
+                        // Biometric Button (Android only)
+                        if (_biometricAvailable) ...[
+                          const SizedBox(height: 16),
+                          Row(children: [
+                            Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+                            Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('or', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12))),
+                            Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+                          ]),
+                          const SizedBox(height: 16),
+                          SizedBox(width: double.infinity, height: 50,
+                            child: OutlinedButton.icon(
+                              onPressed: _biometricEnabled ? _authenticateWithBiometric : () => _showBiometricSetup(context),
+                              icon: const Icon(Icons.fingerprint, size: 24),
+                              label: Text(_biometricEnabled ? 'Login with Fingerprint' : 'Enable Biometric Login'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF00F5A0),
+                                side: BorderSide(color: const Color(0xFF00F5A0).withValues(alpha: 0.3)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            )),
+                        ],
 
                       ]),
                     ),
@@ -215,5 +283,50 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ),
       ),
     );
+  }
+
+  void _showBiometricSetup(BuildContext context) async {
+    // First verify password before enabling biometric
+    final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.fingerprint, color: Color(0xFF00F5A0), size: 28), SizedBox(width: 10),
+        Text('Enable Biometric Login')]),
+      content: const Text('Once enabled, you can skip password entry and login using your fingerprint or face.\n\nYou must first sign in with your password to enable this.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00F5A0)),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Enable', style: TextStyle(color: Colors.black))),
+      ],
+    ));
+
+    if (confirm == true) {
+      // Verify biometric first
+      try {
+        final authenticated = await _localAuth.authenticate(
+          localizedReason: 'Verify your identity to enable biometric login',
+          options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
+        );
+        if (authenticated) {
+          final appState = context.read<AppState>();
+          await appState.saveSetting('biometric_enabled', 'true');
+          setState(() => _biometricEnabled = true);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: const Row(children: [
+                Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+                Text('Biometric login enabled! 🎉')]),
+              backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Biometric setup failed: $e'), backgroundColor: AppColors.error));
+        }
+      }
+    }
   }
 }
