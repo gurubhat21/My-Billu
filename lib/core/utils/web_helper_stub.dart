@@ -1,35 +1,47 @@
-/// Stub for non-web platforms - uses file_picker and path_provider
+/// Stub for non-web platforms - uses file_picker, path_provider, share_plus
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 void downloadJson(String jsonString, String filename) async {
   try {
-    // Let user pick save location
-    final result = await FilePicker.platform.saveFile(
-      dialogTitle: 'Save Backup',
-      fileName: filename,
-      type: FileType.custom,
-      allowedExtensions: ['json'],
-    );
-    if (result != null) {
-      final file = File(result);
-      await file.writeAsString(jsonString);
-    } else {
-      // Fallback: save to documents directory
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/$filename');
-      await file.writeAsString(jsonString);
-    }
-  } catch (e) {
-    // Fallback: save to documents directory
+    // Save to temp file first
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/$filename');
+    await file.writeAsString(jsonString);
+
+    // Try desktop save dialog first
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/$filename');
-      await file.writeAsString(jsonString);
-    } catch (_) {}
-  }
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Backup',
+        fileName: filename,
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+      if (result != null) {
+        final saveFile = File(result);
+        await saveFile.writeAsString(jsonString);
+        return;
+      }
+    } catch (_) {
+      // saveFile not supported on this platform (Android)
+    }
+
+    // Fallback: Share the file (works on Android)
+    final xFile = XFile(
+      file.path,
+      name: filename,
+      mimeType: 'application/json',
+    );
+    await Share.shareXFiles(
+      [xFile],
+      subject: 'My Billu Backup',
+      text: 'My Billu data backup file',
+    );
+  } catch (_) {}
 }
 
 Future<String?> triggerFileUpload() async {
