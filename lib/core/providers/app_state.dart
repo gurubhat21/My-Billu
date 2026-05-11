@@ -11,6 +11,7 @@ import '../models/purchase_return.dart';
 import '../models/supplier.dart';
 import '../models/recurring_bill.dart';
 import '../models/audit_entry.dart';
+import '../models/cash_book.dart';
 import 'dart:convert';
 
 class AppState extends ChangeNotifier {
@@ -28,6 +29,8 @@ class AppState extends ChangeNotifier {
   List<Supplier> _suppliers = [];
   List<RecurringBill> _recurringBills = [];
   List<AuditEntry> _auditLog = [];
+  List<CashBookEntry> _cashBookEntries = [];
+  List<BankAccount> _bankAccounts = [];
   bool _isLoading = false;
   String? _error;
 
@@ -44,6 +47,8 @@ class AppState extends ChangeNotifier {
   List<Supplier> get suppliers => _suppliers;
   List<RecurringBill> get recurringBills => _recurringBills;
   List<AuditEntry> get auditLog => _auditLog;
+  List<CashBookEntry> get cashBookEntries => _cashBookEntries;
+  List<BankAccount> get bankAccounts => _bankAccounts;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -66,6 +71,8 @@ class AppState extends ChangeNotifier {
         loadSuppliers(),
         loadRecurringBills(),
         _loadAuditLog(),
+        _loadCashBook(),
+        _loadBankAccounts(),
       ]);
       _error = null;
     } catch (e) {
@@ -633,5 +640,101 @@ class AppState extends ChangeNotifier {
     }
     if (generated > 0) await _saveRecurringBills();
     return generated;
+  }
+
+  // ===== CASH BOOK =====
+
+  Future<void> _loadCashBook() async {
+    final json = await _db.getSetting('cash_book_entries');
+    if (json != null && json.isNotEmpty) {
+      try {
+        final list = jsonDecode(json) as List;
+        _cashBookEntries = list.map((e) => CashBookEntry.fromMap(e as Map<String, dynamic>)).toList();
+        _cashBookEntries.sort((a, b) => b.date.compareTo(a.date));
+      } catch (_) { _cashBookEntries = []; }
+    }
+  }
+
+  Future<void> _saveCashBook() async {
+    final json = jsonEncode(_cashBookEntries.map((e) => e.toMap()).toList());
+    await _db.setSetting('cash_book_entries', json);
+  }
+
+  Future<void> addCashBookEntry(CashBookEntry entry) async {
+    _cashBookEntries.insert(0, entry);
+    // Update bank balance if bank transaction
+    if (entry.bankAccountId != null) {
+      final idx = _bankAccounts.indexWhere((a) => a.id == entry.bankAccountId);
+      if (idx >= 0) {
+        if (entry.type == TransactionType.bankIn) {
+          _bankAccounts[idx].balance += entry.amount;
+        } else if (entry.type == TransactionType.bankOut) {
+          _bankAccounts[idx].balance -= entry.amount;
+        }
+        await _saveBankAccounts();
+      }
+    }
+    await _saveCashBook();
+    await logAudit(AuditAction.created, AuditEntity.item, entry.description, details: '${entry.typeLabel}: \u20b9${entry.amount.toStringAsFixed(2)}');
+    notifyListeners();
+  }
+
+  Future<void> deleteCashBookEntry(String id) async {
+    final entry = _cashBookEntries.firstWhere((e) => e.id == id, orElse: () => CashBookEntry(type: TransactionType.cashIn, amount: 0, description: ''));
+    // Reverse bank balance
+    if (entry.bankAccountId != null) {
+      final idx = _bankAccounts.indexWhere((a) => a.id == entry.bankAccountId);
+      if (idx >= 0) {
+        if (entry.type == TransactionType.bankIn) {
+          _bankAccounts[idx].balance -= entry.amount;
+        } else if (entry.type == TransactionType.bankOut) {
+          _bankAccounts[idx].balance += entry.amount;
+        }
+        await _saveBankAccounts();
+      }
+    }
+    _cashBookEntries.removeWhere((e) => e.id == id);
+    await _saveCashBook();
+    notifyListeners();
+  }
+
+  // ===== BANK ACCOUNTS =====
+
+  Future<void> _loadBankAccounts() async {
+    final json = await _db.getSetting('bank_accounts');
+    if (json != null && json.isNotEmpty) {
+      try {
+        final list = jsonDecode(json) as List;
+        _bankAccounts = list.map((e) => BankAccount.fromMap(e as Map<String, dynamic>)).toList();
+      } catch (_) { _bankAccounts = []; }
+    }
+  }
+
+  Future<void> _saveBankAccounts() async {
+    final json = jsonEncode(_bankAccounts.map((a) => a.toMap()).toList());
+    await _db.setSetting('bank_accounts', json);
+  }
+
+  Future<void> addBankAccount(BankAccount account) async {
+    _bankAccounts.add(account);
+    await _saveBankAccounts();
+    await logAudit(AuditAction.created, AuditEntity.setting, account.bankName, details: 'Bank account added');
+    notifyListeners();
+  }
+
+  Future<void> updateBankAccount(BankAccount account) async {
+    final idx = _bankAccounts.indexWhere((a) => a.id == account.id);
+    if (idx >= 0) _bankAccounts[idx] = account;
+    await _saveBankAccounts();
+    await logAudit(AuditAction.updated, AuditEntity.setting, account.bankName, details: 'Bank account updated');
+    notifyListeners();
+  }
+
+  Future<void> deleteBankAccount(String id) async {
+    final acc = _bankAccounts.firstWhere((a) => a.id == id, orElse: () => BankAccount(bankName: '?', accountNumber: '?'));
+    _bankAccounts.removeWhere((a) => a.id == id);
+    await _saveBankAccounts();
+    await logAudit(AuditAction.deleted, AuditEntity.setting, acc.bankName, details: 'Bank account deleted');
+    notifyListeners();
   }
 }

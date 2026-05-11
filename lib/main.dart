@@ -25,6 +25,7 @@ import 'features/suppliers/supplier_screen.dart';
 import 'features/recurring/recurring_bill_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/audit/audit_trail_screen.dart';
+import 'features/cash_book/cash_book_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -138,6 +139,7 @@ class _MainShellState extends State<MainShell> {
     RecurringBillScreen(),      // 14
     SettingsScreen(),           // 15
     AuditTrailScreen(),         // 16
+    CashBookScreen(),           // 17
   ];
 
   static const _bottomBarMapping = [0, 1, 2, 3];
@@ -158,6 +160,7 @@ class _MainShellState extends State<MainShell> {
     _DrawerItem(icon: Icons.local_shipping, label: 'Suppliers', index: 13),
     _DrawerItem(icon: Icons.description, label: 'Quotations', index: 7),
     _DrawerItem(icon: Icons.money_off, label: 'Expenses', index: 8),
+    _DrawerItem(icon: Icons.account_balance_wallet, label: 'Cash & Bank Book', index: 17),
     _DrawerItem(icon: Icons.repeat, label: 'Recurring Bills', index: 14),
     _DrawerItem(icon: Icons.assignment_return, label: 'Credit Notes', index: 10),
     _DrawerItem(icon: Icons.keyboard_return, label: 'Purchase Returns', index: 11),
