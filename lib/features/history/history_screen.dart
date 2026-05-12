@@ -326,7 +326,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final paidCtrl = TextEditingController(text: bill.paidAmount.toStringAsFixed(2));
     String status = bill.status.name;
 
-    showDialog(context: context, builder: (ctx) => AlertDialog(
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setEditState) => AlertDialog(
       title: const Row(children: [
         Icon(Icons.edit, color: AppColors.primary), SizedBox(width: 10), Text('Edit Bill')]),
       content: SingleChildScrollView(child: SizedBox(width: 400, child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -336,18 +336,30 @@ class _HistoryScreenState extends State<HistoryScreen> {
           decoration: const InputDecoration(labelText: 'Customer Name', prefixIcon: Icon(Icons.person_outline))),
         const SizedBox(height: 12),
         TextField(controller: discountCtrl, keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Discount (₹)', prefixIcon: Icon(Icons.discount))),
+          decoration: const InputDecoration(labelText: 'Discount (\u20b9)', prefixIcon: Icon(Icons.discount))),
         const SizedBox(height: 12),
         TextField(controller: paidCtrl, keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Paid Amount (₹)', prefixIcon: Icon(Icons.currency_rupee))),
+          decoration: const InputDecoration(labelText: 'Paid Amount (\u20b9)', prefixIcon: Icon(Icons.currency_rupee))),
         const SizedBox(height: 12),
-        StatefulBuilder(builder: (ctx2, setDropState) => DropdownButtonFormField<String>(
+        DropdownButtonFormField<String>(
           value: status,
           decoration: const InputDecoration(labelText: 'Status', prefixIcon: Icon(Icons.flag)),
           items: BillStatus.values.map((s) => DropdownMenuItem(value: s.name,
             child: Text(s.name[0].toUpperCase() + s.name.substring(1)))).toList(),
-          onChanged: (v) => setDropState(() => status = v ?? status),
-        )),
+          onChanged: (v) {
+            setEditState(() {
+              status = v ?? status;
+              // Auto-adjust paid amount based on status
+              if (status == 'unpaid') {
+                paidCtrl.text = '0.00';
+              } else if (status == 'paid') {
+                final discount = double.tryParse(discountCtrl.text) ?? bill.discount;
+                final total = bill.subtotal - discount + bill.totalTax;
+                paidCtrl.text = total.toStringAsFixed(2);
+              }
+            });
+          },
+        ),
         const SizedBox(height: 12),
         TextField(controller: notesCtrl, maxLines: 2,
           decoration: const InputDecoration(labelText: 'Notes', prefixIcon: Icon(Icons.notes))),
@@ -358,6 +370,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
           onPressed: () async {
             final discount = double.tryParse(discountCtrl.text) ?? bill.discount;
             final paid = double.tryParse(paidCtrl.text) ?? bill.paidAmount;
+            final totalAmount = bill.subtotal - discount + bill.totalTax;
+            // Auto-determine status from paid amount if not manually set
+            String finalStatus = status;
+            if (paid <= 0) {
+              finalStatus = 'unpaid';
+            } else if (paid >= totalAmount) {
+              finalStatus = 'paid';
+            } else if (paid > 0 && paid < totalAmount) {
+              finalStatus = 'partial';
+            }
             final updatedBill = Bill(
               id: bill.id,
               billNumber: bill.billNumber,
@@ -367,10 +389,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
               subtotal: bill.subtotal,
               discount: discount,
               totalTax: bill.totalTax,
-              totalAmount: bill.subtotal - discount + bill.totalTax,
+              totalAmount: totalAmount,
               paidAmount: paid,
               paymentMethod: bill.paymentMethod,
-              status: BillStatus.values.firstWhere((e) => e.name == status, orElse: () => bill.status),
+              status: BillStatus.values.firstWhere((e) => e.name == finalStatus, orElse: () => bill.status),
               notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
               createdAt: bill.createdAt,
             );
@@ -391,6 +413,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           label: const Text('Save Changes'),
         ),
       ],
-    ));
+    )));
   }
 }
