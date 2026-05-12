@@ -250,8 +250,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             ),
                           )),
 
-                        // Biometric Button (Android only)
-                        if (_biometricAvailable) ...[
+                        // Biometric Button (only if enabled in Settings)
+                        if (_biometricAvailable && _biometricEnabled) ...[
                           const SizedBox(height: 16),
                           Row(children: [
                             Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
@@ -262,9 +262,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           const SizedBox(height: 16),
                           SizedBox(width: double.infinity, height: 50,
                             child: OutlinedButton.icon(
-                              onPressed: _biometricEnabled ? _authenticateWithBiometric : () => _showBiometricSetup(context),
+                              onPressed: _authenticateWithBiometric,
                               icon: const Icon(Icons.fingerprint, size: 24),
-                              label: Text(_biometricEnabled ? 'Login with Fingerprint' : 'Enable Biometric Login'),
+                              label: const Text('Login with Fingerprint'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF00F5A0),
                                 side: BorderSide(color: const Color(0xFF00F5A0).withValues(alpha: 0.3)),
@@ -285,48 +285,5 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
   }
 
-  void _showBiometricSetup(BuildContext context) async {
-    // First verify password before enabling biometric
-    final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-      title: const Row(children: [
-        Icon(Icons.fingerprint, color: Color(0xFF00F5A0), size: 28), SizedBox(width: 10),
-        Text('Enable Biometric Login')]),
-      content: const Text('Once enabled, you can skip password entry and login using your fingerprint or face.\n\nYou must first sign in with your password to enable this.'),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00F5A0)),
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Enable', style: TextStyle(color: Colors.black))),
-      ],
-    ));
-
-    if (confirm == true) {
-      // Verify biometric first
-      try {
-        final authenticated = await _localAuth.authenticate(
-          localizedReason: 'Verify your identity to enable biometric login',
-          options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
-        );
-        if (authenticated) {
-          final appState = context.read<AppState>();
-          await appState.saveSetting('biometric_enabled', 'true');
-          setState(() => _biometricEnabled = true);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: const Row(children: [
-                Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
-                Text('Biometric login enabled! 🎉')]),
-              backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Biometric setup failed: $e'), backgroundColor: AppColors.error));
-        }
-      }
-    }
-  }
 }
+
