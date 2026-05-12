@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/models/bill.dart';
 import '../../core/models/item.dart';
 import '../../core/models/customer.dart';
@@ -460,10 +462,22 @@ class _QuotationScreenState extends State<QuotationScreen> {
         if (showSerial) ...[
           const SizedBox(height: 12),
           TextField(controller: serialCtrl,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Serial Number',
-              prefixIcon: Icon(Icons.qr_code, size: 18),
-              hintText: 'Optional serial number...')),
+              prefixIcon: const Icon(Icons.qr_code, size: 18),
+              hintText: 'Optional serial number...',
+              suffixIcon: kIsWeb ? null : IconButton(
+                icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
+                tooltip: 'Scan barcode/QR',
+                onPressed: () {
+                  Navigator.of(ctx).push(MaterialPageRoute(
+                    builder: (scanCtx) => _QuotationBarcodeScannerPage(onScanned: (code) {
+                      Navigator.of(scanCtx).pop();
+                      setLocalState(() => serialCtrl.text = code);
+                    }),
+                  ));
+                },
+              ))),
         ],
       ])),
       actions: [
@@ -488,5 +502,60 @@ class _QuotationScreenState extends State<QuotationScreen> {
         }, child: const Text('Add')),
       ],
     )));
+  }
+}
+
+// ===== Barcode Scanner Page (Android/iOS only) =====
+class _QuotationBarcodeScannerPage extends StatefulWidget {
+  final void Function(String code) onScanned;
+  const _QuotationBarcodeScannerPage({required this.onScanned});
+  @override
+  State<_QuotationBarcodeScannerPage> createState() => _QuotationBarcodeScannerPageState();
+}
+
+class _QuotationBarcodeScannerPageState extends State<_QuotationBarcodeScannerPage> {
+  bool _scanned = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Scan Barcode / QR Code'),
+        elevation: 0,
+      ),
+      body: Stack(children: [
+        MobileScanner(
+          onDetect: (capture) {
+            if (_scanned) return;
+            final barcodes = capture.barcodes;
+            if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+              _scanned = true;
+              widget.onScanned(barcodes.first.rawValue!);
+            }
+          },
+        ),
+        Center(child: Container(
+          width: 280, height: 280,
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.primary, width: 3),
+            borderRadius: BorderRadius.circular(20),
+          ),
+        )),
+        Positioned(
+          bottom: 80, left: 0, right: 0,
+          child: Center(child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(30)),
+            child: const Text('Point camera at barcode or QR code',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+          )),
+        ),
+      ]),
+    );
   }
 }

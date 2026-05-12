@@ -37,6 +37,8 @@ dependencies:
   http: ^1.4.0
   # Biometric Auth
   local_auth: ^2.3.0
+  # Barcode/QR Scanner
+  mobile_scanner: ^6.0.2
 
 dev_dependencies:
   flutter_test:

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/models/bill.dart';
 import '../../core/models/item.dart';
 import '../../core/models/customer.dart';
@@ -277,7 +279,7 @@ class _BillingScreenState extends State<BillingScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   prefixIcon: const Icon(Icons.description, size: 16)),
               )),
-          // Optional serial number field
+          // Optional serial number field with scan button
           if (_showSerialNumber)
             Padding(padding: const EdgeInsets.only(top: 6),
               child: TextFormField(
@@ -290,7 +292,16 @@ class _BillingScreenState extends State<BillingScreen> {
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  prefixIcon: const Icon(Icons.qr_code, size: 16)),
+                  prefixIcon: const Icon(Icons.qr_code, size: 16),
+                  suffixIcon: kIsWeb ? null : IconButton(
+                    icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
+                    tooltip: 'Scan barcode/QR',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _scanBarcode(context, (code) {
+                      setState(() => c.serialNumber = code);
+                    }),
+                  )),
               )),
         ])));
   }
@@ -307,6 +318,16 @@ class _BillingScreenState extends State<BillingScreen> {
       final idx = _cart.indexWhere((c) => c.item.id == item.id);
       if (idx >= 0) _cart[idx].quantity++; else _cart.add(_CartItem(item: item, quantity: 1));
     });
+  }
+
+  void _scanBarcode(BuildContext context, void Function(String code) onScanned) {
+    if (kIsWeb) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (ctx) => _BarcodeScannerPage(onScanned: (code) {
+        Navigator.of(ctx).pop();
+        onScanned(code);
+      }),
+    ));
   }
 
   void _showCustomerPicker(BuildContext context, AppState appState) {
@@ -480,5 +501,62 @@ class _BillingScreenState extends State<BillingScreen> {
           backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating));
       }
     }
+  }
+}
+
+// ===== Barcode Scanner Page (Android/iOS only) =====
+class _BarcodeScannerPage extends StatefulWidget {
+  final void Function(String code) onScanned;
+  const _BarcodeScannerPage({required this.onScanned});
+  @override
+  State<_BarcodeScannerPage> createState() => _BarcodeScannerPageState();
+}
+
+class _BarcodeScannerPageState extends State<_BarcodeScannerPage> {
+  bool _scanned = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Scan Barcode / QR Code'),
+        elevation: 0,
+      ),
+      body: Stack(children: [
+        MobileScanner(
+          onDetect: (capture) {
+            if (_scanned) return;
+            final barcodes = capture.barcodes;
+            if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+              _scanned = true;
+              widget.onScanned(barcodes.first.rawValue!);
+            }
+          },
+        ),
+        // Scan overlay
+        Center(child: Container(
+          width: 280, height: 280,
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.primary, width: 3),
+            borderRadius: BorderRadius.circular(20),
+          ),
+        )),
+        // Hint text
+        Positioned(
+          bottom: 80, left: 0, right: 0,
+          child: Center(child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(30)),
+            child: const Text('Point camera at barcode or QR code',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+          )),
+        ),
+      ]),
+    );
   }
 }
