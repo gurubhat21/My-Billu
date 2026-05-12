@@ -7,6 +7,8 @@ class PurchaseItem {
   final int quantity;
   final double taxRate;
   final String unit;
+  final String? description;
+  final String? serialNumber;
 
   PurchaseItem({
     required this.itemId,
@@ -15,6 +17,8 @@ class PurchaseItem {
     required this.quantity,
     required this.taxRate,
     this.unit = 'pcs',
+    this.description,
+    this.serialNumber,
   });
 
   double get subtotal => unitCost * quantity;
@@ -28,6 +32,8 @@ class PurchaseItem {
     'quantity': quantity,
     'taxRate': taxRate,
     'unit': unit,
+    if (description != null) 'description': description,
+    if (serialNumber != null) 'serialNumber': serialNumber,
   };
 
   factory PurchaseItem.fromMap(Map<String, dynamic> map) => PurchaseItem(
@@ -37,6 +43,8 @@ class PurchaseItem {
     quantity: (map['quantity'] as num).toInt(),
     taxRate: (map['taxRate'] as num).toDouble(),
     unit: map['unit'] as String? ?? 'pcs',
+    description: map['description'] as String?,
+    serialNumber: map['serialNumber'] as String?,
   );
 }
 

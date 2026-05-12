@@ -27,6 +27,7 @@ import 'features/onboarding/onboarding_screen.dart';
 import 'features/audit/audit_trail_screen.dart';
 import 'features/cash_book/cash_book_screen.dart';
 import 'features/settings/keyboard_shortcuts_screen.dart';
+import 'features/serial_tracker/serial_tracker_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -143,6 +144,7 @@ class _MainShellState extends State<MainShell> {
     SettingsScreen(),           // 15
     AuditTrailScreen(),         // 16
     CashBookScreen(),           // 17
+    SerialTrackerScreen(),      // 18
   ];
 
   static const _bottomBarMapping = [0, 1, 2, 3];
@@ -170,6 +172,7 @@ class _MainShellState extends State<MainShell> {
     _DrawerItem(icon: Icons.account_balance_wallet, label: 'Customer Ledger', index: 12),
     _DrawerItem(icon: Icons.bar_chart, label: 'Reports', index: 9),
     _DrawerItem(icon: Icons.history, label: 'Audit Trail', index: 16),
+    _DrawerItem(icon: Icons.qr_code_scanner, label: 'Serial Tracker', index: 18),
     _DrawerItem(icon: Icons.settings, label: 'Settings', index: 15),
   ];
 
