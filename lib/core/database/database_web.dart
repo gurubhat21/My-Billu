@@ -34,8 +34,10 @@ class WebDB {
 
   void insert(String table, Map<String, dynamic> data) {
     final list = _tables[table] ?? [];
-    // Replace if exists
-    list.removeWhere((row) => row['id'] == data['id'] || row['key'] == data['key']);
+    // Replace if exists (match by id OR by key, but only if the field is non-null)
+    list.removeWhere((row) =>
+      (data['id'] != null && row['id'] == data['id']) ||
+      (data['key'] != null && row['key'] == data['key']));
     list.add(data);
     _tables[table] = list;
     _saveTable(table);
