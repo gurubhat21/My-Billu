@@ -49,6 +49,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _biometricAvailable = false;
   bool _showItemDescription = false;
   bool _showSerialNumber = false;
+  final _invPrefixCtrl = TextEditingController(text: 'INV');
+  final _invPatternCtrl = TextEditingController();
+  final _invStartCtrl = TextEditingController(text: '1');
 
   @override
   void initState() {
@@ -69,6 +72,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _biometricEnabled = settings['biometric_enabled'] == 'true';
       _showItemDescription = settings['billing_show_description'] == 'true';
       _showSerialNumber = settings['billing_show_serial_number'] == 'true';
+      _invPrefixCtrl.text = settings['invoice_prefix'] ?? 'INV';
+      _invPatternCtrl.text = settings['invoice_pattern'] ?? '';
+      _invStartCtrl.text = settings['invoice_start_number'] ?? '1';
       _loaded = true;
     });
     // Check biometric availability
@@ -384,6 +390,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // Billing & Quotation Column Settings
           _buildBillingColumnsCard(context),
+          const SizedBox(height: 20),
+
+          // Invoice Number Pattern
+          _buildInvoicePatternCard(context),
           const SizedBox(height: 20),
 
           // Biometric Authentication Toggle (Android/iOS only)
@@ -917,6 +927,176 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Text('LAN Sync complete! All data restored.')]),
       backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+  }
+
+  // ===== INVOICE NUMBER PATTERN =====
+  Widget _buildInvoicePatternCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final now = DateTime.now();
+    // Generate preview
+    String preview;
+    final prefix = _invPrefixCtrl.text.isEmpty ? 'INV' : _invPrefixCtrl.text;
+    final startNum = int.tryParse(_invStartCtrl.text) ?? 1;
+    final pattern = _invPatternCtrl.text;
+    if (pattern.isEmpty) {
+      preview = '$prefix${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}-${startNum.toString().padLeft(4, '0')}';
+    } else {
+      preview = pattern
+        .replaceAll('{PREFIX}', prefix)
+        .replaceAll('{YYYY}', now.year.toString())
+        .replaceAll('{YY}', now.year.toString().substring(2))
+        .replaceAll('{MM}', now.month.toString().padLeft(2, '0'))
+        .replaceAll('{DD}', now.day.toString().padLeft(2, '0'))
+        .replaceAll('{NUM5}', startNum.toString().padLeft(5, '0'))
+        .replaceAll('{NUM4}', startNum.toString().padLeft(4, '0'))
+        .replaceAll('{NUM3}', startNum.toString().padLeft(3, '0'))
+        .replaceAll('{NUM}', startNum.toString());
+    }
+
+    return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.numbers, size: 22, color: AppColors.primary)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Invoice Number Pattern', style: Theme.of(context).textTheme.titleLarge),
+            Text('Customize your invoice numbering format',
+              style: TextStyle(fontSize: 11, color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.black54)),
+          ])),
+        ]),
+        const SizedBox(height: 16),
+        // Preview
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient.scale(0.3),
+            borderRadius: BorderRadius.circular(12)),
+          child: Column(children: [
+            Text('PREVIEW', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white38 : Colors.white60, letterSpacing: 1.5)),
+            const SizedBox(height: 4),
+            Text(preview, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        // Prefix
+        TextField(
+          controller: _invPrefixCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Prefix',
+            hintText: 'e.g. INV, BILL, GST',
+            prefixIcon: Icon(Icons.text_fields, size: 20)),
+          onChanged: (_) => setState(() {})),
+        const SizedBox(height: 12),
+        // Start number
+        TextField(
+          controller: _invStartCtrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Start Number',
+            hintText: 'e.g. 1, 100, 1000',
+            prefixIcon: Icon(Icons.pin, size: 20)),
+          onChanged: (_) => setState(() {})),
+        const SizedBox(height: 12),
+        // Custom pattern
+        TextField(
+          controller: _invPatternCtrl,
+          decoration: InputDecoration(
+            labelText: 'Custom Pattern (optional)',
+            hintText: 'e.g. {PREFIX}/{YYYY}-{MM}/{NUM4}',
+            prefixIcon: const Icon(Icons.pattern, size: 20),
+            helperText: 'Leave empty for default: PREFIX + YYMM-NNNN',
+            helperStyle: TextStyle(fontSize: 10, color: isDark ? Colors.white24 : Colors.black26)),
+          onChanged: (_) => setState(() {})),
+        const SizedBox(height: 12),
+        // Preset patterns
+        Text('Quick Patterns:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+          color: isDark ? Colors.white54 : Colors.black54)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          _patternChip('{PREFIX}{YY}{MM}-{NUM4}', 'INV2605-0001', isDark),
+          _patternChip('{PREFIX}-{NUM4}', 'INV-0001', isDark),
+          _patternChip('{PREFIX}/{YYYY}/{NUM5}', 'INV/2026/00001', isDark),
+          _patternChip('{PREFIX}-{YYYY}{MM}{DD}-{NUM3}', 'INV-20260513-001', isDark),
+          _patternChip('{PREFIX}/{MM}-{YY}/{NUM4}', 'INV/05-26/0001', isDark),
+        ]),
+        const SizedBox(height: 16),
+        // Available tokens
+        ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: Text('Available Tokens', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white54 : Colors.black54)),
+          children: [
+            _tokenRow('{PREFIX}', 'Your invoice prefix', isDark),
+            _tokenRow('{YYYY}', 'Full year (2026)', isDark),
+            _tokenRow('{YY}', 'Short year (26)', isDark),
+            _tokenRow('{MM}', 'Month (01-12)', isDark),
+            _tokenRow('{DD}', 'Day (01-31)', isDark),
+            _tokenRow('{NUM}', 'Number (no padding)', isDark),
+            _tokenRow('{NUM3}', 'Number 3-digit (001)', isDark),
+            _tokenRow('{NUM4}', 'Number 4-digit (0001)', isDark),
+            _tokenRow('{NUM5}', 'Number 5-digit (00001)', isDark),
+          ]),
+        const SizedBox(height: 16),
+        SizedBox(width: double.infinity, child: ElevatedButton.icon(
+          onPressed: () async {
+            final appState = context.read<AppState>();
+            await appState.saveSetting('invoice_prefix', _invPrefixCtrl.text.trim());
+            await appState.saveSetting('invoice_pattern', _invPatternCtrl.text.trim());
+            await appState.saveSetting('invoice_start_number', _invStartCtrl.text.trim());
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: const Row(children: [
+                  Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+                  Text('Invoice pattern saved!')]),
+                backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+            }
+          },
+          icon: const Icon(Icons.save, size: 18),
+          label: const Text('Save Invoice Pattern'),
+        )),
+      ]));
+  }
+
+  Widget _patternChip(String pattern, String example, bool isDark) {
+    final isActive = _invPatternCtrl.text == pattern;
+    return InkWell(
+      onTap: () => setState(() => _invPatternCtrl.text = pattern),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.primary.withValues(alpha: 0.15) : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04)),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isActive ? AppColors.primary : Colors.transparent)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(pattern, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+            color: isActive ? AppColors.primary : (isDark ? Colors.white54 : Colors.black45))),
+          Text(example, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+            color: isActive ? AppColors.primary : (isDark ? Colors.white70 : Colors.black54))),
+        ]),
+      ),
+    );
+  }
+
+  Widget _tokenRow(String token, String desc, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(4)),
+          child: Text(token, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary, fontFamily: 'monospace'))),
+        const SizedBox(width: 10),
+        Text(desc, style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black45)),
+      ]),
+    );
   }
 
   // ===== BILLING COLUMN SETTINGS =====

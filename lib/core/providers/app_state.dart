@@ -242,7 +242,26 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String> getNextBillNumber() async {
-    return await _db.getNextBillNumber();
+    final pattern = await getSetting('invoice_pattern');
+    final prefix = await getSetting('invoice_prefix') ?? 'INV';
+    final startNum = int.tryParse(await getSetting('invoice_start_number') ?? '1') ?? 1;
+    final count = _bills.length;
+    final num = count + startNum;
+    final now = DateTime.now();
+    if (pattern == null || pattern.isEmpty) {
+      return '$prefix${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}-${num.toString().padLeft(4, '0')}';
+    }
+    var result = pattern
+      .replaceAll('{PREFIX}', prefix)
+      .replaceAll('{YYYY}', now.year.toString())
+      .replaceAll('{YY}', now.year.toString().substring(2))
+      .replaceAll('{MM}', now.month.toString().padLeft(2, '0'))
+      .replaceAll('{DD}', now.day.toString().padLeft(2, '0'))
+      .replaceAll('{NUM5}', num.toString().padLeft(5, '0'))
+      .replaceAll('{NUM4}', num.toString().padLeft(4, '0'))
+      .replaceAll('{NUM3}', num.toString().padLeft(3, '0'))
+      .replaceAll('{NUM}', num.toString());
+    return result;
   }
 
   Future<void> createBill(Bill bill) async {
