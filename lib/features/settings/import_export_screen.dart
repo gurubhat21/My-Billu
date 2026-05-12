@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:excel/excel.dart' hide Border;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
@@ -86,32 +88,31 @@ class _ImportExportScreenState extends State<ImportExportScreen> with SingleTick
   // ===== EXPORT TAB =====
   Widget _buildExportTab(BuildContext ctx, bool isDark) {
     return SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(children: [
-      // JSON Full Backup
-      _sectionCard(ctx, isDark, Icons.backup, 'Full Backup (JSON)', 'Export all data including settings as JSON',
+      // Full Backup
+      _sectionCard(ctx, isDark, Icons.backup, 'Full Backup', 'Export everything as JSON or Excel',
         [Color(0xFF7C3AED), Color(0xFF6D28D9)], [
-        _actionBtn('Export Full Backup', Icons.download, const Color(0xFF7C3AED), () => _exportJson(ctx)),
+        _actionBtn('Export Full Backup (JSON)', Icons.data_object, const Color(0xFF7C3AED), () => _exportJson(ctx)),
+        const SizedBox(height: 8),
+        _actionBtn('Export Full Backup (Excel)', Icons.grid_on, const Color(0xFF6D28D9), () => _exportExcel(ctx)),
       ]),
       const SizedBox(height: 16),
 
-      // Excel Export
-      _sectionCard(ctx, isDark, Icons.table_chart, 'Export to Excel (.xlsx)', 'Export data as Excel spreadsheet',
+      // Individual Excel Exports
+      _sectionCard(ctx, isDark, Icons.table_chart, 'Export Individual Excel', 'Export each data type as separate .xlsx file',
         [AppColors.primary, Color(0xFF3730A3)], [
-        _actionBtn('Export All Data (Excel)', Icons.grid_on, AppColors.primary, () => _exportExcel(ctx)),
-      ]),
-      const SizedBox(height: 16),
-
-      // Individual CSV Export
-      _sectionCard(ctx, isDark, Icons.description, 'Export Individual CSV', 'Export each data type separately',
-        [Color(0xFF059669), Color(0xFF047857)], [
-        _actionBtn('Export Items', Icons.inventory_2, const Color(0xFF059669), () => _exportCsv(ctx, 'items')),
+        _actionBtn('Export Items', Icons.inventory_2, AppColors.primary, () => _exportSingleExcel(ctx, 'items')),
         const SizedBox(height: 8),
-        _actionBtn('Export Customers', Icons.people, const Color(0xFF059669), () => _exportCsv(ctx, 'customers')),
+        _actionBtn('Export Customers', Icons.people, AppColors.primary, () => _exportSingleExcel(ctx, 'customers')),
         const SizedBox(height: 8),
-        _actionBtn('Export Bills', Icons.receipt_long, const Color(0xFF059669), () => _exportCsv(ctx, 'bills')),
+        _actionBtn('Export Sales / Bills', Icons.receipt_long, AppColors.primary, () => _exportSingleExcel(ctx, 'bills')),
         const SizedBox(height: 8),
-        _actionBtn('Export Suppliers', Icons.local_shipping, const Color(0xFF059669), () => _exportCsv(ctx, 'suppliers')),
+        _actionBtn('Export Purchases', Icons.shopping_bag, AppColors.primary, () => _exportSingleExcel(ctx, 'purchases')),
         const SizedBox(height: 8),
-        _actionBtn('Export Expenses', Icons.money_off, const Color(0xFF059669), () => _exportCsv(ctx, 'expenses')),
+        _actionBtn('Export Suppliers', Icons.local_shipping, AppColors.primary, () => _exportSingleExcel(ctx, 'suppliers')),
+        const SizedBox(height: 8),
+        _actionBtn('Export Expenses', Icons.money_off, AppColors.primary, () => _exportSingleExcel(ctx, 'expenses')),
+        const SizedBox(height: 8),
+        _actionBtn('Export Quotations', Icons.description, AppColors.primary, () => _exportSingleExcel(ctx, 'quotations')),
       ]),
     ]));
   }
@@ -361,40 +362,77 @@ class _ImportExportScreenState extends State<ImportExportScreen> with SingleTick
     }
   }
 
-  Future<void> _exportCsv(BuildContext ctx, String type) async {
+  Future<void> _exportSingleExcel(BuildContext ctx, String type) async {
     setState(() => _busy = true);
     try {
       final appState = ctx.read<AppState>();
-      String csv = '';
-      String filename = '';
+      final excel = Excel.createExcel();
+      final sheet = excel['Sheet1'];
+      String filename = type;
+
       switch (type) {
         case 'items':
-          csv = 'Name,Price,Tax%,HSN,Unit,Stock,Category\n';
-          for (final i in appState.items) { csv += '${i.name},${i.price},${i.taxRate},${i.hsnCode},${i.unit},${i.stockQuantity},${i.category}\n'; }
-          filename = 'items';
+          sheet.appendRow([TextCellValue('Name'), TextCellValue('Price'), TextCellValue('Tax %'), TextCellValue('HSN'), TextCellValue('Unit'), TextCellValue('Stock'), TextCellValue('Category')]);
+          for (final i in appState.items) {
+            sheet.appendRow([TextCellValue(i.name), DoubleCellValue(i.price), DoubleCellValue(i.taxRate),
+              TextCellValue(i.hsnCode ?? ''), TextCellValue(i.unit), IntCellValue(i.stockQuantity), TextCellValue(i.category ?? '')]);
+          }
+          filename = 'Items_${appState.items.length}';
         case 'customers':
-          csv = 'Name,Phone,Email,Address,GSTIN,TotalPurchases,Outstanding\n';
-          for (final c in appState.customers) { csv += '${c.name},${c.phone},${c.email},${c.address},${c.gstin},${c.totalPurchases},${c.outstandingBalance}\n'; }
-          filename = 'customers';
+          sheet.appendRow([TextCellValue('Name'), TextCellValue('Phone'), TextCellValue('Email'), TextCellValue('Address'), TextCellValue('GSTIN'), TextCellValue('Total Purchases'), TextCellValue('Outstanding')]);
+          for (final c in appState.customers) {
+            sheet.appendRow([TextCellValue(c.name), TextCellValue(c.phone ?? ''), TextCellValue(c.email ?? ''),
+              TextCellValue(c.address ?? ''), TextCellValue(c.gstin ?? ''), DoubleCellValue(c.totalPurchases), DoubleCellValue(c.outstandingBalance)]);
+          }
+          filename = 'Customers_${appState.customers.length}';
         case 'bills':
-          csv = 'BillNo,Date,Customer,Subtotal,Tax,Total,Paid,Balance,Status\n';
-          for (final b in appState.bills) { csv += '${b.billNumber},${b.createdAt.toIso8601String()},${b.customerName ?? "Walk-in"},${b.subtotal},${b.totalTax},${b.totalAmount},${b.paidAmount},${b.balanceDue},${b.status.name}\n'; }
-          filename = 'bills';
+          sheet.appendRow([TextCellValue('Bill No'), TextCellValue('Date'), TextCellValue('Customer'), TextCellValue('Subtotal'), TextCellValue('Tax'), TextCellValue('Total'), TextCellValue('Paid'), TextCellValue('Balance'), TextCellValue('Status'), TextCellValue('Payment')]);
+          for (final b in appState.bills) {
+            sheet.appendRow([TextCellValue(b.billNumber), TextCellValue(b.createdAt.toIso8601String().substring(0, 10)),
+              TextCellValue(b.customerName ?? 'Walk-in'), DoubleCellValue(b.subtotal), DoubleCellValue(b.totalTax),
+              DoubleCellValue(b.totalAmount), DoubleCellValue(b.paidAmount), DoubleCellValue(b.balanceDue),
+              TextCellValue(b.status.name), TextCellValue(b.paymentMethod.name)]);
+          }
+          filename = 'Sales_${appState.bills.length}';
+        case 'purchases':
+          sheet.appendRow([TextCellValue('Purchase No'), TextCellValue('Date'), TextCellValue('Supplier'), TextCellValue('Subtotal'), TextCellValue('Tax'), TextCellValue('Total'), TextCellValue('Status')]);
+          for (final p in appState.purchases) {
+            sheet.appendRow([TextCellValue(p.purchaseNumber), TextCellValue(p.createdAt.toIso8601String().substring(0, 10)),
+              TextCellValue(p.supplierName), DoubleCellValue(p.subtotal), DoubleCellValue(p.totalTax),
+              DoubleCellValue(p.totalAmount), TextCellValue(p.status.name)]);
+          }
+          filename = 'Purchases_${appState.purchases.length}';
         case 'suppliers':
-          csv = 'Name,Phone,Email,Address,GSTIN\n';
-          for (final s in appState.suppliers) { csv += '${s.name},${s.phone},${s.email},${s.address},${s.gstin}\n'; }
-          filename = 'suppliers';
+          sheet.appendRow([TextCellValue('Name'), TextCellValue('Phone'), TextCellValue('Email'), TextCellValue('Address'), TextCellValue('GSTIN'), TextCellValue('Total Purchases'), TextCellValue('Outstanding')]);
+          for (final s in appState.suppliers) {
+            sheet.appendRow([TextCellValue(s.name), TextCellValue(s.phone ?? ''), TextCellValue(s.email ?? ''),
+              TextCellValue(s.address ?? ''), TextCellValue(s.gstin ?? ''), DoubleCellValue(s.totalPurchases), DoubleCellValue(s.outstandingBalance)]);
+          }
+          filename = 'Suppliers_${appState.suppliers.length}';
         case 'expenses':
-          csv = 'Date,Category,Amount,Notes\n';
-          for (final e in appState.expenses) { csv += '${e.date.toIso8601String()},${e.category.name},${e.amount},${e.notes ?? ""}\n'; }
-          filename = 'expenses';
+          sheet.appendRow([TextCellValue('Date'), TextCellValue('Category'), TextCellValue('Title'), TextCellValue('Amount'), TextCellValue('Notes')]);
+          for (final e in appState.expenses) {
+            sheet.appendRow([TextCellValue(e.date.toIso8601String().substring(0, 10)),
+              TextCellValue(e.category.label), TextCellValue(e.title), DoubleCellValue(e.amount), TextCellValue(e.notes ?? '')]);
+          }
+          filename = 'Expenses_${appState.expenses.length}';
+        case 'quotations':
+          sheet.appendRow([TextCellValue('Quotation No'), TextCellValue('Date'), TextCellValue('Customer'), TextCellValue('Total'), TextCellValue('Status'), TextCellValue('Valid Until')]);
+          for (final q in appState.quotations) {
+            sheet.appendRow([TextCellValue(q.quotationNumber), TextCellValue(q.createdAt.toIso8601String().substring(0, 10)),
+              TextCellValue(q.customerName ?? ''), DoubleCellValue(q.totalAmount), TextCellValue(q.status.name),
+              TextCellValue(q.validUntil?.toIso8601String().substring(0, 10) ?? '')]);
+          }
+          filename = 'Quotations_${appState.quotations.length}';
       }
-      web_helper.downloadJson(csv, 'mybillu_${filename}_${DateTime.now().millisecondsSinceEpoch}.csv');
+
+      final bytes = Uint8List.fromList(excel.encode()!);
+      await Printing.sharePdf(bytes: bytes, filename: 'MyBillu_${filename}_${DateTime.now().millisecondsSinceEpoch}.xlsx');
       setState(() => _busy = false);
-      _msg('✅ $type CSV exported!');
+      _msg('✅ $type Excel exported!');
     } catch (e) {
       setState(() => _busy = false);
-      _msg('CSV export failed: $e', ok: false);
+      _msg('Export failed: $e', ok: false);
     }
   }
 
