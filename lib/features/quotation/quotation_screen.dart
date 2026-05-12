@@ -219,10 +219,25 @@ class _QuotationScreenState extends State<QuotationScreen> {
     final notesCtrl = TextEditingController(text: existing?.notes ?? '');
     final discountCtrl = TextEditingController(text: (existing?.discount ?? 0).toString());
     String? selectedCustomerId = existing?.customerId;
+    bool gstInclusive = false;
+
+    // Load GST mode
+    appState.getSetting('billing_gst_inclusive').then((val) {
+      if (val == 'true') gstInclusive = true;
+    });
 
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
-      final subtotal = items.fold<double>(0, (s, i) => s + i.subtotal);
-      final totalTax = items.fold<double>(0, (s, i) => s + i.taxAmount);
+      double subtotal, totalTax;
+      if (gstInclusive) {
+        subtotal = items.fold<double>(0, (s, i) => s + i.unitPrice * i.quantity / (1 + i.taxRate / 100));
+        totalTax = items.fold<double>(0, (s, i) {
+          final inclTotal = i.unitPrice * i.quantity;
+          return s + inclTotal - inclTotal / (1 + i.taxRate / 100);
+        });
+      } else {
+        subtotal = items.fold<double>(0, (s, i) => s + i.subtotal);
+        totalTax = items.fold<double>(0, (s, i) => s + i.taxAmount);
+      }
       final discount = double.tryParse(discountCtrl.text) ?? 0;
       final totalAmount = subtotal + totalTax - discount;
 
@@ -335,6 +350,24 @@ class _QuotationScreenState extends State<QuotationScreen> {
                 gradient: AppColors.primaryGradient.scale(0.3),
                 borderRadius: BorderRadius.circular(10)),
               child: Column(children: [
+                // GST toggle
+                Row(children: [
+                  const Icon(Icons.receipt_long, size: 14, color: Colors.white54),
+                  const SizedBox(width: 6),
+                  Text(gstInclusive ? 'GST Inclusive' : 'GST Exclusive',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                      color: gstInclusive ? Colors.greenAccent : Colors.cyanAccent)),
+                  const Spacer(),
+                  SizedBox(height: 24, child: Switch(
+                    value: gstInclusive,
+                    activeColor: Colors.greenAccent,
+                    onChanged: (v) async {
+                      setDialogState(() => gstInclusive = v);
+                      await appState.saveSetting('billing_gst_inclusive', v.toString());
+                    },
+                  )),
+                ]),
+                const SizedBox(height: 4),
                 _summaryRow('Subtotal', AppFormatters.currency(subtotal)),
                 _summaryRow('GST', AppFormatters.currency(totalTax)),
                 if (discount > 0) _summaryRow('Discount', '- ${AppFormatters.currency(discount)}'),
