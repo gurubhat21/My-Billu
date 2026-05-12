@@ -3,6 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/item.dart';
 import '../../core/models/customer.dart';
+import '../../core/models/bill.dart';
+import '../../core/models/purchase.dart';
+import '../../core/models/quotation.dart';
+import '../../core/models/expense.dart';
+import '../../core/models/credit_note.dart';
+import '../../core/models/purchase_return.dart';
+import '../../core/models/supplier.dart';
+import '../../core/models/recurring_bill.dart';
+import '../../core/models/cash_book.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/web_helper.dart' as web_helper;
@@ -611,14 +620,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _syncing = true);
     try {
       final appState = context.read<AppState>();
+      final settings = await appState.getAllSettings();
       final backup = {
-        'version': '1.0.0',
+        'version': '2.0.0',
         'timestamp': DateTime.now().toIso8601String(),
-        'app': 'My Billu',
+        'app': 'My Billu - Full Backup',
         'items': appState.items.map((i) => i.toMap()).toList(),
         'customers': appState.customers.map((c) => c.toMap()).toList(),
         'bills': appState.bills.map((b) => b.toMap()).toList(),
         'purchases': appState.purchases.map((p) => p.toMap()).toList(),
+        'quotations': appState.quotations.map((q) => q.toMap()).toList(),
+        'expenses': appState.expenses.map((e) => e.toMap()).toList(),
+        'creditNotes': appState.creditNotes.map((c) => c.toMap()).toList(),
+        'purchaseReturns': appState.purchaseReturns.map((p) => p.toMap()).toList(),
+        'suppliers': appState.suppliers.map((s) => s.toMap()).toList(),
+        'recurringBills': appState.recurringBills.map((r) => r.toMap()).toList(),
+        'cashBookEntries': appState.cashBookEntries.map((e) => e.toMap()).toList(),
+        'bankAccounts': appState.bankAccounts.map((a) => a.toMap()).toList(),
+        'settings': settings,
       };
       final jsonStr = const JsonEncoder.withIndent('  ').convert(backup);
       final bytes = utf8.encode(jsonStr);
@@ -789,13 +808,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _backupData(BuildContext context) async {
     try {
       final appState = context.read<AppState>();
+      final settings = await appState.getAllSettings();
       final backup = {
-        'version': '1.0.0',
+        'version': '2.0.0',
         'timestamp': DateTime.now().toIso8601String(),
+        'app': 'My Billu - Full Backup',
         'items': appState.items.map((i) => i.toMap()).toList(),
         'customers': appState.customers.map((c) => c.toMap()).toList(),
         'bills': appState.bills.map((b) => b.toMap()).toList(),
         'purchases': appState.purchases.map((p) => p.toMap()).toList(),
+        'quotations': appState.quotations.map((q) => q.toMap()).toList(),
+        'expenses': appState.expenses.map((e) => e.toMap()).toList(),
+        'creditNotes': appState.creditNotes.map((c) => c.toMap()).toList(),
+        'purchaseReturns': appState.purchaseReturns.map((p) => p.toMap()).toList(),
+        'suppliers': appState.suppliers.map((s) => s.toMap()).toList(),
+        'recurringBills': appState.recurringBills.map((r) => r.toMap()).toList(),
+        'cashBookEntries': appState.cashBookEntries.map((e) => e.toMap()).toList(),
+        'bankAccounts': appState.bankAccounts.map((a) => a.toMap()).toList(),
+        'settings': settings,
       };
       final jsonStr = const JsonEncoder.withIndent('  ').convert(backup);
       web_helper.downloadJson(jsonStr, 'mybillu_backup_${DateTime.now().millisecondsSinceEpoch}.json');
@@ -832,6 +862,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text('Customers: ${(data['customers'] as List?)?.length ?? 0}'),
           Text('Bills: ${(data['bills'] as List?)?.length ?? 0}'),
           Text('Purchases: ${(data['purchases'] as List?)?.length ?? 0}'),
+          Text('Quotations: ${(data['quotations'] as List?)?.length ?? 0}'),
+          Text('Expenses: ${(data['expenses'] as List?)?.length ?? 0}'),
+          Text('Suppliers: ${(data['suppliers'] as List?)?.length ?? 0}'),
+          Text('Settings: ${(data['settings'] as Map?)?.length ?? 0} keys'),
           if (data['timestamp'] != null) ...[
             const SizedBox(height: 8),
             Text('Backup date: ${data['timestamp']}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
@@ -846,16 +880,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (confirm != true || !mounted) return;
 
       final appState = context.read<AppState>();
+
+      // Restore items
       if (data['items'] != null) {
         for (final m in data['items']) {
           try { await appState.addItem(Item.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
         }
       }
+      // Restore customers
       if (data['customers'] != null) {
         for (final m in data['customers']) {
           try { await appState.addCustomer(Customer.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
         }
       }
+      // Restore bills
+      if (data['bills'] != null) {
+        for (final m in data['bills']) {
+          try { await appState.createBill(Bill.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+      // Restore purchases
+      if (data['purchases'] != null) {
+        for (final m in data['purchases']) {
+          try { await appState.createPurchase(Purchase.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+      // Restore quotations
+      if (data['quotations'] != null) {
+        for (final m in data['quotations']) {
+          try { await appState.addQuotation(Quotation.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+      // Restore expenses
+      if (data['expenses'] != null) {
+        for (final m in data['expenses']) {
+          try { await appState.addExpense(Expense.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+      // Restore credit notes
+      if (data['creditNotes'] != null) {
+        for (final m in data['creditNotes']) {
+          try { await appState.addCreditNote(CreditNote.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+      // Restore purchase returns
+      if (data['purchaseReturns'] != null) {
+        for (final m in data['purchaseReturns']) {
+          try { await appState.addPurchaseReturn(PurchaseReturn.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+      // Restore suppliers
+      if (data['suppliers'] != null) {
+        for (final m in data['suppliers']) {
+          try { await appState.addSupplier(Supplier.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+      // Restore cash book entries
+      if (data['cashBookEntries'] != null) {
+        for (final m in data['cashBookEntries']) {
+          try { await appState.addCashBookEntry(CashBookEntry.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+      // Restore bank accounts
+      if (data['bankAccounts'] != null) {
+        for (final m in data['bankAccounts']) {
+          try { await appState.addBankAccount(BankAccount.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+      // Restore settings (company name, GSTIN, logo, etc.)
+      if (data['settings'] != null) {
+        final settings = (data['settings'] as Map<String, dynamic>);
+        for (final entry in settings.entries) {
+          await appState.saveSetting(entry.key, entry.value.toString());
+        }
+      }
+
+      await appState.loadAll();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
