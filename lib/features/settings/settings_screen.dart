@@ -622,7 +622,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       final xFile = XFile.fromData(
         Uint8List.fromList(bytes),
-        name: 'MyBillu_Sync_${DateTime.now().millisecondsSinceEpoch}.json',
+        name: 'My_Billu_Sync_${DateTime.now().day.toString().padLeft(2, '0')}_${DateTime.now().month.toString().padLeft(2, '0')}_${DateTime.now().year}.json',
         mimeType: 'application/json',
       );
       await Share.shareXFiles([xFile],
@@ -1179,7 +1179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'settings': settings,
       };
       final jsonStr = const JsonEncoder.withIndent('  ').convert(backup);
-      web_helper.downloadJson(jsonStr, 'mybillu_backup_${DateTime.now().millisecondsSinceEpoch}.json');
+      web_helper.downloadJson(jsonStr, 'My_Billu_Backup_${DateTime.now().day.toString().padLeft(2, '0')}_${DateTime.now().month.toString().padLeft(2, '0')}_${DateTime.now().year}.json');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

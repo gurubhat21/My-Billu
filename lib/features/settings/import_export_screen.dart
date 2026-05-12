@@ -38,6 +38,11 @@ class _ImportExportScreenState extends State<ImportExportScreen> with SingleTick
   @override
   void dispose() { _tabCtrl.dispose(); super.dispose(); }
 
+  String _dateStr() {
+    final n = DateTime.now();
+    return '${n.day.toString().padLeft(2, '0')}_${n.month.toString().padLeft(2, '0')}_${n.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -416,7 +421,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> with SingleTick
         'settings': settings,
       };
       final jsonStr = const JsonEncoder.withIndent('  ').convert(backup);
-      web_helper.downloadJson(jsonStr, 'mybillu_backup_${DateTime.now().millisecondsSinceEpoch}.json');
+      web_helper.downloadJson(jsonStr, 'My_Billu_Backup_${_dateStr()}.json');
       setState(() => _busy = false);
       _msg('✅ Full backup exported!');
     } catch (e) {
@@ -432,7 +437,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> with SingleTick
       final bytes = await FullBackupExporter.exportAll(
         items: appState.items, customers: appState.customers, bills: appState.bills,
         purchases: appState.purchases, expenses: appState.expenses, suppliers: appState.suppliers);
-      await Printing.sharePdf(bytes: bytes, filename: 'MyBillu_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx');
+      await Printing.sharePdf(bytes: bytes, filename: 'My_Billu_Full_Export_${_dateStr()}.xlsx');
       setState(() => _busy = false);
       _msg('✅ Excel exported!');
     } catch (e) {
@@ -506,7 +511,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> with SingleTick
       }
 
       final bytes = Uint8List.fromList(excel.encode()!);
-      await Printing.sharePdf(bytes: bytes, filename: 'MyBillu_${filename}_${DateTime.now().millisecondsSinceEpoch}.xlsx');
+      await Printing.sharePdf(bytes: bytes, filename: 'My_Billu_${filename}_${_dateStr()}.xlsx');
       setState(() => _busy = false);
       _msg('✅ $type Excel exported!');
     } catch (e) {
