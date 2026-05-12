@@ -9,7 +9,7 @@ import '../models/purchase.dart';
 Future<Database> initDatabase(String fileName) async {
   final dbPath = await getDatabasesPath();
   final path = p.join(dbPath, fileName);
-  return await openDatabase(path, version: 3,
+  return await openDatabase(path, version: 4,
     onCreate: _createDB,
     onUpgrade: _upgradeDB,
   );
@@ -34,7 +34,7 @@ Future<void> _createDB(Database db, int version) async {
   await db.execute('''
     CREATE TABLE bills (
       id TEXT PRIMARY KEY, billNumber TEXT NOT NULL UNIQUE, customerId TEXT,
-      customerName TEXT, items TEXT NOT NULL, subtotal REAL NOT NULL,
+      customerName TEXT, customerPhone TEXT, items TEXT NOT NULL, subtotal REAL NOT NULL,
       discount REAL DEFAULT 0.0,
       totalTax REAL NOT NULL, totalAmount REAL NOT NULL,
       paidAmount REAL DEFAULT 0.0, paymentMethod TEXT DEFAULT 'cash',
@@ -64,6 +64,11 @@ Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
   if (oldVersion < 3) {
     try {
       await db.execute('ALTER TABLE items ADD COLUMN barcode TEXT');
+    } catch (_) {}
+  }
+  if (oldVersion < 4) {
+    try {
+      await db.execute('ALTER TABLE bills ADD COLUMN customerPhone TEXT');
     } catch (_) {}
   }
 }

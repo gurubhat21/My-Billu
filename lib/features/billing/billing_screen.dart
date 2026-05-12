@@ -339,78 +339,89 @@ class _BillingScreenState extends State<BillingScreen> {
   }
 
   Future<void> _createBill(BuildContext context, AppState appState) async {
-    final billNumber = await appState.getNextBillNumber();
-    final walkInName = _walkInNameCtrl.text.trim();
-    final walkInPhone = _walkInPhoneCtrl.text.trim();
-    final billItems = _cart.map((c) => BillItem(itemId: c.item.id, itemName: c.item.name,
-      unitPrice: c.item.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit)).toList();
-    final bill = Bill(billNumber: billNumber, customerId: _selectedCustomer?.id,
-      customerName: _selectedCustomer?.name ?? (walkInName.isNotEmpty ? walkInName : null),
-      customerPhone: _selectedCustomer?.phone ?? (walkInPhone.isNotEmpty ? walkInPhone : null),
-      items: billItems, subtotal: _subtotal,
-      discount: _discount,
-      totalTax: _totalTax, totalAmount: _totalAmount,
-      paidAmount: _paymentMethod == PaymentMethod.credit ? 0 : _totalAmount,
-      paymentMethod: _paymentMethod,
-      status: _paymentMethod == PaymentMethod.credit ? BillStatus.unpaid : BillStatus.paid);
-    await appState.createBill(bill);
+    try {
+      final billNumber = await appState.getNextBillNumber();
+      final walkInName = _walkInNameCtrl.text.trim();
+      final walkInPhone = _walkInPhoneCtrl.text.trim();
+      final billItems = _cart.map((c) => BillItem(itemId: c.item.id, itemName: c.item.name,
+        unitPrice: c.item.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit)).toList();
+      final bill = Bill(billNumber: billNumber, customerId: _selectedCustomer?.id,
+        customerName: _selectedCustomer?.name ?? (walkInName.isNotEmpty ? walkInName : null),
+        customerPhone: _selectedCustomer?.phone ?? (walkInPhone.isNotEmpty ? walkInPhone : null),
+        items: billItems, subtotal: _subtotal,
+        discount: _discount,
+        totalTax: _totalTax, totalAmount: _totalAmount,
+        paidAmount: _paymentMethod == PaymentMethod.credit ? 0 : _totalAmount,
+        paymentMethod: _paymentMethod,
+        status: _paymentMethod == PaymentMethod.credit ? BillStatus.unpaid : BillStatus.paid);
+      await appState.createBill(bill);
 
-    // Auto-add to Cash Book or Bank Book based on payment method
-    if (_paymentMethod != PaymentMethod.credit && _totalAmount > 0) {
-      if (_paymentMethod == PaymentMethod.cash) {
-        // Cash payment → Cash Book (Cash In)
-        await appState.addCashBookEntry(CashBookEntry(
-          type: TransactionType.cashIn,
-          amount: _totalAmount,
-          description: 'Sales - $billNumber',
-          reference: billNumber,
-          category: 'Sales',
-        ));
-      } else {
-        // UPI, Card, Bank Transfer → Bank Book (Bank Deposit)
-        final bankId = appState.bankAccounts.isNotEmpty ? appState.bankAccounts.first.id : null;
-        await appState.addCashBookEntry(CashBookEntry(
-          type: TransactionType.bankIn,
-          amount: _totalAmount,
-          description: 'Sales (${_paymentMethod.name.toUpperCase()}) - $billNumber',
-          reference: billNumber,
-          bankAccountId: bankId,
-          category: 'Sales',
-        ));
+      // Auto-add to Cash Book or Bank Book based on payment method
+      if (_paymentMethod != PaymentMethod.credit && _totalAmount > 0) {
+        try {
+          if (_paymentMethod == PaymentMethod.cash) {
+            await appState.addCashBookEntry(CashBookEntry(
+              type: TransactionType.cashIn,
+              amount: _totalAmount,
+              description: 'Sales - $billNumber',
+              reference: billNumber,
+              category: 'Sales',
+            ));
+          } else {
+            final bankId = appState.bankAccounts.isNotEmpty ? appState.bankAccounts.first.id : null;
+            await appState.addCashBookEntry(CashBookEntry(
+              type: TransactionType.bankIn,
+              amount: _totalAmount,
+              description: 'Sales (${_paymentMethod.name.toUpperCase()}) - $billNumber',
+              reference: billNumber,
+              bankAccountId: bankId,
+              category: 'Sales',
+            ));
+          }
+        } catch (e) {
+          debugPrint('Cash/Bank book entry error: $e');
+        }
       }
-    }
 
-    if (mounted) {
-      setState(() { _cart.clear(); _selectedCustomer = null; _paymentMethod = PaymentMethod.cash;
-        _discountCtrl.text = '0'; _walkInNameCtrl.clear(); _walkInPhoneCtrl.clear(); });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10), Text('Bill $billNumber created!')]),
-        backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+      if (mounted) {
+        setState(() { _cart.clear(); _selectedCustomer = null; _paymentMethod = PaymentMethod.cash;
+          _discountCtrl.text = '0'; _walkInNameCtrl.clear(); _walkInPhoneCtrl.clear(); });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10), Text('Bill $billNumber created!')]),
+          backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
 
-      // Offer to print invoice
-      final shouldPrint = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-        title: const Row(children: [
-          Icon(Icons.print, color: AppColors.primary), SizedBox(width: 10), Text('Print Invoice?')]),
-        content: Text('Bill $billNumber created successfully.\nWould you like to print/download the invoice?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Skip')),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(ctx, true),
-            icon: const Icon(Icons.print, size: 18),
-            label: const Text('Print Invoice'),
-          ),
-        ],
-      ));
+        // Offer to print invoice
+        final shouldPrint = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+          title: const Row(children: [
+            Icon(Icons.print, color: AppColors.primary), SizedBox(width: 10), Text('Print Invoice?')]),
+          content: Text('Bill $billNumber created successfully.\nWould you like to print/download the invoice?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Skip')),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.print, size: 18),
+              label: const Text('Print Invoice'),
+            ),
+          ],
+        ));
 
-      if (shouldPrint == true && mounted) {
-        final settings = await appState.getAllSettings();
-        await InvoiceGenerator.generateAndPrint(bill,
-          businessName: settings['businessName'] ?? 'My Billu',
-          businessAddress: settings['businessAddress'] ?? '',
-          businessPhone: settings['businessPhone'] ?? '',
-          businessGstin: settings['businessGstin'] ?? '',
-        );
+        if (shouldPrint == true && mounted) {
+          final settings = await appState.getAllSettings();
+          await InvoiceGenerator.generateAndPrint(bill,
+            businessName: settings['businessName'] ?? 'My Billu',
+            businessAddress: settings['businessAddress'] ?? '',
+            businessPhone: settings['businessPhone'] ?? '',
+            businessGstin: settings['businessGstin'] ?? '',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Create bill error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error creating bill: $e'),
+          backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating));
       }
     }
   }
