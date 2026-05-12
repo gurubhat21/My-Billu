@@ -27,6 +27,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:typed_data';
 import '../../core/services/lan_sync_service.dart';
 import 'package:flutter/foundation.dart';
+import 'keyboard_shortcuts_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -410,7 +411,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ])),
           const SizedBox(height: 20),
 
-          // Keyboard Shortcuts Reference
+          // Keyboard Shortcuts - Editable
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
@@ -418,22 +419,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                   child: const Icon(Icons.keyboard, size: 22, color: AppColors.warning)),
                 const SizedBox(width: 12),
-                Text('Keyboard Shortcuts', style: Theme.of(context).textTheme.titleLarge),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Keyboard Shortcuts', style: Theme.of(context).textTheme.titleLarge),
+                  Text('Customize navigation shortcuts', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+                ])),
               ]),
               const SizedBox(height: 16),
-              Text('Navigation', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary.withValues(alpha: 0.8))),
-              const SizedBox(height: 8),
-              _shortcutRow('Ctrl + D', 'Dashboard'),
-              _shortcutRow('Ctrl + N', 'New Bill / Sales'),
-              _shortcutRow('Ctrl + H', 'Payments / History'),
-              _shortcutRow('Ctrl + I', 'Items'),
-              _shortcutRow('Ctrl + U', 'Customers'),
-              _shortcutRow('Ctrl + R', 'Reports'),
-              _shortcutRow('Ctrl + ,', 'Settings'),
-              const Divider(height: 20),
-              Text('Actions', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary.withValues(alpha: 0.8))),
-              const SizedBox(height: 8),
-              _shortcutRow('Ctrl + ?', 'Show shortcuts dialog'),
+              SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.warning,
+                  padding: const EdgeInsets.symmetric(vertical: 14)),
+                onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const KeyboardShortcutsScreen())),
+                icon: const Icon(Icons.edit, size: 18),
+                label: const Text('Edit Keyboard Shortcuts'),
+              )),
             ])),
           const SizedBox(height: 20),
           GlassCard(padding: const EdgeInsets.all(20), child: Column(

@@ -26,6 +26,7 @@ import 'features/recurring/recurring_bill_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/audit/audit_trail_screen.dart';
 import 'features/cash_book/cash_book_screen.dart';
+import 'features/settings/keyboard_shortcuts_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -119,6 +120,8 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  List<ShortcutBinding> _customShortcuts = [];
+  bool _shortcutsLoaded = false;
 
   // All screens indexed
   static const _allScreens = [
@@ -174,23 +177,42 @@ class _MainShellState extends State<MainShell> {
     setState(() => _currentIndex = index);
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_shortcutsLoaded) {
+      _shortcutsLoaded = true;
+      _loadCustomShortcuts();
+    }
+  }
+
+  Future<void> _loadCustomShortcuts() async {
+    final appState = context.read<AppState>();
+    final shortcuts = await loadShortcuts(appState);
+    if (mounted) setState(() => _customShortcuts = shortcuts);
+  }
+
+  Map<ShortcutActivator, VoidCallback> _buildShortcutBindings() {
+    final bindings = <ShortcutActivator, VoidCallback>{};
+    for (final sc in _customShortcuts) {
+      bindings[sc.toActivator()] = () => _goTo(sc.screenIndex);
+    }
+    // Always keep the help shortcut
+    bindings[const SingleActivator(LogicalKeyboardKey.slash, control: true, shift: true)] = () => _showShortcutsHelp();
+    return bindings;
+  }
+
   void _showShortcutsHelp() {
     showDialog(context: context, builder: (ctx) => AlertDialog(
       title: const Row(children: [
         Icon(Icons.keyboard, color: AppColors.primary), SizedBox(width: 10), Text('Keyboard Shortcuts')]),
       content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
         _shortcutSection('Navigation', [
-          _shortcutRow('Ctrl + D', 'Dashboard'),
-          _shortcutRow('Ctrl + N', 'New Bill / Sales'),
-          _shortcutRow('Ctrl + H', 'Payments / History'),
-          _shortcutRow('Ctrl + I', 'Items'),
-          _shortcutRow('Ctrl + U', 'Customers'),
-          _shortcutRow('Ctrl + R', 'Reports'),
-          _shortcutRow('Ctrl + ,', 'Settings'),
+          ..._customShortcuts.map((sc) => _shortcutRow(sc.displayString, sc.label)),
         ]),
         _shortcutSection('Actions', [
           _shortcutRow('Ctrl + F', 'Global Search'),
-          _shortcutRow('Ctrl + ?', 'Show this help'),
+          _shortcutRow('Ctrl + Shift + /', 'Show this help'),
         ]),
       ]))),
       actions: [ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
@@ -255,16 +277,7 @@ class _MainShellState extends State<MainShell> {
         }
       },
       child: CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.keyD, control: true): () => _goTo(0),   // Dashboard
-          const SingleActivator(LogicalKeyboardKey.keyN, control: true): () => _goTo(1),   // New Bill
-          const SingleActivator(LogicalKeyboardKey.keyH, control: true): () => _goTo(3),   // History
-          const SingleActivator(LogicalKeyboardKey.keyI, control: true): () => _goTo(4),   // Items
-          const SingleActivator(LogicalKeyboardKey.keyU, control: true): () => _goTo(6),   // Customers
-          const SingleActivator(LogicalKeyboardKey.keyR, control: true): () => _goTo(9),   // Reports
-          const SingleActivator(LogicalKeyboardKey.comma, control: true): () => _goTo(15), // Settings
-          const SingleActivator(LogicalKeyboardKey.slash, control: true, shift: true): () => _showShortcutsHelp(),
-        },
+        bindings: _buildShortcutBindings(),
         child: Focus(
           autofocus: true,
           child: _buildBody(context),
