@@ -441,8 +441,9 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildDrawer(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Drawer(
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
+      backgroundColor: isDark
           ? const Color(0xFF0F0F23) : Colors.white,
       child: Column(children: [
         // Drawer Header
@@ -500,11 +501,11 @@ class _MainShellState extends State<MainShell> {
               ),
               child: ListTile(
                 leading: Icon(item.icon, size: 22,
-                  color: isSelected ? AppColors.primary : Colors.white.withValues(alpha: 0.6)),
+                  color: isSelected ? AppColors.primary : (isDark ? Colors.white.withValues(alpha: 0.6) : Colors.black54)),
                 title: Text(item.label, style: TextStyle(
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   fontSize: 14,
-                  color: isSelected ? AppColors.primary : Colors.white.withValues(alpha: 0.8),
+                  color: isSelected ? AppColors.primary : (isDark ? Colors.white.withValues(alpha: 0.8) : Colors.black87),
                 )),
                 trailing: badge > 0 ? Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -524,7 +525,7 @@ class _MainShellState extends State<MainShell> {
         // Footer
         Padding(padding: const EdgeInsets.all(16),
           child: Text('Sumukha Tech Solutions', style: TextStyle(
-            fontSize: 11, color: Colors.white.withValues(alpha: 0.3), fontWeight: FontWeight.w500)),
+            fontSize: 11, color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black38, fontWeight: FontWeight.w500)),
         ),
       ]),
     );
