@@ -25,6 +25,8 @@ import '../../core/utils/validators.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:typed_data';
+import '../../core/services/lan_sync_service.dart';
+import 'package:flutter/foundation.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -55,6 +57,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _bizPhoneCtrl.text = settings['businessPhone'] ?? '';
       _bizGstinCtrl.text = settings['businessGstin'] ?? '';
       _bizLogoCtrl.text = settings['businessLogo'] ?? '';
+      _lanIpCtrl.text = settings['lan_sync_ip'] ?? '';
       _loaded = true;
     });
   }
@@ -95,6 +98,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // Cloud Sync Section
           _buildCloudSyncCard(context),
+          const SizedBox(height: 20),
+
+          // LAN Sync Section
+          _buildLanSyncCard(context),
           const SizedBox(height: 20),
 
           // Data Export Section
@@ -669,6 +676,270 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  // ===== LAN SYNC =====
+  final _lanIpCtrl = TextEditingController();
+  bool _lanSharing = false;
+  bool _lanSyncing = false;
+  String? _myIp;
+
+  Widget _buildLanSyncCard(BuildContext context) {
+    if (kIsWeb) {
+      return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)]),
+                borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.wifi, size: 22, color: Colors.white)),
+            const SizedBox(width: 12),
+            Text('LAN Sync', style: Theme.of(context).textTheme.titleLarge),
+          ]),
+          const SizedBox(height: 12),
+          Text('LAN Sync is available on Android & Windows only.',
+            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
+        ]));
+    }
+
+    return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)]),
+              borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.wifi, size: 22, color: Colors.white)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('LAN Sync', style: Theme.of(context).textTheme.titleLarge),
+            Text('Sync over WiFi without internet', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+          ])),
+          if (_lanSharing)
+            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.circle, size: 8, color: AppColors.success), SizedBox(width: 4),
+                Text('Sharing', style: TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.w600)),
+              ])),
+        ]),
+        const SizedBox(height: 16),
+
+        // This Device section
+        Container(padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF6B6B).withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFFF6B6B).withValues(alpha: 0.15))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Icon(Icons.smartphone, size: 16, color: Color(0xFFFF6B6B)),
+              const SizedBox(width: 8),
+              const Text('This Device', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const Spacer(),
+              if (_myIp != null)
+                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(6)),
+                  child: Text('IP: $_myIp', style: const TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.w600))),
+            ]),
+            const SizedBox(height: 10),
+            SizedBox(width: double.infinity, child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _lanSharing ? AppColors.error : const Color(0xFFFF6B6B),
+                padding: const EdgeInsets.symmetric(vertical: 12)),
+              onPressed: () => _lanSharing ? _stopSharing() : _startSharing(context),
+              icon: Icon(_lanSharing ? Icons.stop : Icons.wifi_tethering, size: 18),
+              label: Text(_lanSharing ? 'Stop Sharing' : 'Start Sharing (other device can sync from this)'),
+            )),
+          ])),
+
+        const SizedBox(height: 12),
+
+        // Connect to other device
+        Container(padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF8E53).withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFFF8E53).withValues(alpha: 0.15))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [
+              Icon(Icons.sync, size: 16, color: Color(0xFFFF8E53)),
+              SizedBox(width: 8),
+              Text('Sync from Another Device', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            ]),
+            const SizedBox(height: 10),
+            TextField(controller: _lanIpCtrl,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(fontSize: 14, fontFamily: 'monospace'),
+              decoration: InputDecoration(
+                labelText: 'Enter IP Address',
+                hintText: '192.168.1.100',
+                prefixIcon: const Icon(Icons.language, size: 18),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.save, size: 18),
+                  tooltip: 'Save IP',
+                  onPressed: () async {
+                    final appState = context.read<AppState>();
+                    await appState.saveSetting('lan_sync_ip', _lanIpCtrl.text.trim());
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: const Text('IP address saved!'),
+                      backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+                  }),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              )),
+            const SizedBox(height: 10),
+            SizedBox(width: double.infinity, child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF8E53),
+                padding: const EdgeInsets.symmetric(vertical: 12)),
+              onPressed: _lanSyncing ? null : () => _syncFromLan(context),
+              icon: _lanSyncing
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.sync, size: 18),
+              label: Text(_lanSyncing ? 'Syncing...' : 'Sync Now'),
+            )),
+          ])),
+
+        const SizedBox(height: 12),
+        Container(padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.03), borderRadius: BorderRadius.circular(8)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.info_outline, size: 16, color: Colors.white.withValues(alpha: 0.3)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(
+              'Both devices must be on same WiFi.\n1. Start Sharing on Device A\n2. Enter Device A\'s IP on Device B\n3. Tap Sync Now',
+              style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.35), height: 1.5))),
+          ])),
+      ]));
+  }
+
+  Future<void> _startSharing(BuildContext context) async {
+    final ip = await LanSyncService.getLocalIp();
+    if (ip == null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Could not find WiFi IP address. Make sure you\'re connected to WiFi.'),
+        backgroundColor: AppColors.error));
+      return;
+    }
+
+    final appState = context.read<AppState>();
+    final settings = await appState.getAllSettings();
+    final backup = {
+      'version': '2.0.0',
+      'timestamp': DateTime.now().toIso8601String(),
+      'app': 'My Billu - LAN Sync',
+      'items': appState.items.map((i) => i.toMap()).toList(),
+      'customers': appState.customers.map((c) => c.toMap()).toList(),
+      'bills': appState.bills.map((b) => b.toMap()).toList(),
+      'purchases': appState.purchases.map((p) => p.toMap()).toList(),
+      'quotations': appState.quotations.map((q) => q.toMap()).toList(),
+      'expenses': appState.expenses.map((e) => e.toMap()).toList(),
+      'creditNotes': appState.creditNotes.map((c) => c.toMap()).toList(),
+      'purchaseReturns': appState.purchaseReturns.map((p) => p.toMap()).toList(),
+      'suppliers': appState.suppliers.map((s) => s.toMap()).toList(),
+      'recurringBills': appState.recurringBills.map((r) => r.toMap()).toList(),
+      'cashBookEntries': appState.cashBookEntries.map((e) => e.toMap()).toList(),
+      'bankAccounts': appState.bankAccounts.map((a) => a.toMap()).toList(),
+      'settings': settings,
+    };
+
+    final ok = await LanSyncService.startServer(backup);
+    setState(() { _lanSharing = ok; _myIp = ip; });
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok ? '📡 Sharing on $ip — Enter this IP on the other device' : '❌ Failed to start sharing'),
+      backgroundColor: ok ? AppColors.success : AppColors.error));
+  }
+
+  void _stopSharing() {
+    LanSyncService.stopServer();
+    setState(() => _lanSharing = false);
+  }
+
+  Future<void> _syncFromLan(BuildContext context) async {
+    final ip = _lanIpCtrl.text.trim();
+    if (ip.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please enter the IP address of the other device'),
+        backgroundColor: AppColors.error));
+      return;
+    }
+
+    setState(() => _lanSyncing = true);
+
+    // Ping first
+    final reachable = await LanSyncService.ping(ip);
+    if (!reachable) {
+      setState(() => _lanSyncing = false);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Cannot reach $ip — Make sure both devices are on same WiFi and sharing is started'),
+        backgroundColor: AppColors.error));
+      return;
+    }
+
+    // Download backup
+    final data = await LanSyncService.downloadFrom(ip);
+    setState(() => _lanSyncing = false);
+    if (data == null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Failed to download backup'), backgroundColor: AppColors.error));
+      return;
+    }
+
+    if (!mounted) return;
+
+    // Confirm
+    final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.sync, color: Color(0xFFFF8E53)), SizedBox(width: 10), Text('Restore LAN Backup?')]),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('From: $ip', style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Text('Items: ${(data['items'] as List?)?.length ?? 0}'),
+        Text('Customers: ${(data['customers'] as List?)?.length ?? 0}'),
+        Text('Bills: ${(data['bills'] as List?)?.length ?? 0}'),
+        Text('Settings: ${(data['settings'] as Map?)?.length ?? 0} keys'),
+        if (data['timestamp'] != null) ...[
+          const SizedBox(height: 8),
+          Text('Backup time: ${data['timestamp']}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+        ],
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF8E53)),
+          onPressed: () => Navigator.pop(ctx, true), child: const Text('Sync Now')),
+      ],
+    ));
+    if (confirm != true || !mounted) return;
+
+    // Restore all data
+    final appState = context.read<AppState>();
+    if (data['items'] != null) { for (final m in data['items']) { try { await appState.addItem(Item.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+    if (data['customers'] != null) { for (final m in data['customers']) { try { await appState.addCustomer(Customer.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+    if (data['bills'] != null) { for (final m in data['bills']) { try { await appState.createBill(Bill.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+    if (data['purchases'] != null) { for (final m in data['purchases']) { try { await appState.createPurchase(Purchase.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+    if (data['quotations'] != null) { for (final m in data['quotations']) { try { await appState.addQuotation(Quotation.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+    if (data['expenses'] != null) { for (final m in data['expenses']) { try { await appState.addExpense(Expense.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+    if (data['creditNotes'] != null) { for (final m in data['creditNotes']) { try { await appState.addCreditNote(CreditNote.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+    if (data['purchaseReturns'] != null) { for (final m in data['purchaseReturns']) { try { await appState.addPurchaseReturn(PurchaseReturn.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+    if (data['suppliers'] != null) { for (final m in data['suppliers']) { try { await appState.addSupplier(Supplier.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+    if (data['cashBookEntries'] != null) { for (final m in data['cashBookEntries']) { try { await appState.addCashBookEntry(CashBookEntry.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+    if (data['bankAccounts'] != null) { for (final m in data['bankAccounts']) { try { await appState.addBankAccount(BankAccount.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+    if (data['settings'] != null) {
+      final settings = (data['settings'] as Map<String, dynamic>);
+      for (final entry in settings.entries) { await appState.saveSetting(entry.key, entry.value.toString()); }
+    }
+    await appState.loadAll();
+
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: const Row(children: [
+        Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+        Text('LAN Sync complete! All data restored.')]),
+      backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+  }
+
   Widget _aboutRow(String label, String value) {
     return Padding(padding: const EdgeInsets.only(bottom: 8),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -701,6 +972,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _bizPhoneCtrl.dispose();
     _bizGstinCtrl.dispose();
     _bizLogoCtrl.dispose();
+    _lanIpCtrl.dispose();
+    LanSyncService.stopServer();
     super.dispose();
   }
   void _showChangeUsername(BuildContext context) {
