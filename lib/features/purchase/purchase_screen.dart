@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/item.dart';
 import '../../core/models/purchase.dart';
+import '../../core/models/supplier.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -79,6 +80,92 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
     return null;
   }
 
+  Widget _buildSupplierAutocomplete(AppState appState) {
+    // Combine suppliers from Supplier list + unique names from past purchases
+    final supplierNames = <String>{};
+    for (final s in appState.suppliers) { supplierNames.add(s.name); }
+    for (final p in appState.purchases) { supplierNames.add(p.supplierName); }
+    final allNames = supplierNames.toList()..sort();
+
+    return Autocomplete<String>(
+      optionsBuilder: (textValue) {
+        if (textValue.text.isEmpty) return allNames;
+        final q = textValue.text.toLowerCase();
+        return allNames.where((n) => n.toLowerCase().contains(q));
+      },
+      fieldViewBuilder: (ctx, ctrl, focusNode, onSubmit) {
+        // Sync controller text with _supplierCtrl
+        ctrl.text = _supplierCtrl.text;
+        ctrl.addListener(() {
+          if (_supplierCtrl.text != ctrl.text) _supplierCtrl.text = ctrl.text;
+        });
+        return TextField(
+          controller: ctrl,
+          focusNode: focusNode,
+          decoration: const InputDecoration(
+            labelText: 'Supplier Name *',
+            prefixIcon: Icon(Icons.business),
+            suffixIcon: Icon(Icons.search, size: 18)),
+        );
+      },
+      onSelected: (name) {
+        _supplierCtrl.text = name;
+        // Auto-fill phone from supplier list
+        final supplier = appState.suppliers.cast<Supplier?>().firstWhere(
+          (s) => s!.name.toLowerCase() == name.toLowerCase(), orElse: () => null);
+        if (supplier != null) {
+          if (supplier.phone != null && supplier.phone!.isNotEmpty) {
+            _supplierPhoneCtrl.text = supplier.phone!;
+          }
+        } else {
+          // Try from past purchases
+          final pastPurchase = appState.purchases.cast<Purchase?>().firstWhere(
+            (p) => p!.supplierName.toLowerCase() == name.toLowerCase(), orElse: () => null);
+          if (pastPurchase != null && pastPurchase.supplierPhone != null) {
+            _supplierPhoneCtrl.text = pastPurchase.supplierPhone!;
+          }
+        }
+        setState(() {});
+      },
+      optionsViewBuilder: (ctx, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            color: Theme.of(ctx).brightness == Brightness.dark
+                ? const Color(0xFF1E1E2E) : Colors.white,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220, maxWidth: 350),
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (ctx, i) {
+                  final name = options.elementAt(i);
+                  final supplier = appState.suppliers.cast<Supplier?>().firstWhere(
+                    (s) => s!.name == name, orElse: () => null);
+                  return ListTile(
+                    dense: true,
+                    leading: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: AppColors.accent.withValues(alpha: 0.15),
+                      child: Text(name[0].toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.accent))),
+                    title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    subtitle: supplier?.phone != null
+                        ? Text(supplier!.phone!, style: const TextStyle(fontSize: 11))
+                        : null,
+                    onTap: () => onSelected(name),
+                  );
+                }),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AppState>(builder: (context, appState, _) {
@@ -96,8 +183,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                 const Text('Supplier Details', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                 const SizedBox(height: 12),
                 if (isWide) Row(children: [
-                  Expanded(child: TextField(controller: _supplierCtrl,
-                    decoration: const InputDecoration(labelText: 'Supplier Name *', prefixIcon: Icon(Icons.business)))),
+                  Expanded(child: _buildSupplierAutocomplete(appState)),
                   const SizedBox(width: 12),
                   Expanded(child: TextField(controller: _supplierPhoneCtrl,
                     decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone)))),
@@ -105,8 +191,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                   Expanded(child: TextField(controller: _invoiceCtrl,
                     decoration: const InputDecoration(labelText: 'Invoice #', prefixIcon: Icon(Icons.receipt)))),
                 ]) else ...[
-                  TextField(controller: _supplierCtrl,
-                    decoration: const InputDecoration(labelText: 'Supplier Name *', prefixIcon: Icon(Icons.business))),
+                  _buildSupplierAutocomplete(appState),
                   const SizedBox(height: 12),
                   TextField(controller: _supplierPhoneCtrl,
                     decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone))),
