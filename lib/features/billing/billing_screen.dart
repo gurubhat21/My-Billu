@@ -247,7 +247,7 @@ class _BillingScreenState extends State<BillingScreen> {
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(c.item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text('${AppFormatters.currency(c.item.price)} × ${c.quantity}', style: Theme.of(context).textTheme.bodySmall),
+              Text('${AppFormatters.currency(c.item.price)} \u00d7 ${c.quantity}', style: Theme.of(context).textTheme.bodySmall),
             ])),
             Container(decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -265,8 +265,9 @@ class _BillingScreenState extends State<BillingScreen> {
           // Optional description field
           if (_showDescription)
             Padding(padding: const EdgeInsets.only(top: 6),
-              child: TextField(
-                controller: TextEditingController(text: c.description),
+              child: TextFormField(
+                key: ValueKey('desc_${c.item.id}'),
+                initialValue: c.description,
                 onChanged: (v) => c.description = v,
                 style: const TextStyle(fontSize: 12),
                 decoration: InputDecoration(
@@ -279,8 +280,9 @@ class _BillingScreenState extends State<BillingScreen> {
           // Optional serial number field
           if (_showSerialNumber)
             Padding(padding: const EdgeInsets.only(top: 6),
-              child: TextField(
-                controller: TextEditingController(text: c.serialNumber),
+              child: TextFormField(
+                key: ValueKey('serial_${c.item.id}'),
+                initialValue: c.serialNumber,
                 onChanged: (v) => c.serialNumber = v,
                 style: const TextStyle(fontSize: 12),
                 decoration: InputDecoration(
