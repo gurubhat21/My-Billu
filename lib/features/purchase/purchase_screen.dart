@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/models/item.dart';
 import '../../core/models/purchase.dart';
 import '../../core/models/supplier.dart';
@@ -65,6 +67,26 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
   Item? _selectedItem;
   final _qtyCtrl = TextEditingController(text: '1');
   final _costCtrl = TextEditingController();
+  bool _showDescription = false;
+  bool _showSerialNumber = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadColumnSettings();
+  }
+
+  Future<void> _loadColumnSettings() async {
+    final appState = context.read<AppState>();
+    final desc = await appState.getSetting('billing_show_description');
+    final serial = await appState.getSetting('billing_show_serial_number');
+    if (mounted) {
+      setState(() {
+        _showDescription = desc == 'true';
+        _showSerialNumber = serial == 'true';
+      });
+    }
+  }
 
   double get _subtotal => _cart.fold(0, (sum, e) => sum + e.subtotal);
   double get _totalTax => _cart.fold(0, (sum, e) => sum + e.taxAmount);
@@ -371,6 +393,45 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                                 ),
                               ]),
                             )),
+                        // Optional description field
+                        if (_showDescription)
+                          Padding(padding: const EdgeInsets.only(top: 6),
+                            child: TextFormField(
+                              key: ValueKey('pdesc_${e.item.id}'),
+                              initialValue: e.description,
+                              onChanged: (v) => e.description = v,
+                              style: const TextStyle(fontSize: 12),
+                              decoration: InputDecoration(
+                                hintText: 'Item description...',
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                prefixIcon: const Icon(Icons.description, size: 16)),
+                            )),
+                        // Optional serial number field with scan
+                        if (_showSerialNumber)
+                          Padding(padding: const EdgeInsets.only(top: 6),
+                            child: TextFormField(
+                              key: ValueKey('pserial_${e.item.id}_${e.serialNumber}'),
+                              initialValue: e.serialNumber,
+                              onChanged: (v) => e.serialNumber = v,
+                              style: const TextStyle(fontSize: 12),
+                              decoration: InputDecoration(
+                                hintText: 'Serial number...',
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                prefixIcon: const Icon(Icons.qr_code, size: 16),
+                                suffixIcon: kIsWeb ? null : IconButton(
+                                  icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
+                                  tooltip: 'Scan barcode/QR',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => _scanBarcode(context, (code) {
+                                    setState(() => e.serialNumber = code);
+                                  }),
+                                )),
+                            )),
                       ]),
                     ));
                 }),
@@ -420,6 +481,16 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
     });
   }
 
+  void _scanBarcode(BuildContext context, void Function(String code) onScanned) {
+    if (kIsWeb) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (ctx) => _PurchaseBarcodeScannerPage(onScanned: (code) {
+        Navigator.of(ctx).pop();
+        onScanned(code);
+      }),
+    ));
+  }
+
   Future<void> _savePurchase(BuildContext context, AppState appState) async {
     if (_supplierCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Supplier name is required')));
@@ -432,6 +503,8 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
         itemId: e.item.id, itemName: e.item.name,
         unitCost: e.costPrice, quantity: e.qty,
         taxRate: e.item.taxRate, unit: e.item.unit,
+        description: e.description.isNotEmpty ? e.description : null,
+        serialNumber: e.serialNumber.isNotEmpty ? e.serialNumber : null,
       )).toList();
       final purchase = Purchase(
         purchaseNumber: poNumber,
@@ -641,8 +714,64 @@ class _CartEntry {
   final Item item;
   final int qty;
   final double costPrice;
-  _CartEntry({required this.item, required this.qty, required this.costPrice});
+  String description;
+  String serialNumber;
+  _CartEntry({required this.item, required this.qty, required this.costPrice, this.description = '', this.serialNumber = ''});
   double get subtotal => costPrice * qty;
   double get taxAmount => subtotal * item.taxRate / 100;
   double get total => subtotal + taxAmount;
+}
+
+// ===== Barcode Scanner Page (Android/iOS only) =====
+class _PurchaseBarcodeScannerPage extends StatefulWidget {
+  final void Function(String code) onScanned;
+  const _PurchaseBarcodeScannerPage({required this.onScanned});
+  @override
+  State<_PurchaseBarcodeScannerPage> createState() => _PurchaseBarcodeScannerPageState();
+}
+
+class _PurchaseBarcodeScannerPageState extends State<_PurchaseBarcodeScannerPage> {
+  bool _scanned = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Scan Barcode / QR Code'),
+        elevation: 0,
+      ),
+      body: Stack(children: [
+        MobileScanner(
+          onDetect: (capture) {
+            if (_scanned) return;
+            final barcodes = capture.barcodes;
+            if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+              _scanned = true;
+              widget.onScanned(barcodes.first.rawValue!);
+            }
+          },
+        ),
+        Center(child: Container(
+          width: 280, height: 280,
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.primary, width: 3),
+            borderRadius: BorderRadius.circular(20)),
+        )),
+        Positioned(
+          bottom: 80, left: 0, right: 0,
+          child: Center(child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(30)),
+            child: const Text('Point camera at barcode or QR code',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+          )),
+        ),
+      ]),
+    );
+  }
 }

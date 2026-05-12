@@ -323,7 +323,7 @@ class _BillingScreenState extends State<BillingScreen> {
           if (_showSerialNumber)
             Padding(padding: const EdgeInsets.only(top: 6),
               child: TextFormField(
-                key: ValueKey('serial_${c.item.id}'),
+                key: ValueKey('serial_${c.item.id}_${c.serialNumber}'),
                 initialValue: c.serialNumber,
                 onChanged: (v) => c.serialNumber = v,
                 style: const TextStyle(fontSize: 12),
