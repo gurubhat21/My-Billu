@@ -57,6 +57,7 @@ class Bill {
   final String billNumber;
   String? customerId;
   String? customerName;
+  String? customerPhone;
   final List<BillItem> items;
   final double subtotal;
   final double discount;
@@ -73,6 +74,7 @@ class Bill {
     required this.billNumber,
     this.customerId,
     this.customerName,
+    this.customerPhone,
     required this.items,
     required this.subtotal,
     this.discount = 0.0,
@@ -96,6 +98,7 @@ class Bill {
       'billNumber': billNumber,
       'customerId': customerId,
       'customerName': customerName,
+      'customerPhone': customerPhone,
       'items': items.map((e) => e.toMap()).toList(),
       'subtotal': subtotal,
       'discount': discount,
@@ -124,6 +127,7 @@ class Bill {
       billNumber: map['billNumber'] as String? ?? 'BILL-0',
       customerId: map['customerId'] as String?,
       customerName: map['customerName'] as String?,
+      customerPhone: map['customerPhone'] as String?,
       items: itemsList,
       subtotal: (map['subtotal'] as num?)?.toDouble() ?? 0.0,
       discount: (map['discount'] as num?)?.toDouble() ?? 0.0,

@@ -23,7 +23,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       final bills = _search.isEmpty ? appState.bills
           : appState.bills.where((b) =>
               b.billNumber.toLowerCase().contains(_search.toLowerCase()) ||
-              (b.customerName ?? '').toLowerCase().contains(_search.toLowerCase())).toList();
+              (b.customerName ?? '').toLowerCase().contains(_search.toLowerCase()) ||
+              (b.customerPhone ?? '').contains(_search)).toList();
 
       return LayoutBuilder(builder: (context, constraints) {
         final isWide = constraints.maxWidth > 700;
@@ -40,7 +41,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ]),
               const SizedBox(height: 16),
               TextField(onChanged: (v) => setState(() => _search = v),
-                decoration: const InputDecoration(hintText: 'Search bills...', prefixIcon: Icon(Icons.search, color: AppColors.primary))),
+                decoration: const InputDecoration(hintText: 'Search by bill no, name, or phone...', prefixIcon: Icon(Icons.search, color: AppColors.primary))),
             ])),
           Expanded(child: bills.isEmpty
               ? const EmptyState(icon: Icons.receipt_long_outlined, title: 'No bills yet', subtitle: 'Bills you create will appear here')

@@ -7,6 +7,7 @@ import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/invoice_generator.dart';
+import '../../core/models/cash_book.dart';
 import '../../widgets/common_widgets.dart';
 
 class _CartItem {
@@ -29,6 +30,8 @@ class _BillingScreenState extends State<BillingScreen> {
   PaymentMethod _paymentMethod = PaymentMethod.cash;
   String _itemSearch = '';
   final _discountCtrl = TextEditingController(text: '0');
+  final _walkInNameCtrl = TextEditingController();
+  final _walkInPhoneCtrl = TextEditingController();
 
   double get _subtotal => _cart.fold(0, (s, c) => s + c.subtotal);
   double get _totalTax => _cart.fold(0, (s, c) => s + c.taxAmount);
@@ -114,23 +117,36 @@ class _BillingScreenState extends State<BillingScreen> {
   }
 
   Widget _buildCartPanel(BuildContext context, AppState appState) {
+    final displayName = _selectedCustomer?.name
+        ?? (_walkInNameCtrl.text.trim().isNotEmpty ? _walkInNameCtrl.text.trim() : 'Walk-in Customer');
+    final displayPhone = _selectedCustomer?.phone ?? (_walkInPhoneCtrl.text.trim().isNotEmpty ? _walkInPhoneCtrl.text.trim() : null);
+
     return Column(children: [
-      Padding(padding: const EdgeInsets.all(16), child: InkWell(
-        onTap: () => _showCustomerPicker(context, appState),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark ? AppColors.darkCard : AppColors.lightCard,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3))),
-          child: Row(children: [
-            CircleAvatar(radius: 18, backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-              child: Icon(_selectedCustomer != null ? Icons.person : Icons.person_add, size: 18, color: AppColors.primary)),
-            const SizedBox(width: 12),
-            Expanded(child: Text(_selectedCustomer?.name ?? 'Walk-in Customer',
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14))),
-            const Icon(Icons.chevron_right, size: 20),
-          ])))),
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: InkWell(
+          onTap: () => _showCustomerPicker(context, appState),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark ? AppColors.darkCard : AppColors.lightCard,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3))),
+            child: Row(children: [
+              CircleAvatar(radius: 18, backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                child: Icon(_selectedCustomer != null ? Icons.person : Icons.person_add, size: 18, color: AppColors.primary)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(displayName, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                if (displayPhone != null)
+                  Text(displayPhone, style: TextStyle(fontSize: 11, color: Theme.of(context).textTheme.bodySmall?.color)),
+              ])),
+              const Icon(Icons.chevron_right, size: 20),
+            ]),
+          ),
+        ),
+      ),
       Expanded(child: _cart.isEmpty
           ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.shopping_cart_outlined, size: 48,
@@ -244,21 +260,78 @@ class _BillingScreenState extends State<BillingScreen> {
       String search = '';
       return StatefulBuilder(builder: (context, ss) {
         final filtered = search.isEmpty ? appState.customers
-            : appState.customers.where((c) => c.name.toLowerCase().contains(search.toLowerCase())).toList();
+            : appState.customers.where((c) =>
+                c.name.toLowerCase().contains(search.toLowerCase()) ||
+                (c.phone ?? '').contains(search)).toList();
         return AlertDialog(title: const Text('Select Customer'),
-          content: SizedBox(width: 400, height: 400, child: Column(children: [
+          content: SizedBox(width: 400, height: 500, child: Column(children: [
             TextField(onChanged: (v) => ss(() => search = v),
-              decoration: const InputDecoration(hintText: 'Search...', prefixIcon: Icon(Icons.search))),
+              decoration: const InputDecoration(hintText: 'Search by name or phone...', prefixIcon: Icon(Icons.search))),
             const SizedBox(height: 12),
+            // Walk-in with name & phone
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.15))),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Icon(Icons.person_outline, size: 18, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  const Text('Walk-in Customer', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Spacer(),
+                  TextButton(onPressed: () {
+                    setState(() { _selectedCustomer = null; });
+                    Navigator.pop(ctx);
+                  }, child: const Text('Use Walk-in', style: TextStyle(fontSize: 12))),
+                ]),
+                const SizedBox(height: 8),
+                TextField(controller: _walkInNameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Customer Name (optional)',
+                    prefixIcon: Icon(Icons.person, size: 18),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                  style: const TextStyle(fontSize: 13)),
+                const SizedBox(height: 8),
+                TextField(controller: _walkInPhoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Number (optional)',
+                    prefixIcon: Icon(Icons.phone, size: 18),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                  style: const TextStyle(fontSize: 13)),
+                const SizedBox(height: 8),
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() { _selectedCustomer = null; });
+                    Navigator.pop(ctx);
+                  },
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Set Walk-in Details', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(visualDensity: VisualDensity.compact))),
+              ])),
+            const SizedBox(height: 8),
+            const Divider(),
+            const SizedBox(height: 4),
+            const Align(alignment: Alignment.centerLeft,
+              child: Text('Existing Customers', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+            const SizedBox(height: 8),
             Expanded(child: ListView(children: [
-              ListTile(leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-                title: const Text('Walk-in Customer'),
-                onTap: () { setState(() => _selectedCustomer = null); Navigator.pop(ctx); }),
               ...filtered.map((c) => ListTile(
                 leading: CircleAvatar(backgroundColor: AppColors.primary.withValues(alpha: 0.15),
                   child: Text(c.name[0].toUpperCase(), style: const TextStyle(color: AppColors.primary))),
                 title: Text(c.name), subtitle: c.phone != null ? Text(c.phone!) : null,
-                onTap: () { setState(() => _selectedCustomer = c); Navigator.pop(ctx); })),
+                onTap: () {
+                  setState(() {
+                    _selectedCustomer = c;
+                    _walkInNameCtrl.clear();
+                    _walkInPhoneCtrl.clear();
+                  });
+                  Navigator.pop(ctx);
+                })),
             ])),
           ])));
       });
@@ -267,18 +340,49 @@ class _BillingScreenState extends State<BillingScreen> {
 
   Future<void> _createBill(BuildContext context, AppState appState) async {
     final billNumber = await appState.getNextBillNumber();
+    final walkInName = _walkInNameCtrl.text.trim();
+    final walkInPhone = _walkInPhoneCtrl.text.trim();
     final billItems = _cart.map((c) => BillItem(itemId: c.item.id, itemName: c.item.name,
       unitPrice: c.item.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit)).toList();
     final bill = Bill(billNumber: billNumber, customerId: _selectedCustomer?.id,
-      customerName: _selectedCustomer?.name, items: billItems, subtotal: _subtotal,
+      customerName: _selectedCustomer?.name ?? (walkInName.isNotEmpty ? walkInName : null),
+      customerPhone: _selectedCustomer?.phone ?? (walkInPhone.isNotEmpty ? walkInPhone : null),
+      items: billItems, subtotal: _subtotal,
       discount: _discount,
       totalTax: _totalTax, totalAmount: _totalAmount,
       paidAmount: _paymentMethod == PaymentMethod.credit ? 0 : _totalAmount,
       paymentMethod: _paymentMethod,
       status: _paymentMethod == PaymentMethod.credit ? BillStatus.unpaid : BillStatus.paid);
     await appState.createBill(bill);
+
+    // Auto-add to Cash Book or Bank Book based on payment method
+    if (_paymentMethod != PaymentMethod.credit && _totalAmount > 0) {
+      if (_paymentMethod == PaymentMethod.cash) {
+        // Cash payment → Cash Book (Cash In)
+        await appState.addCashBookEntry(CashBookEntry(
+          type: TransactionType.cashIn,
+          amount: _totalAmount,
+          description: 'Sales - $billNumber',
+          reference: billNumber,
+          category: 'Sales',
+        ));
+      } else {
+        // UPI, Card, Bank Transfer → Bank Book (Bank Deposit)
+        final bankId = appState.bankAccounts.isNotEmpty ? appState.bankAccounts.first.id : null;
+        await appState.addCashBookEntry(CashBookEntry(
+          type: TransactionType.bankIn,
+          amount: _totalAmount,
+          description: 'Sales (${_paymentMethod.name.toUpperCase()}) - $billNumber',
+          reference: billNumber,
+          bankAccountId: bankId,
+          category: 'Sales',
+        ));
+      }
+    }
+
     if (mounted) {
-      setState(() { _cart.clear(); _selectedCustomer = null; _paymentMethod = PaymentMethod.cash; _discountCtrl.text = '0'; });
+      setState(() { _cart.clear(); _selectedCustomer = null; _paymentMethod = PaymentMethod.cash;
+        _discountCtrl.text = '0'; _walkInNameCtrl.clear(); _walkInPhoneCtrl.clear(); });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10), Text('Bill $billNumber created!')]),
         backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
