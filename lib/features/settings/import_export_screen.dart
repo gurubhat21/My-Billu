@@ -59,28 +59,22 @@ class _ImportExportScreenState extends State<ImportExportScreen> with SingleTick
   // ===== IMPORT TAB =====
   Widget _buildImportTab(BuildContext ctx, bool isDark) {
     return SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(children: [
-      // JSON Full Restore
-      _sectionCard(ctx, isDark, Icons.restore, 'Restore Full Backup (JSON)', 'Restore all data from a JSON backup file',
+      // Full Import
+      _sectionCard(ctx, isDark, Icons.restore, 'Full Import', 'Import all data at once from JSON or Excel backup',
         [Color(0xFF7C3AED), Color(0xFF6D28D9)], [
-        _actionBtn('Import JSON Backup', Icons.file_open, const Color(0xFF7C3AED), () => _restoreJson(ctx)),
+        _actionBtn('Import Full Backup (JSON)', Icons.data_object, const Color(0xFF7C3AED), () => _restoreJson(ctx)),
+        const SizedBox(height: 8),
+        _actionBtn('Import Full Backup (Excel)', Icons.grid_on, const Color(0xFF6D28D9), () => _importFullExcel(ctx)),
       ]),
       const SizedBox(height: 16),
 
-      // Excel Import
-      _sectionCard(ctx, isDark, Icons.table_chart, 'Import from Excel (.xlsx)', 'Upload Excel files. First row = headers.',
+      // Individual Excel Import
+      _sectionCard(ctx, isDark, Icons.table_chart, 'Import Individual Excel (.xlsx)', 'Upload Excel files. First row = headers.',
         [AppColors.primary, Color(0xFF3730A3)], [
         _importRow(ctx, Icons.inventory_2, 'Items', 'Name, Price, Tax%, HSN, Unit, Stock, Category', () => _importExcel(ctx, 'items')),
         _importRow(ctx, Icons.people, 'Customers', 'Name, Phone, Email, Address, GSTIN', () => _importExcel(ctx, 'customers')),
         _importRow(ctx, Icons.local_shipping, 'Suppliers', 'Name, Phone, Email, Address, GSTIN', () => _importExcel(ctx, 'suppliers')),
         _importRow(ctx, Icons.receipt_long, 'Bills/Ledger', 'BillNo, Date, Customer, Subtotal, Tax, Total, Paid, Status', () => _importExcel(ctx, 'bills')),
-      ]),
-      const SizedBox(height: 16),
-
-      // CSV Import
-      _sectionCard(ctx, isDark, Icons.description, 'Import from CSV', 'Import comma-separated data files',
-        [Color(0xFF059669), Color(0xFF047857)], [
-        _importRow(ctx, Icons.inventory_2, 'Items (CSV)', 'Name, Price, Tax, HSN, Unit, Stock', () => _importCsv(ctx, 'items')),
-        _importRow(ctx, Icons.people, 'Customers (CSV)', 'Name, Phone, Email, Address, GSTIN', () => _importCsv(ctx, 'customers')),
       ]),
     ]));
   }
@@ -88,8 +82,8 @@ class _ImportExportScreenState extends State<ImportExportScreen> with SingleTick
   // ===== EXPORT TAB =====
   Widget _buildExportTab(BuildContext ctx, bool isDark) {
     return SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(children: [
-      // Full Backup
-      _sectionCard(ctx, isDark, Icons.backup, 'Full Backup', 'Export everything as JSON or Excel',
+      // Full Export
+      _sectionCard(ctx, isDark, Icons.backup, 'Full Export', 'Export all data at once as JSON or Excel',
         [Color(0xFF7C3AED), Color(0xFF6D28D9)], [
         _actionBtn('Export Full Backup (JSON)', Icons.data_object, const Color(0xFF7C3AED), () => _exportJson(ctx)),
         const SizedBox(height: 8),
@@ -100,19 +94,13 @@ class _ImportExportScreenState extends State<ImportExportScreen> with SingleTick
       // Individual Excel Exports
       _sectionCard(ctx, isDark, Icons.table_chart, 'Export Individual Excel', 'Export each data type as separate .xlsx file',
         [AppColors.primary, Color(0xFF3730A3)], [
-        _actionBtn('Export Items', Icons.inventory_2, AppColors.primary, () => _exportSingleExcel(ctx, 'items')),
-        const SizedBox(height: 8),
-        _actionBtn('Export Customers', Icons.people, AppColors.primary, () => _exportSingleExcel(ctx, 'customers')),
-        const SizedBox(height: 8),
-        _actionBtn('Export Sales / Bills', Icons.receipt_long, AppColors.primary, () => _exportSingleExcel(ctx, 'bills')),
-        const SizedBox(height: 8),
-        _actionBtn('Export Purchases', Icons.shopping_bag, AppColors.primary, () => _exportSingleExcel(ctx, 'purchases')),
-        const SizedBox(height: 8),
-        _actionBtn('Export Suppliers', Icons.local_shipping, AppColors.primary, () => _exportSingleExcel(ctx, 'suppliers')),
-        const SizedBox(height: 8),
-        _actionBtn('Export Expenses', Icons.money_off, AppColors.primary, () => _exportSingleExcel(ctx, 'expenses')),
-        const SizedBox(height: 8),
-        _actionBtn('Export Quotations', Icons.description, AppColors.primary, () => _exportSingleExcel(ctx, 'quotations')),
+        _importRow(ctx, Icons.inventory_2, 'Items', 'Name, Price, Tax%, HSN, Unit, Stock, Category', () => _exportSingleExcel(ctx, 'items')),
+        _importRow(ctx, Icons.people, 'Customers', 'Name, Phone, Email, Address, GSTIN, Purchases', () => _exportSingleExcel(ctx, 'customers')),
+        _importRow(ctx, Icons.receipt_long, 'Sales / Bills', 'BillNo, Date, Customer, Total, Paid, Status', () => _exportSingleExcel(ctx, 'bills')),
+        _importRow(ctx, Icons.shopping_bag, 'Purchases', 'PurchaseNo, Date, Supplier, Total, Status', () => _exportSingleExcel(ctx, 'purchases')),
+        _importRow(ctx, Icons.local_shipping, 'Suppliers', 'Name, Phone, Email, Address, GSTIN', () => _exportSingleExcel(ctx, 'suppliers')),
+        _importRow(ctx, Icons.money_off, 'Expenses', 'Date, Category, Title, Amount, Notes', () => _exportSingleExcel(ctx, 'expenses')),
+        _importRow(ctx, Icons.description, 'Quotations', 'QuotNo, Date, Customer, Total, Status', () => _exportSingleExcel(ctx, 'quotations')),
       ]),
     ]));
   }
@@ -274,6 +262,97 @@ class _ImportExportScreenState extends State<ImportExportScreen> with SingleTick
       setState(() => _busy = false);
       _msg('Import failed: $e', ok: false);
     }
+  }
+
+  Future<void> _importFullExcel(BuildContext ctx) async {
+    setState(() => _busy = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom, allowedExtensions: ['xlsx', 'xls'], allowMultiple: false, withData: true);
+      if (result == null || result.files.isEmpty) { setState(() => _busy = false); return; }
+      final bytes = result.files.first.bytes;
+      if (bytes == null) { setState(() => _busy = false); _msg('Could not read file', ok: false); return; }
+
+      final excel = Excel.decodeBytes(bytes);
+      final appState = ctx.read<AppState>();
+      int totalAdded = 0;
+
+      // Import Items sheet
+      final itemSheet = excel.tables['Items'];
+      if (itemSheet != null && itemSheet.rows.length > 1) {
+        for (int i = 1; i < itemSheet.rows.length; i++) {
+          try {
+            final r = itemSheet.rows[i];
+            await appState.addItem(Item(
+              name: _cell(r, 0), price: _cellD(r, 1), taxRate: _cellD(r, 2),
+              category: _cell(r, 3), unit: _cell(r, 4, fallback: 'pcs'),
+              stockQuantity: _cellI(r, 5), hsnCode: _cell(r, 6)));
+            totalAdded++;
+          } catch (_) {}
+        }
+      }
+
+      // Import Customers sheet
+      final custSheet = excel.tables['Customers'];
+      if (custSheet != null && custSheet.rows.length > 1) {
+        for (int i = 1; i < custSheet.rows.length; i++) {
+          try {
+            final r = custSheet.rows[i];
+            await appState.addCustomer(Customer(
+              name: _cell(r, 0), phone: _cell(r, 1), email: _cell(r, 2),
+              gstin: _cell(r, 3)));
+            totalAdded++;
+          } catch (_) {}
+        }
+      }
+
+      // Import Suppliers sheet
+      final suppSheet = excel.tables['Suppliers'];
+      if (suppSheet != null && suppSheet.rows.length > 1) {
+        for (int i = 1; i < suppSheet.rows.length; i++) {
+          try {
+            final r = suppSheet.rows[i];
+            await appState.addSupplier(Supplier(
+              name: _cell(r, 0), phone: _cell(r, 1), email: _cell(r, 2),
+              gstin: _cell(r, 3)));
+            totalAdded++;
+          } catch (_) {}
+        }
+      }
+
+      // Import Expenses sheet
+      final expSheet = excel.tables['Expenses'];
+      if (expSheet != null && expSheet.rows.length > 1) {
+        for (int i = 1; i < expSheet.rows.length; i++) {
+          try {
+            final r = expSheet.rows[i];
+            await appState.addExpense(Expense(
+              title: _cell(r, 2), amount: _cellD(r, 3),
+              category: ExpenseCategory.misc,
+              date: DateTime.tryParse(_cell(r, 0)) ?? DateTime.now(),
+              notes: _cell(r, 4)));
+            totalAdded++;
+          } catch (_) {}
+        }
+      }
+
+      setState(() => _busy = false);
+      _msg('✅ Full Excel import done! $totalAdded records added');
+    } catch (e) {
+      setState(() => _busy = false);
+      _msg('Excel import failed: $e', ok: false);
+    }
+  }
+
+  String _cell(List<Data?> row, int idx, {String fallback = ''}) {
+    if (idx >= row.length || row[idx] == null) return fallback;
+    return row[idx]!.value?.toString() ?? fallback;
+  }
+  double _cellD(List<Data?> row, int idx, {double fallback = 0.0}) {
+    return double.tryParse(_cell(row, idx)) ?? fallback;
+  }
+  int _cellI(List<Data?> row, int idx, {int fallback = 0}) {
+    return int.tryParse(_cell(row, idx)) ?? double.tryParse(_cell(row, idx))?.toInt() ?? fallback;
   }
 
   Future<void> _importCsv(BuildContext ctx, String type) async {
