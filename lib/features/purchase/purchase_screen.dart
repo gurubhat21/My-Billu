@@ -131,6 +131,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
         );
       },
       onSelected: (name) {
+        FocusScope.of(context).unfocus();
         _supplierCtrl.text = name;
         // Auto-fill phone from supplier list
         final supplier = appState.suppliers.cast<Supplier?>().firstWhere(
@@ -256,6 +257,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                         );
                       },
                       onSelected: (item) {
+                        FocusScope.of(context).unfocus();
                         setState(() {
                           _selectedItem = item;
                           _costCtrl.text = item.price.toStringAsFixed(2);

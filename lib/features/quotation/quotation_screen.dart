@@ -268,6 +268,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
                 );
               },
               onSelected: (customer) {
+                FocusScope.of(ctx).unfocus();
                 setDialogState(() {
                   selectedCustomerId = customer.id;
                   customerCtrl.text = customer.name;
@@ -449,7 +450,10 @@ class _QuotationScreenState extends State<QuotationScreen> {
                 hintText: 'Name, HSN, barcode...'),
             );
           },
-          onSelected: (item) => setLocalState(() => pickedItem = item),
+          onSelected: (item) {
+            FocusScope.of(ctx).unfocus();
+            setLocalState(() => pickedItem = item);
+          },
           optionsViewBuilder: (ctx2, onSelected, options) {
             return Align(alignment: Alignment.topLeft, child: Material(
               elevation: 8, borderRadius: BorderRadius.circular(12),
