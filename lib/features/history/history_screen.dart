@@ -55,6 +55,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _billTile(BuildContext context, Bill bill) {
     final statusColor = bill.status == BillStatus.paid ? AppColors.success
         : bill.status == BillStatus.partial ? AppColors.warning : AppColors.error;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(padding: const EdgeInsets.only(bottom: 8),
       child: GlassCard(onTap: () => _showBillDetail(context, bill), padding: const EdgeInsets.all(16),
         child: Row(children: [
@@ -72,6 +73,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(AppFormatters.currency(bill.totalAmount),
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
+            const SizedBox(height: 4),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('Paid: ${AppFormatters.currency(bill.paidAmount)}',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.success.withValues(alpha: 0.8))),
+              if (bill.balanceDue > 0) ...[
+                const SizedBox(width: 6),
+                Text('Due: ${AppFormatters.currency(bill.balanceDue)}',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.error.withValues(alpha: 0.9))),
+              ],
+            ]),
             const SizedBox(height: 4),
             Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
