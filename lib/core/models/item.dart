@@ -7,6 +7,7 @@ class Item {
   double price;
   double taxRate; // GST percentage
   String? hsnCode;
+  String? barcode;
   String unit; // pcs, kg, ltr, etc.
   int stockQuantity;
   String? category;
@@ -20,6 +21,7 @@ class Item {
     required this.price,
     this.taxRate = 18.0,
     this.hsnCode,
+    this.barcode,
     this.unit = 'pcs',
     this.stockQuantity = 0,
     this.category,
@@ -37,6 +39,7 @@ class Item {
       'price': price,
       'taxRate': taxRate,
       'hsnCode': hsnCode,
+      'barcode': barcode,
       'unit': unit,
       'stockQuantity': stockQuantity,
       'category': category,
@@ -53,6 +56,7 @@ class Item {
       price: (map['price'] as num).toDouble(),
       taxRate: (map['taxRate'] as num?)?.toDouble() ?? 18.0,
       hsnCode: map['hsnCode'] as String?,
+      barcode: map['barcode'] as String?,
       unit: map['unit'] as String? ?? 'pcs',
       stockQuantity: (map['stockQuantity'] as num?)?.toInt() ?? 0,
       category: map['category'] as String?,
@@ -67,6 +71,7 @@ class Item {
     double? price,
     double? taxRate,
     String? hsnCode,
+    String? barcode,
     String? unit,
     int? stockQuantity,
     String? category,
@@ -78,6 +83,7 @@ class Item {
       price: price ?? this.price,
       taxRate: taxRate ?? this.taxRate,
       hsnCode: hsnCode ?? this.hsnCode,
+      barcode: barcode ?? this.barcode,
       unit: unit ?? this.unit,
       stockQuantity: stockQuantity ?? this.stockQuantity,
       category: category ?? this.category,

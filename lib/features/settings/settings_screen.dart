@@ -43,6 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _bizPhoneCtrl = TextEditingController();
   final _bizGstinCtrl = TextEditingController();
   final _bizLogoCtrl = TextEditingController();
+  final _barcodeCtrl = TextEditingController();
   bool _loaded = false;
   bool _biometricEnabled = false;
   bool _biometricAvailable = false;
@@ -92,6 +93,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
     }
+  }
+
+  void _doBarcodeLookup(BuildContext context) {
+    final val = _barcodeCtrl.text.trim();
+    if (val.isEmpty) return;
+    final appState = context.read<AppState>();
+    final query = val.toLowerCase();
+    final matches = appState.items.where((i) =>
+      (i.barcode ?? '').toLowerCase() == query ||
+      (i.hsnCode ?? '').toLowerCase() == query ||
+      (i.barcode ?? '').toLowerCase().contains(query) ||
+      (i.hsnCode ?? '').toLowerCase().contains(query) ||
+      i.name.toLowerCase().contains(query)).toList();
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Text('Results for "$val" (${matches.length} found)'),
+      content: SizedBox(width: 400, height: matches.isEmpty ? 60 : null,
+        child: matches.isEmpty
+          ? const Center(child: Text('No items found with this code'))
+          : SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min,
+            children: matches.take(20).map((item) => ListTile(dense: true,
+              leading: const Icon(Icons.inventory_2, color: AppColors.primary),
+              title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(
+                'Barcode: ${item.barcode ?? "—"} • HSN: ${item.hsnCode ?? "—"}\n₹${item.price.toStringAsFixed(2)} • Stock: ${item.stockQuantity} ${item.unit}'),
+              isThreeLine: true,
+            )).toList()))),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
   }
 
   @override
@@ -164,44 +193,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 20),
 
           // Barcode / HSN Lookup
-          GlassCard(padding: const EdgeInsets.all(20), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.qr_code_scanner, size: 22, color: Color(0xFF8B5CF6))),
-                const SizedBox(width: 12),
-                Text('Barcode / HSN Lookup', style: Theme.of(context).textTheme.titleLarge),
-              ]),
-              const SizedBox(height: 12),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Enter barcode or HSN code...',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  suffixIcon: const Icon(Icons.qr_code_scanner)),
-                onSubmitted: (val) {
-                  if (val.trim().isEmpty) return;
-                  final appState = context.read<AppState>();
-                  final matches = appState.items.where((i) =>
-                    (i.hsnCode ?? '').toLowerCase() == val.trim().toLowerCase() ||
-                    i.name.toLowerCase().contains(val.trim().toLowerCase())).toList();
-                  showDialog(context: context, builder: (ctx) => AlertDialog(
-                    title: Text('Results for "$val"'),
-                    content: SizedBox(width: 400, child: matches.isEmpty
-                      ? const Text('No items found with this code')
-                      : Column(mainAxisSize: MainAxisSize.min, children: matches.take(10).map((item) =>
-                        ListTile(dense: true,
-                          leading: const Icon(Icons.inventory_2, color: AppColors.primary),
-                          title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text('HSN: ${item.hsnCode ?? "N/A"} • ₹${item.price.toStringAsFixed(2)} • Stock: ${item.stockQuantity}'),
-                        )).toList())),
-                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
-                  ));
-                }),
-              const SizedBox(height: 8),
-              Text('Type HSN code or item name and press Enter to look up', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
-            ])),
+          GlassCard(padding: const EdgeInsets.all(20), child: StatefulBuilder(
+            builder: (ctx, setLocalState) {
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.qr_code_scanner, size: 22, color: Color(0xFF8B5CF6))),
+                  const SizedBox(width: 12),
+                  Text('Barcode / HSN Lookup', style: Theme.of(context).textTheme.titleLarge),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: TextField(
+                    controller: _barcodeCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Enter barcode or HSN code...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                    onSubmitted: (_) => _doBarcodeLookup(context),
+                  )),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8B5CF6),
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                    onPressed: () => _doBarcodeLookup(context),
+                    child: const Icon(Icons.search, color: Colors.white)),
+                ]),
+                const SizedBox(height: 8),
+                Text('Type barcode, HSN code or item name → press Search or Enter',
+                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+              ]);
+            })),
           const SizedBox(height: 20),
 
           // Staff Management
