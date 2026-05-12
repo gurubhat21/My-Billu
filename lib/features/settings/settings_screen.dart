@@ -28,6 +28,7 @@ import 'dart:typed_data';
 import '../../core/services/lan_sync_service.dart';
 import 'package:flutter/foundation.dart';
 import 'keyboard_shortcuts_screen.dart';
+import 'import_export_screen.dart';
 import 'package:local_auth/local_auth.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -111,102 +112,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildLanSyncCard(context),
           const SizedBox(height: 20),
 
-          // Data Export Section
+          // Import & Export
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.backup, size: 22, color: AppColors.success)),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)]),
+                    borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.import_export, size: 22, color: Colors.white)),
                 const SizedBox(width: 12),
-                Text('Data Backup', style: Theme.of(context).textTheme.titleLarge),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Import & Export', style: Theme.of(context).textTheme.titleLarge),
+                  Text('JSON, Excel, CSV — bulk import & export all data',
+                    style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+                ])),
               ]),
               const SizedBox(height: 16),
-              Row(children: [
-                Expanded(child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, padding: const EdgeInsets.symmetric(vertical: 14)),
-                  onPressed: () async {
-                    final appState = context.read<AppState>();
-                    try {
-                      final bytes = await FullBackupExporter.exportAll(
-                        items: appState.items, customers: appState.customers,
-                        bills: appState.bills, purchases: appState.purchases,
-                        expenses: appState.expenses, suppliers: appState.suppliers);
-                      await Printing.sharePdf(bytes: bytes, filename: 'MyBillu_Backup_${DateTime.now().millisecondsSinceEpoch}.xlsx');
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('✅ Backup exported!'), backgroundColor: AppColors.success));
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('Export failed: $e'), backgroundColor: AppColors.error));
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.download, size: 18), label: const Text('Export Full Backup (Excel)'))),
-              ]),
+              SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF7C3AED),
+                  padding: const EdgeInsets.symmetric(vertical: 14)),
+                onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const ImportExportScreen())),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('Open Import & Export'),
+              )),
             ])),
           const SizedBox(height: 20),
 
-          // Bulk Import from Excel
-          GlassCard(padding: const EdgeInsets.all(20), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.upload_file, size: 22, color: AppColors.primary)),
-                const SizedBox(width: 12),
-                Text('Bulk Import from Excel', style: Theme.of(context).textTheme.titleLarge),
-              ]),
-              const SizedBox(height: 8),
-              Text('Upload .xlsx files to import data. First row should be headers.',
-                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
-              const SizedBox(height: 16),
-              Wrap(spacing: 12, runSpacing: 10, children: [
-                _importButton(context, Icons.inventory_2, 'Import Items', 'Name, Price, Tax%, HSN, Unit, Stock, Category', () async {
-                  final items = await ExcelImporter.importItems();
-                  if (items == null || !mounted) return;
-                  final appState = context.read<AppState>();
-                  int added = 0;
-                  for (final item in items) {
-                    try { await appState.addItem(item); added++; } catch (_) {}
-                  }
-                  if (mounted) _showImportResult(context, 'Items', added, items.length);
-                }),
-                _importButton(context, Icons.people, 'Import Customers', 'Name, Phone, Email, Address, GSTIN', () async {
-                  final customers = await ExcelImporter.importCustomers();
-                  if (customers == null || !mounted) return;
-                  final appState = context.read<AppState>();
-                  int added = 0;
-                  for (final c in customers) {
-                    try { await appState.addCustomer(c); added++; } catch (_) {}
-                  }
-                  if (mounted) _showImportResult(context, 'Customers', added, customers.length);
-                }),
-                _importButton(context, Icons.local_shipping, 'Import Suppliers', 'Name, Phone, Email, Address, GSTIN', () async {
-                  final suppliers = await ExcelImporter.importSuppliers();
-                  if (suppliers == null || !mounted) return;
-                  final appState = context.read<AppState>();
-                  int added = 0;
-                  for (final s in suppliers) {
-                    try { await appState.addSupplier(s); added++; } catch (_) {}
-                  }
-                  if (mounted) _showImportResult(context, 'Suppliers', added, suppliers.length);
-                }),
-                _importButton(context, Icons.receipt_long, 'Import Ledger/Bills', 'BillNo, Date, Customer, Subtotal, Tax, Total, Paid, Status, PaymentMethod', () async {
-                  final bills = await ExcelImporter.importLedger();
-                  if (bills == null || !mounted) return;
-                  final appState = context.read<AppState>();
-                  int added = 0;
-                  for (final b in bills) {
-                    try { await appState.createBill(b); added++; } catch (_) {}
-                  }
-                  if (mounted) _showImportResult(context, 'Ledger entries', added, bills.length);
-                }),
-              ]),
-            ])),
-          const SizedBox(height: 20),
+
+
 
           // Language Selection
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
