@@ -399,6 +399,29 @@ class _CashBookScreenState extends State<CashBookScreen> with SingleTickerProvid
             );
             Navigator.pop(ctx);
             await appState.addCashBookEntry(entry);
+
+            // Bank Deposit = cash goes OUT of register INTO bank
+            // So also create a Cash Out entry
+            if (type == TransactionType.bankIn) {
+              await appState.addCashBookEntry(CashBookEntry(
+                type: TransactionType.cashOut,
+                amount: amount,
+                description: 'Bank Deposit - ${descCtrl.text.trim()}',
+                reference: refCtrl.text.trim().isEmpty ? null : refCtrl.text.trim(),
+                category: 'Bank Deposit',
+              ));
+            }
+            // Bank Withdrawal = cash comes INTO register FROM bank
+            // So also create a Cash In entry
+            if (type == TransactionType.bankOut) {
+              await appState.addCashBookEntry(CashBookEntry(
+                type: TransactionType.cashIn,
+                amount: amount,
+                description: 'Bank Withdrawal - ${descCtrl.text.trim()}',
+                reference: refCtrl.text.trim().isEmpty ? null : refCtrl.text.trim(),
+                category: 'Bank Withdrawal',
+              ));
+            }
           },
           icon: const Icon(Icons.save, size: 18),
           label: const Text('Save')),
