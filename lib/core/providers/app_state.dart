@@ -58,22 +58,26 @@ class AppState extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      await Future.wait([
-        loadItems(),
-        loadCustomers(),
-        loadBills(),
-        loadPurchases(),
-        loadDashboardStats(),
-        loadQuotations(),
-        loadExpenses(),
-        loadCreditNotes(),
-        loadPurchaseReturns(),
-        loadSuppliers(),
-        loadRecurringBills(),
-        _loadAuditLog(),
-        _loadCashBook(),
-        _loadBankAccounts(),
-      ]);
+      // Load each independently so one failure doesn't block others
+      final loaders = <Future<void> Function()>[
+        loadItems,
+        loadCustomers,
+        loadBills,
+        loadPurchases,
+        loadDashboardStats,
+        loadQuotations,
+        loadExpenses,
+        loadCreditNotes,
+        loadPurchaseReturns,
+        loadSuppliers,
+        loadRecurringBills,
+        _loadAuditLog,
+        _loadCashBook,
+        _loadBankAccounts,
+      ];
+      await Future.wait(loaders.map((fn) async {
+        try { await fn(); } catch (e) { debugPrint('Load error: $e'); }
+      }));
       _error = null;
     } catch (e) {
       _error = e.toString();

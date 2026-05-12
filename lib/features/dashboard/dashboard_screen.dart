@@ -66,6 +66,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget build(BuildContext context) {
     return Consumer<AppState>(
       builder: (context, appState, _) {
+        if (appState.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
         final stats = appState.dashboardStats;
         final todaySales = (stats['todaySales'] as num?)?.toDouble() ?? 0.0;
         final todayCount = (stats['todayBillCount'] as num?)?.toInt() ?? 0;
