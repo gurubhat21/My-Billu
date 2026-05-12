@@ -66,7 +66,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget build(BuildContext context) {
     return Consumer<AppState>(
       builder: (context, appState, _) {
-        if (appState.isLoading) {
+        if (appState.isLoading && appState.bills.isEmpty && appState.items.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
         final stats = appState.dashboardStats;
@@ -102,30 +102,30 @@ class _DashboardScreenState extends State<DashboardScreen>
                       const SizedBox(height: 24),
 
                       // 📊 Dashboard Charts
-                      _buildSalesChart(context, appState, isWide),
+                      _safeWidget(() => _buildSalesChart(context, appState, isWide)),
                       const SizedBox(height: 20),
-                      _buildTopItemsChart(context, appState, isWide),
+                      _safeWidget(() => _buildTopItemsChart(context, appState, isWide)),
                       const SizedBox(height: 20),
 
                       // 📈 Monthly Comparison (Sales vs Expenses)
-                      _buildMonthlyComparison(context, appState, isWide),
+                      _safeWidget(() => _buildMonthlyComparison(context, appState, isWide)),
                       const SizedBox(height: 20),
 
                       // 💡 Profit Insights
-                      _buildProfitInsights(context, appState, isWide),
+                      _safeWidget(() => _buildProfitInsights(context, appState, isWide)),
                       const SizedBox(height: 24),
 
                       // 🔔 Payment Reminders
-                      _buildPaymentReminders(context, appState, isWide),
+                      _safeWidget(() => _buildPaymentReminders(context, appState, isWide)),
 
                       // 🔴 Low Stock Alerts
-                      _buildLowStockAlerts(context, appState, isWide),
+                      _safeWidget(() => _buildLowStockAlerts(context, appState, isWide)),
 
                       // 💰 Outstanding Dues
-                      _buildOutstandingDues(context, appState, isWide),
+                      _safeWidget(() => _buildOutstandingDues(context, appState, isWide)),
 
                       // Recent Bills
-                      _buildRecentBills(context, appState, isWide),
+                      _safeWidget(() => _buildRecentBills(context, appState, isWide)),
 
                       const SizedBox(height: 24),
 
@@ -141,6 +141,13 @@ class _DashboardScreenState extends State<DashboardScreen>
         );
       },
     );
+  }
+
+  Widget _safeWidget(Widget Function() builder) {
+    try { return builder(); } catch (e) {
+      debugPrint('Dashboard widget error: $e');
+      return const SizedBox.shrink();
+    }
   }
 
   Widget _buildNeonGreeting(BuildContext context) {
@@ -841,7 +848,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 50,
                 getTitlesWidget: (v, _) => Text(AppFormatters.compactCurrency(v), style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.4))))),
               bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true,
-                getTitlesWidget: (v, _) => Text(months[v.toInt()], style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5))))),
+                getTitlesWidget: (v, _) => Text(v.toInt() >= 0 && v.toInt() < months.length ? months[v.toInt()] : '', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5))))),
               topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             ),

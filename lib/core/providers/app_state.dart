@@ -81,9 +81,11 @@ class AppState extends ChangeNotifier {
       _error = null;
     } catch (e) {
       _error = e.toString();
+      debugPrint('LoadAll critical error: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    _isLoading = false;
-    notifyListeners();
   }
 
   // ===== AUDIT TRAIL =====
