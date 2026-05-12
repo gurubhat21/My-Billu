@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/bill.dart';
+import '../../core/models/item.dart';
+import '../../core/models/customer.dart';
 import '../../core/models/quotation.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -226,21 +228,60 @@ class _QuotationScreenState extends State<QuotationScreen> {
         title: Text(isEdit ? 'Edit Quotation' : 'New Quotation'),
         content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Customer
-            DropdownButtonFormField<String>(
-              value: selectedCustomerId,
-              decoration: const InputDecoration(labelText: 'Customer', prefixIcon: Icon(Icons.person)),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Walk-in Customer')),
-                ...appState.customers.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
-              ],
-              onChanged: (v) {
+            // Customer - Searchable
+            Autocomplete<Customer>(
+              optionsBuilder: (textValue) {
+                final all = appState.customers;
+                if (textValue.text.isEmpty) return all;
+                final q = textValue.text.toLowerCase();
+                return all.where((c) =>
+                  c.name.toLowerCase().contains(q) ||
+                  (c.phone ?? '').contains(q) ||
+                  (c.gstin ?? '').toLowerCase().contains(q));
+              },
+              displayStringForOption: (c) => c.name,
+              fieldViewBuilder: (ctx, ctrl, focusNode, onSubmit) {
+                if (customerCtrl.text.isNotEmpty && ctrl.text.isEmpty) ctrl.text = customerCtrl.text;
+                return TextField(
+                  controller: ctrl, focusNode: focusNode,
+                  decoration: const InputDecoration(
+                    labelText: 'Search Customer',
+                    prefixIcon: Icon(Icons.person_search),
+                    hintText: 'Type name / phone / GSTIN...'),
+                );
+              },
+              onSelected: (customer) {
                 setDialogState(() {
-                  selectedCustomerId = v;
-                  final cust = appState.customers.where((c) => c.id == v).firstOrNull;
-                  customerCtrl.text = cust?.name ?? '';
+                  selectedCustomerId = customer.id;
+                  customerCtrl.text = customer.name;
                 });
-              }),
+              },
+              optionsViewBuilder: (ctx, onSelected, options) {
+                return Align(alignment: Alignment.topLeft, child: Material(
+                  elevation: 8, borderRadius: BorderRadius.circular(12),
+                  color: Theme.of(ctx).brightness == Brightness.dark
+                      ? const Color(0xFF1E1E2E) : Colors.white,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220, maxWidth: 400),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      shrinkWrap: true, itemCount: options.length,
+                      itemBuilder: (ctx, i) {
+                        final c = options.elementAt(i);
+                        return ListTile(dense: true,
+                          leading: CircleAvatar(radius: 16,
+                            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                            child: Text(c.name[0].toUpperCase(),
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary))),
+                          title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          subtitle: Text(c.phone ?? c.gstin ?? '', style: const TextStyle(fontSize: 11)),
+                          onTap: () => onSelected(c),
+                        );
+                      }),
+                  ),
+                ));
+              },
+            ),
             const SizedBox(height: 12),
             // Add items
             Row(children: [
@@ -340,16 +381,64 @@ class _QuotationScreenState extends State<QuotationScreen> {
   }
 
   void _showAddItem(BuildContext context, AppState appState, List<BillItem> items, StateSetter setDialogState) {
-    String? selectedItemId;
+    Item? pickedItem;
     final qtyCtrl = TextEditingController(text: '1');
 
-    showDialog(context: context, builder: (ctx) => AlertDialog(
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setLocalState) => AlertDialog(
       title: const Text('Add Item'),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Select Item'),
-          items: appState.items.map((i) => DropdownMenuItem(value: i.id, child: Text('${i.name} - ${AppFormatters.currency(i.price)}'))).toList(),
-          onChanged: (v) => selectedItemId = v),
+        Autocomplete<Item>(
+          optionsBuilder: (textValue) {
+            if (textValue.text.isEmpty) return appState.items;
+            final q = textValue.text.toLowerCase();
+            return appState.items.where((i) =>
+              i.name.toLowerCase().contains(q) ||
+              (i.hsnCode ?? '').toLowerCase().contains(q) ||
+              (i.barcode ?? '').toLowerCase().contains(q) ||
+              (i.category ?? '').toLowerCase().contains(q));
+          },
+          displayStringForOption: (item) => item.name,
+          fieldViewBuilder: (ctx2, ctrl, focusNode, onSubmit) {
+            return TextField(
+              controller: ctrl, focusNode: focusNode,
+              decoration: const InputDecoration(
+                labelText: 'Search Item',
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Name, HSN, barcode...'),
+            );
+          },
+          onSelected: (item) => setLocalState(() => pickedItem = item),
+          optionsViewBuilder: (ctx2, onSelected, options) {
+            return Align(alignment: Alignment.topLeft, child: Material(
+              elevation: 8, borderRadius: BorderRadius.circular(12),
+              color: Theme.of(ctx2).brightness == Brightness.dark
+                  ? const Color(0xFF1E1E2E) : Colors.white,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220, maxWidth: 380),
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  shrinkWrap: true, itemCount: options.length,
+                  itemBuilder: (ctx2, i) {
+                    final item = options.elementAt(i);
+                    return ListTile(dense: true,
+                      leading: CircleAvatar(radius: 16,
+                        backgroundColor: AppColors.accent.withValues(alpha: 0.15),
+                        child: Text(item.name[0].toUpperCase(),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.accent))),
+                      title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      subtitle: Text('₹${item.price.toStringAsFixed(2)} · ${item.unit}',
+                        style: const TextStyle(fontSize: 11)),
+                      onTap: () => onSelected(item),
+                    );
+                  }),
+              ),
+            ));
+          },
+        ),
+        if (pickedItem != null)
+          Padding(padding: const EdgeInsets.only(top: 8),
+            child: Text('Selected: ${pickedItem!.name} — ₹${pickedItem!.price.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
         const SizedBox(height: 12),
         TextField(controller: qtyCtrl, keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'Quantity')),
@@ -357,8 +446,8 @@ class _QuotationScreenState extends State<QuotationScreen> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
         ElevatedButton(onPressed: () {
-          if (selectedItemId == null) return;
-          final item = appState.items.firstWhere((i) => i.id == selectedItemId);
+          if (pickedItem == null) return;
+          final item = pickedItem!;
           final qty = int.tryParse(qtyCtrl.text) ?? 1;
           setDialogState(() {
             items.add(BillItem(
@@ -373,6 +462,6 @@ class _QuotationScreenState extends State<QuotationScreen> {
           Navigator.pop(ctx);
         }, child: const Text('Add')),
       ],
-    ));
+    )));
   }
 }

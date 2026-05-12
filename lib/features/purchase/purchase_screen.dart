@@ -209,14 +209,62 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                 const SizedBox(height: 12),
                 Wrap(spacing: 12, runSpacing: 12, children: [
                   SizedBox(width: isWide ? 250 : double.infinity,
-                    child: DropdownButtonFormField<Item>(
-                      value: _selectedItem,
-                      hint: const Text('Select Item'),
-                      isExpanded: true,
-                      items: appState.items.map((item) => DropdownMenuItem(
-                        value: item, child: Text('${item.name} (${item.unit})'))).toList(),
-                      onChanged: (item) {
-                        setState(() { _selectedItem = item; _costCtrl.text = item?.price.toStringAsFixed(2) ?? ''; });
+                    child: Autocomplete<Item>(
+                      optionsBuilder: (textValue) {
+                        if (textValue.text.isEmpty) return appState.items;
+                        final q = textValue.text.toLowerCase();
+                        return appState.items.where((i) =>
+                          i.name.toLowerCase().contains(q) ||
+                          (i.hsnCode ?? '').toLowerCase().contains(q) ||
+                          (i.barcode ?? '').toLowerCase().contains(q) ||
+                          (i.category ?? '').toLowerCase().contains(q));
+                      },
+                      displayStringForOption: (item) => item.name,
+                      fieldViewBuilder: (ctx, ctrl, focusNode, onSubmit) {
+                        return TextField(
+                          controller: ctrl, focusNode: focusNode,
+                          decoration: InputDecoration(
+                            labelText: 'Search Item',
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: _selectedItem != null
+                              ? IconButton(icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () { ctrl.clear(); setState(() => _selectedItem = null); })
+                              : null,
+                          ),
+                        );
+                      },
+                      onSelected: (item) {
+                        setState(() {
+                          _selectedItem = item;
+                          _costCtrl.text = item.price.toStringAsFixed(2);
+                        });
+                      },
+                      optionsViewBuilder: (ctx, onSelected, options) {
+                        return Align(alignment: Alignment.topLeft, child: Material(
+                          elevation: 8, borderRadius: BorderRadius.circular(12),
+                          color: Theme.of(ctx).brightness == Brightness.dark
+                              ? const Color(0xFF1E1E2E) : Colors.white,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 250, maxWidth: 350),
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              shrinkWrap: true, itemCount: options.length,
+                              itemBuilder: (ctx, i) {
+                                final item = options.elementAt(i);
+                                return ListTile(
+                                  dense: true,
+                                  leading: CircleAvatar(radius: 16,
+                                    backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                                    child: Text(item.name[0].toUpperCase(),
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary))),
+                                  title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                  subtitle: Text('₹${item.price.toStringAsFixed(2)} · ${item.unit} · Stock: ${item.stockQuantity}',
+                                    style: const TextStyle(fontSize: 11)),
+                                  onTap: () => onSelected(item),
+                                );
+                              }),
+                          ),
+                        ));
                       },
                     )),
                   SizedBox(width: isWide ? 120 : 140,
