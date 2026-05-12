@@ -380,13 +380,20 @@ class _QuotationScreenState extends State<QuotationScreen> {
       ]));
   }
 
-  void _showAddItem(BuildContext context, AppState appState, List<BillItem> items, StateSetter setDialogState) {
+  void _showAddItem(BuildContext context, AppState appState, List<BillItem> items, StateSetter setDialogState) async {
     Item? pickedItem;
     final qtyCtrl = TextEditingController(text: '1');
+    final descCtrl = TextEditingController();
+    final serialCtrl = TextEditingController();
+
+    final showDesc = (await appState.getSetting('billing_show_description')) == 'true';
+    final showSerial = (await appState.getSetting('billing_show_serial_number')) == 'true';
+
+    if (!context.mounted) return;
 
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setLocalState) => AlertDialog(
       title: const Text('Add Item'),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
+      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
         Autocomplete<Item>(
           optionsBuilder: (textValue) {
             if (textValue.text.isEmpty) return appState.items;
@@ -426,7 +433,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
                         child: Text(item.name[0].toUpperCase(),
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.accent))),
                       title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                      subtitle: Text('₹${item.price.toStringAsFixed(2)} · ${item.unit}',
+                      subtitle: Text('\u20b9${item.price.toStringAsFixed(2)} \u00b7 ${item.unit}',
                         style: const TextStyle(fontSize: 11)),
                       onTap: () => onSelected(item),
                     );
@@ -437,12 +444,28 @@ class _QuotationScreenState extends State<QuotationScreen> {
         ),
         if (pickedItem != null)
           Padding(padding: const EdgeInsets.only(top: 8),
-            child: Text('Selected: ${pickedItem!.name} — ₹${pickedItem!.price.toStringAsFixed(2)}',
+            child: Text('Selected: ${pickedItem!.name} \u2014 \u20b9${pickedItem!.price.toStringAsFixed(2)}',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
         const SizedBox(height: 12),
         TextField(controller: qtyCtrl, keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'Quantity')),
-      ]),
+        if (showDesc) ...[
+          const SizedBox(height: 12),
+          TextField(controller: descCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Item Description',
+              prefixIcon: Icon(Icons.description, size: 18),
+              hintText: 'Optional description...')),
+        ],
+        if (showSerial) ...[
+          const SizedBox(height: 12),
+          TextField(controller: serialCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Serial Number',
+              prefixIcon: Icon(Icons.qr_code, size: 18),
+              hintText: 'Optional serial number...')),
+        ],
+      ])),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
         ElevatedButton(onPressed: () {
@@ -457,6 +480,8 @@ class _QuotationScreenState extends State<QuotationScreen> {
               quantity: qty,
               taxRate: item.taxRate,
               unit: item.unit,
+              description: descCtrl.text.trim().isNotEmpty ? descCtrl.text.trim() : null,
+              serialNumber: serialCtrl.text.trim().isNotEmpty ? serialCtrl.text.trim() : null,
             ));
           });
           Navigator.pop(ctx);

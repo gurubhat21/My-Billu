@@ -8,6 +8,8 @@ class BillItem {
   final int quantity;
   final double taxRate;
   final String unit;
+  final String? description;
+  final String? serialNumber;
 
   BillItem({
     required this.itemId,
@@ -16,6 +18,8 @@ class BillItem {
     required this.quantity,
     required this.taxRate,
     this.unit = 'pcs',
+    this.description,
+    this.serialNumber,
   });
 
   double get subtotal => unitPrice * quantity;
@@ -33,6 +37,8 @@ class BillItem {
       'quantity': quantity,
       'taxRate': taxRate,
       'unit': unit,
+      if (description != null) 'description': description,
+      if (serialNumber != null) 'serialNumber': serialNumber,
     };
   }
 
@@ -44,6 +50,8 @@ class BillItem {
       quantity: (map['quantity'] as num).toInt(),
       taxRate: (map['taxRate'] as num).toDouble(),
       unit: map['unit'] as String? ?? 'pcs',
+      description: map['description'] as String?,
+      serialNumber: map['serialNumber'] as String?,
     );
   }
 }

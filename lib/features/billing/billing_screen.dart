@@ -13,7 +13,9 @@ import '../../widgets/common_widgets.dart';
 class _CartItem {
   final Item item;
   int quantity;
-  _CartItem({required this.item, required this.quantity});
+  String description;
+  String serialNumber;
+  _CartItem({required this.item, required this.quantity, this.description = '', this.serialNumber = ''});
   double get subtotal => item.price * quantity;
   double get taxAmount => subtotal * item.taxRate / 100;
 }
@@ -32,6 +34,26 @@ class _BillingScreenState extends State<BillingScreen> {
   final _discountCtrl = TextEditingController(text: '0');
   final _walkInNameCtrl = TextEditingController();
   final _walkInPhoneCtrl = TextEditingController();
+  bool _showDescription = false;
+  bool _showSerialNumber = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadColumnSettings();
+  }
+
+  Future<void> _loadColumnSettings() async {
+    final appState = context.read<AppState>();
+    final desc = await appState.getSetting('billing_show_description');
+    final serial = await appState.getSetting('billing_show_serial_number');
+    if (mounted) {
+      setState(() {
+        _showDescription = desc == 'true';
+        _showSerialNumber = serial == 'true';
+      });
+    }
+  }
 
   double get _subtotal => _cart.fold(0, (s, c) => s + c.subtotal);
   double get _totalTax => _cart.fold(0, (s, c) => s + c.taxAmount);
@@ -220,24 +242,54 @@ class _BillingScreenState extends State<BillingScreen> {
           color: Theme.of(context).brightness == Brightness.dark
               ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
           borderRadius: BorderRadius.circular(12)),
-        child: Row(children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(c.item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 2),
-            Text('${AppFormatters.currency(c.item.price)} × ${c.quantity}', style: Theme.of(context).textTheme.bodySmall),
-          ])),
-          Container(decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              InkWell(onTap: () => setState(() { if (c.quantity > 1) c.quantity--; else _cart.removeAt(index); }),
-                child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.remove, size: 18, color: AppColors.primary))),
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
-              InkWell(onTap: () => setState(() => c.quantity++),
-                child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.add, size: 18, color: AppColors.primary))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(c.item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 2),
+              Text('${AppFormatters.currency(c.item.price)} × ${c.quantity}', style: Theme.of(context).textTheme.bodySmall),
             ])),
-          const SizedBox(width: 12),
-          SizedBox(width: 70, child: Text(AppFormatters.currency(c.subtotal),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), textAlign: TextAlign.right)),
+            Container(decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                InkWell(onTap: () => setState(() { if (c.quantity > 1) c.quantity--; else _cart.removeAt(index); }),
+                  child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.remove, size: 18, color: AppColors.primary))),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
+                InkWell(onTap: () => setState(() => c.quantity++),
+                  child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.add, size: 18, color: AppColors.primary))),
+              ])),
+            const SizedBox(width: 12),
+            SizedBox(width: 70, child: Text(AppFormatters.currency(c.subtotal),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), textAlign: TextAlign.right)),
+          ]),
+          // Optional description field
+          if (_showDescription)
+            Padding(padding: const EdgeInsets.only(top: 6),
+              child: TextField(
+                controller: TextEditingController(text: c.description),
+                onChanged: (v) => c.description = v,
+                style: const TextStyle(fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: 'Item description...',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  prefixIcon: const Icon(Icons.description, size: 16)),
+              )),
+          // Optional serial number field
+          if (_showSerialNumber)
+            Padding(padding: const EdgeInsets.only(top: 6),
+              child: TextField(
+                controller: TextEditingController(text: c.serialNumber),
+                onChanged: (v) => c.serialNumber = v,
+                style: const TextStyle(fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: 'Serial number...',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  prefixIcon: const Icon(Icons.qr_code, size: 16)),
+              )),
         ])));
   }
 
@@ -344,7 +396,9 @@ class _BillingScreenState extends State<BillingScreen> {
       final walkInName = _walkInNameCtrl.text.trim();
       final walkInPhone = _walkInPhoneCtrl.text.trim();
       final billItems = _cart.map((c) => BillItem(itemId: c.item.id, itemName: c.item.name,
-        unitPrice: c.item.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit)).toList();
+        unitPrice: c.item.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit,
+        description: c.description.isNotEmpty ? c.description : null,
+        serialNumber: c.serialNumber.isNotEmpty ? c.serialNumber : null)).toList();
       final bill = Bill(billNumber: billNumber, customerId: _selectedCustomer?.id,
         customerName: _selectedCustomer?.name ?? (walkInName.isNotEmpty ? walkInName : null),
         customerPhone: _selectedCustomer?.phone ?? (walkInPhone.isNotEmpty ? walkInPhone : null),

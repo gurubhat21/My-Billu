@@ -47,6 +47,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _loaded = false;
   bool _biometricEnabled = false;
   bool _biometricAvailable = false;
+  bool _showItemDescription = false;
+  bool _showSerialNumber = false;
 
   @override
   void initState() {
@@ -65,6 +67,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _bizLogoCtrl.text = settings['businessLogo'] ?? '';
       _lanIpCtrl.text = settings['lan_sync_ip'] ?? '';
       _biometricEnabled = settings['biometric_enabled'] == 'true';
+      _showItemDescription = settings['billing_show_description'] == 'true';
+      _showSerialNumber = settings['billing_show_serial_number'] == 'true';
       _loaded = true;
     });
     // Check biometric availability
@@ -376,6 +380,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: const Icon(Icons.save, size: 20), label: const Text('Save Settings'))),
               ],
             ])),
+          const SizedBox(height: 20),
+
+          // Billing & Quotation Column Settings
+          _buildBillingColumnsCard(context),
           const SizedBox(height: 20),
 
           // Biometric Authentication Toggle (Android/iOS only)
@@ -909,6 +917,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Text('LAN Sync complete! All data restored.')]),
       backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+  }
+
+  // ===== BILLING COLUMN SETTINGS =====
+  Widget _buildBillingColumnsCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.view_column, size: 22, color: AppColors.accent)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Billing & Quotation Columns', style: Theme.of(context).textTheme.titleLarge),
+            Text('Show/hide optional columns in billing and quotation',
+              style: TextStyle(fontSize: 11, color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.black54)),
+          ])),
+        ]),
+        const SizedBox(height: 16),
+        SwitchListTile(
+          value: _showItemDescription,
+          onChanged: (v) async {
+            setState(() => _showItemDescription = v);
+            final appState = context.read<AppState>();
+            await appState.saveSetting('billing_show_description', v.toString());
+          },
+          title: const Text('Item Description', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          subtitle: Text('Add a description field for each item in bills & quotations',
+            style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black38)),
+          secondary: Icon(Icons.description, color: _showItemDescription ? AppColors.primary : (isDark ? Colors.white38 : Colors.black38)),
+          activeColor: AppColors.primary,
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        const Divider(height: 8),
+        SwitchListTile(
+          value: _showSerialNumber,
+          onChanged: (v) async {
+            setState(() => _showSerialNumber = v);
+            final appState = context.read<AppState>();
+            await appState.saveSetting('billing_show_serial_number', v.toString());
+          },
+          title: const Text('Serial Number', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          subtitle: Text('Add a serial number field for each item in bills & quotations',
+            style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black38)),
+          secondary: Icon(Icons.qr_code, color: _showSerialNumber ? AppColors.primary : (isDark ? Colors.white38 : Colors.black38)),
+          activeColor: AppColors.primary,
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+      ]));
   }
 
   // ===== BIOMETRIC AUTH =====
