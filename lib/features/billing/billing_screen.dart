@@ -207,7 +207,9 @@ class _BillingScreenState extends State<BillingScreen> {
               const SizedBox(height: 12),
               Text('Cart is empty', style: Theme.of(context).textTheme.bodyMedium),
             ]))
-          : ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 16),
+          : ListView.builder(
+              key: ValueKey(_cart.fold<int>(0, (s, c) => s + c.quantity)),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: _cart.length, itemBuilder: (ctx, i) => _buildCartItem(context, i))),
       // Summary
       Container(padding: const EdgeInsets.all(16),
@@ -301,11 +303,23 @@ class _BillingScreenState extends State<BillingScreen> {
             ])),
             Container(decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                InkWell(onTap: () => setState(() { if (c.quantity > 1) { c.updateQuantity(c.quantity - 1); } else _cart.removeAt(index); }),
+                InkWell(onTap: () {
+                  setState(() {
+                    if (_cart[index].quantity > 1) {
+                      _cart[index].updateQuantity(_cart[index].quantity - 1);
+                    } else {
+                      _cart.removeAt(index);
+                    }
+                  });
+                },
                   child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.remove, size: 18, color: AppColors.primary))),
                 Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
-                InkWell(onTap: () => setState(() => c.updateQuantity(c.quantity + 1)),
+                InkWell(onTap: () {
+                  setState(() {
+                    _cart[index].updateQuantity(_cart[index].quantity + 1);
+                  });
+                },
                   child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.add, size: 18, color: AppColors.primary))),
               ])),
             const SizedBox(width: 12),
