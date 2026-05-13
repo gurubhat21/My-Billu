@@ -168,10 +168,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildCloudSyncCard(context),
           const SizedBox(height: 20),
 
-          // LAN Sync Section
-          _buildLanSyncCard(context),
-          const SizedBox(height: 20),
-
           // Import & Export
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -318,6 +314,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // SETTINGS SECTION
           // ═══════════════════════════════════════════════════
           _sectionHeader(context, Icons.settings, 'Settings', AppColors.primary),
+          const SizedBox(height: 16),
+
+          // LAN Sync Section
+          _buildLanSyncCard(context),
           const SizedBox(height: 16),
 
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
