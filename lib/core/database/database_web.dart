@@ -59,6 +59,11 @@ Future<WebDB> initDatabase(String fileName) async {
   return WebDB();
 }
 
+/// Stub for web (not used, but needed for conditional import compilation)
+Future<WebDB> initDatabaseAtPath(String fullPath) async {
+  return WebDB();
+}
+
 // ===== ITEMS =====
 Future<int> insertItem(WebDB db, Item item) async {
   db.insert('items', item.toMap());

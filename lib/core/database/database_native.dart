@@ -15,6 +15,14 @@ Future<Database> initDatabase(String fileName) async {
   );
 }
 
+/// Open database at a specific full file path (for custom data directory on Windows)
+Future<Database> initDatabaseAtPath(String fullPath) async {
+  return await openDatabase(fullPath, version: 4,
+    onCreate: _createDB,
+    onUpgrade: _upgradeDB,
+  );
+}
+
 Future<void> _createDB(Database db, int version) async {
   await db.execute('''
     CREATE TABLE items (

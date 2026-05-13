@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Directory, File, Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/item.dart';
@@ -16,6 +17,8 @@ import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/web_helper.dart' as web_helper;
 import '../../core/database/full_backup_exporter.dart';
+import '../../core/database/database_helper.dart';
+import 'package:path/path.dart' as path_pkg;
 import '../../core/utils/app_strings.dart';
 import '../../core/utils/excel_importer.dart';
 import '../../core/utils/invoice_generator.dart';
@@ -190,6 +193,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ])),
           const SizedBox(height: 20),
 
+          // Data Storage Path (Windows only)
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+            _buildDataPathCard(context),
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+            const SizedBox(height: 20),
 
 
 
@@ -2147,5 +2155,128 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildDataPathCard(BuildContext context) {
+    return StatefulBuilder(builder: (ctx, setCardState) {
+      final currentPath = DatabaseHelper.dataPath ?? r'D:\My_billu\data';
+      final pathCtrl = TextEditingController(text: currentPath);
+
+      return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF059669), Color(0xFF047857)]),
+                borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.folder_open, size: 22, color: Colors.white)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Data Storage Path', style: Theme.of(context).textTheme.titleLarge),
+              Text('Windows only — specify where database is stored',
+                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+            ])),
+          ]),
+          const SizedBox(height: 16),
+          TextField(
+            controller: pathCtrl,
+            decoration: InputDecoration(
+              labelText: 'Data folder path',
+              hintText: r'D:\My_billu\data',
+              prefixIcon: const Icon(Icons.storage),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.folder, color: AppColors.primary),
+                tooltip: 'Browse folder',
+                onPressed: () {
+                  // Manual entry — no file picker needed
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(children: [
+            const Icon(Icons.info_outline, size: 14, color: Colors.amber),
+            const SizedBox(width: 6),
+            Expanded(child: Text(
+              'Current: $currentPath${Platform.pathSeparator}my_billu.db',
+              style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+              maxLines: 2, overflow: TextOverflow.ellipsis)),
+          ]),
+          const SizedBox(height: 12),
+          SizedBox(width: double.infinity, child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669),
+              padding: const EdgeInsets.symmetric(vertical: 14)),
+            onPressed: () async {
+              final newPath = pathCtrl.text.trim();
+              if (newPath.isEmpty) return;
+
+              // Confirm change
+              final confirmed = await showDialog<bool>(context: context,
+                builder: (dCtx) => AlertDialog(
+                  title: const Text('Change Data Path?'),
+                  content: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.warning_amber, size: 48, color: Colors.amber),
+                    const SizedBox(height: 12),
+                    const Text('The app will restart database at the new location.\n\n'
+                      'If you want to keep existing data, manually copy the database file to the new folder before changing.\n\n'
+                      'New path:'),
+                    const SizedBox(height: 8),
+                    SelectableText(newPath, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  ]),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Cancel')),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+                      onPressed: () => Navigator.pop(dCtx, true),
+                      child: const Text('Change & Restart DB')),
+                  ],
+                ));
+
+              if (confirmed != true || !context.mounted) return;
+
+              try {
+                // Create directory
+                final dir = Directory(newPath);
+                if (!dir.existsSync()) dir.createSync(recursive: true);
+
+                // Save config file
+                final exeDir = path_pkg.dirname(Platform.resolvedExecutable);
+                final configFile = File(path_pkg.join(exeDir, 'mybillu_config.txt'));
+                configFile.writeAsStringSync(newPath);
+
+                // Reinitialize database
+                await DatabaseHelper.instance.reinitializeWithPath(newPath);
+
+                // Reload all data
+                if (context.mounted) {
+                  final appState = context.read<AppState>();
+                  await appState.loadItems();
+                  await appState.loadCustomers();
+                  await appState.loadBills();
+                  await appState.loadDashboardStats();
+
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Row(children: [
+                      const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
+                      Expanded(child: Text('Data path changed to: $newPath')),
+                    ]),
+                    backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+                  setCardState(() {});
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Error: $e'), backgroundColor: AppColors.error));
+                }
+              }
+            },
+            icon: const Icon(Icons.save, size: 18),
+            label: const Text('Save Data Path'),
+          )),
+        ]));
+    });
   }
 }

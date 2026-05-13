@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/item.dart';
 import '../models/customer.dart';
@@ -6,19 +7,48 @@ import '../models/bill.dart';
 import '../models/purchase.dart';
 
 // Conditional imports
-import 'database_native.dart' if (dart.library.html) 'database_web.dart'
+import 'database_native.dart' if (dart.library.js_interop) 'database_web.dart'
     as platform_db;
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static dynamic _db;
+  static String? _customDataPath;
 
   DatabaseHelper._init();
 
+  /// Set a custom data directory path (Windows only)
+  static void setDataPath(String path) {
+    _customDataPath = path;
+  }
+
+  /// Get the current data path
+  static String? get dataPath => _customDataPath;
+
   Future<dynamic> get database async {
     if (_db != null) return _db;
-    _db = await platform_db.initDatabase('my_billu.db');
+    if (!kIsWeb && _customDataPath != null) {
+      // Use custom path on native (Windows)
+      final dir = Directory(_customDataPath!);
+      if (!dir.existsSync()) dir.createSync(recursive: true);
+      _db = await platform_db.initDatabaseAtPath('$_customDataPath${Platform.pathSeparator}my_billu.db');
+    } else {
+      _db = await platform_db.initDatabase('my_billu.db');
+    }
     return _db;
+  }
+
+  /// Reinitialize database with a new path (closes old, opens new)
+  Future<void> reinitializeWithPath(String newPath) async {
+    if (!kIsWeb) {
+      // Close existing DB if open
+      if (_db != null) {
+        try { await _db.close(); } catch (_) {}
+        _db = null;
+      }
+      _customDataPath = newPath;
+      await database; // re-open at new path
+    }
   }
 
   // ===== ITEMS =====
