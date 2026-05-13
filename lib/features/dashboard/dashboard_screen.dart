@@ -105,7 +105,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       const SizedBox(height: 24),
 
                       // Stat Cards
-                      _buildStatGrid(isWide, todaySales, todayCount,
+                      _buildStatGrid(context, isWide, appState, todaySales, todayCount,
                           monthSales, monthCount, outstanding, itemCount),
 
                       const SizedBox(height: 24),
@@ -334,8 +334,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     return 'Good Evening';
   }
 
-  Widget _buildStatGrid(bool isWide, double todaySales, int todayCount,
+  Widget _buildStatGrid(BuildContext context, bool isWide, AppState appState,
+      double todaySales, int todayCount,
       double monthSales, int monthCount, double outstanding, int itemCount) {
+    final now = DateTime.now();
     final cards = [
       StatCard(
         title: "Today's Sales",
@@ -343,6 +345,30 @@ class _DashboardScreenState extends State<DashboardScreen>
         subtitle: '$todayCount bills',
         icon: Icons.trending_up_rounded,
         gradient: AppColors.primaryGradient,
+        onTap: () {
+          final todayBills = appState.bills.where((b) =>
+            b.createdAt.day == now.day && b.createdAt.month == now.month && b.createdAt.year == now.year).toList();
+          _showStatDetail(context, "Today's Sales", Icons.trending_up_rounded, AppColors.primary, [
+            _detailRow('Total Sales', AppFormatters.currency(todaySales), bold: true),
+            _detailRow('Bills Count', '$todayCount'),
+            _detailRow('Avg Bill', todayCount > 0 ? AppFormatters.currency(todaySales / todayCount) : '₹0'),
+            _detailRow('Tax Collected', AppFormatters.currency(todayBills.fold<double>(0, (s, b) => s + b.totalTax))),
+            _detailRow('Paid', AppFormatters.currency(todayBills.fold<double>(0, (s, b) => s + b.paidAmount))),
+            _detailRow('Pending', AppFormatters.currency(todayBills.fold<double>(0, (s, b) => s + b.balanceDue))),
+            if (todayBills.isNotEmpty) ...[
+              const Divider(),
+              const Text('Bills:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 6),
+              ...todayBills.map<Widget>((b) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Expanded(child: Text('${b.billNumber} - ${b.customerName ?? "Walk-in"}', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                  Text(AppFormatters.currency(b.totalAmount), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                ]),
+              )),
+            ],
+          ]);
+        },
       ),
       StatCard(
         title: 'Monthly Revenue',
@@ -350,6 +376,34 @@ class _DashboardScreenState extends State<DashboardScreen>
         subtitle: '$monthCount bills',
         icon: Icons.bar_chart_rounded,
         gradient: AppColors.accentGradient,
+        onTap: () {
+          final monthBills = appState.bills.where((b) =>
+            b.createdAt.month == now.month && b.createdAt.year == now.year).toList();
+          final paid = monthBills.fold<double>(0, (s, b) => s + b.paidAmount);
+          final due = monthBills.fold<double>(0, (s, b) => s + b.balanceDue);
+          final tax = monthBills.fold<double>(0, (s, b) => s + b.totalTax);
+          // Payment method breakdown
+          final methodTotals = <String, double>{};
+          for (final b in monthBills) {
+            final m = b.paymentMethod.name;
+            methodTotals[m] = (methodTotals[m] ?? 0) + b.totalAmount;
+          }
+          _showStatDetail(context, 'Monthly Revenue', Icons.bar_chart_rounded, AppColors.accent, [
+            _detailRow('Total Revenue', AppFormatters.currency(monthSales), bold: true),
+            _detailRow('Bills Count', '$monthCount'),
+            _detailRow('Avg Bill', monthCount > 0 ? AppFormatters.currency(monthSales / monthCount) : '₹0'),
+            _detailRow('Tax Collected', AppFormatters.currency(tax)),
+            _detailRow('Total Paid', AppFormatters.currency(paid)),
+            _detailRow('Total Due', AppFormatters.currency(due)),
+            if (methodTotals.isNotEmpty) ...[
+              const Divider(),
+              const Text('By Payment Method:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 6),
+              ...methodTotals.entries.map<Widget>((e) => _detailRow(
+                e.key.toUpperCase(), AppFormatters.currency(e.value))),
+            ],
+          ]);
+        },
       ),
       StatCard(
         title: 'Outstanding',
@@ -359,6 +413,38 @@ class _DashboardScreenState extends State<DashboardScreen>
         gradient: outstanding > 0
             ? AppColors.warningGradient
             : AppColors.successGradient,
+        onTap: () {
+          final unpaid = appState.bills.where((b) => b.status != BillStatus.paid && b.balanceDue > 0).toList()
+            ..sort((a, b) => b.balanceDue.compareTo(a.balanceDue));
+          // Group by customer
+          final customerDues = <String, double>{};
+          for (final b in unpaid) {
+            final name = b.customerName ?? 'Walk-in';
+            customerDues[name] = (customerDues[name] ?? 0) + b.balanceDue;
+          }
+          _showStatDetail(context, 'Outstanding Dues', Icons.account_balance_wallet_rounded, AppColors.warning, [
+            _detailRow('Total Outstanding', AppFormatters.currency(outstanding), bold: true),
+            _detailRow('Unpaid Bills', '${unpaid.length}'),
+            if (customerDues.isNotEmpty) ...[
+              const Divider(),
+              const Text('By Customer:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 6),
+              ...customerDues.entries.take(10).map<Widget>((e) => _detailRow(e.key, AppFormatters.currency(e.value))),
+            ],
+            if (unpaid.isNotEmpty) ...[
+              const Divider(),
+              const Text('Top Unpaid Bills:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 6),
+              ...unpaid.take(5).map<Widget>((b) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Expanded(child: Text('${b.billNumber} - ${b.customerName ?? "Walk-in"}', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                  Text(AppFormatters.currency(b.balanceDue), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.error)),
+                ]),
+              )),
+            ],
+          ]);
+        },
       ),
     ];
 
@@ -383,6 +469,20 @@ class _DashboardScreenState extends State<DashboardScreen>
               ))
           .toList(),
     );
+  }
+
+  void _showStatDetail(BuildContext context, String title, IconData icon, Color color, List<Widget> content) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        Icon(icon, color: color, size: 24),
+        const SizedBox(width: 10),
+        Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18))),
+      ]),
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: content),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
   }
 
   Widget _buildRecentBills(
