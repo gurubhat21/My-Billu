@@ -2110,9 +2110,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (!context.mounted) return;
 
-    await Printing.layoutPdf(
-      onLayout: (_) async => bytes,
-      name: 'Preview_${templateValue}_invoice',
+    // Show in-app PDF preview dialog instead of system print dialog
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text('Preview: ${templateValue[0].toUpperCase()}${templateValue.substring(1)} Template'),
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+            actions: [
+              // Optional: allow printing from preview
+              IconButton(
+                icon: const Icon(Icons.print),
+                tooltip: 'Print',
+                onPressed: () async {
+                  await Printing.layoutPdf(
+                    onLayout: (_) async => bytes,
+                    name: 'Preview_${templateValue}_invoice',
+                  );
+                },
+              ),
+            ],
+          ),
+          body: PdfPreview(
+            build: (_) => bytes,
+            canChangePageFormat: false,
+            canChangeOrientation: false,
+            canDebug: false,
+            allowPrinting: false,
+            allowSharing: false,
+            pdfFileName: 'Preview_${templateValue}_invoice.pdf',
+          ),
+        ),
+      ),
     );
   }
 }
