@@ -2301,6 +2301,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       createdAt: DateTime.now(),
     );
 
+    final logoBytes = InvoiceGenerator.parseLogoData(settings['businessLogoData']);
     final bytes = await InvoiceGenerator.generatePdfBytes(
       sampleBill,
       businessName: settings['businessName'] ?? 'My Billu',
@@ -2310,6 +2311,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       businessBankName: settings['businessBankName'] ?? 'AXIS BANK, Branch: YELLAPUR',
       businessBankAccount: settings['businessBankAccount'] ?? '925020007361962',
       businessBankIfsc: settings['businessBankIfsc'] ?? 'UTIB0006083',
+      logoBytes: logoBytes,
       template: template,
       paperSize: paperSize,
     );

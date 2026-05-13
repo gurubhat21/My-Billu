@@ -182,6 +182,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             final s = await appState.getAllSettings();
             final template = _parseTemplate(s['pdf_template']);
             final paperSize = _parsePaperSize(selectedSize);
+            final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
             await InvoiceGenerator.generateAndPrint(bill,
               businessName: s['businessName'] ?? 'My Billu',
               businessAddress: s['businessAddress'] ?? '',
@@ -190,6 +191,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               businessBankName: s['businessBankName'] ?? '',
               businessBankAccount: s['businessBankAccount'] ?? '',
               businessBankIfsc: s['businessBankIfsc'] ?? '',
+              logoBytes: logoBytes,
               template: template, paperSize: paperSize,
             );
           },
@@ -203,6 +205,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             final s = await appState.getAllSettings();
             final template = _parseTemplate(s['pdf_template']);
             final paperSize = _parsePaperSize(selectedSize);
+            final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
             try {
               await InvoiceGenerator.shareInvoice(bill,
                 businessName: s['businessName'] ?? 'My Billu',
@@ -212,6 +215,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 businessBankName: s['businessBankName'] ?? '',
                 businessBankAccount: s['businessBankAccount'] ?? '',
                 businessBankIfsc: s['businessBankIfsc'] ?? '',
+                logoBytes: logoBytes,
                 template: template, paperSize: paperSize,
               );
             } catch (e) {
@@ -231,6 +235,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             final s = await appState.getAllSettings();
             final template = _parseTemplate(s['pdf_template']);
             final paperSize = _parsePaperSize(selectedSize);
+            final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
             try {
               await InvoiceGenerator.emailInvoice(bill,
                 businessName: s['businessName'] ?? 'My Billu',
@@ -240,6 +245,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 businessBankName: s['businessBankName'] ?? '',
                 businessBankAccount: s['businessBankAccount'] ?? '',
                 businessBankIfsc: s['businessBankIfsc'] ?? '',
+                logoBytes: logoBytes,
                 template: template, paperSize: paperSize,
               );
             } catch (e) {

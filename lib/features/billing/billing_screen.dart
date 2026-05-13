@@ -591,6 +591,7 @@ class _BillingScreenState extends State<BillingScreen> {
           final s = await appState.getAllSettings();
           final template = _parseTemplate(s['pdf_template']);
           final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
+          final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
           if (action == 'print') {
             await InvoiceGenerator.generateAndPrint(bill,
               businessName: s['businessName'] ?? 'My Billu',
@@ -600,6 +601,7 @@ class _BillingScreenState extends State<BillingScreen> {
               businessBankName: s['businessBankName'] ?? '',
               businessBankAccount: s['businessBankAccount'] ?? '',
               businessBankIfsc: s['businessBankIfsc'] ?? '',
+              logoBytes: logoBytes,
               template: template, paperSize: paperSize,
             );
           } else if (action == 'share') {
@@ -611,6 +613,7 @@ class _BillingScreenState extends State<BillingScreen> {
               businessBankName: s['businessBankName'] ?? '',
               businessBankAccount: s['businessBankAccount'] ?? '',
               businessBankIfsc: s['businessBankIfsc'] ?? '',
+              logoBytes: logoBytes,
               template: template, paperSize: paperSize,
             );
           }

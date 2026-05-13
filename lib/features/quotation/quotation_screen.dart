@@ -615,6 +615,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
       final bill = _quotationAsBill(q);
       final template = _parseTemplate(s['pdf_template']);
       final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
+      final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
       await InvoiceGenerator.generateAndPrint(bill,
         businessName: s['businessName'] ?? 'My Billu',
         businessAddress: s['businessAddress'] ?? '',
@@ -623,6 +624,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
         businessBankName: s['businessBankName'] ?? '',
         businessBankAccount: s['businessBankAccount'] ?? '',
         businessBankIfsc: s['businessBankIfsc'] ?? '',
+        logoBytes: logoBytes,
         template: template, paperSize: paperSize,
       );
     }
@@ -681,6 +683,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
       final bill = _quotationAsBill(q);
       final template = _parseTemplate(s['pdf_template']);
       final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
+      final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
       try {
         await InvoiceGenerator.shareInvoice(bill,
           businessName: s['businessName'] ?? 'My Billu',
@@ -690,6 +693,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
           businessBankName: s['businessBankName'] ?? '',
           businessBankAccount: s['businessBankAccount'] ?? '',
           businessBankIfsc: s['businessBankIfsc'] ?? '',
+          logoBytes: logoBytes,
           template: template, paperSize: paperSize,
         );
       } catch (e) {
