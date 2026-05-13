@@ -85,6 +85,8 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _loggedIn = false;
   bool? _onboardingDone; // null = loading, true/false = checked
+  bool _expired = false;
+  String _expiryDateStr = '';
 
   @override
   void initState() {
@@ -95,7 +97,37 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkOnboarding() async {
     final appState = context.read<AppState>();
     final result = await appState.getSetting('onboarding_complete');
+
+    // Check expiry on Windows & Android only
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+         defaultTargetPlatform == TargetPlatform.android)) {
+      await _checkExpiry(appState);
+    }
+
     setState(() => _onboardingDone = result == 'true');
+  }
+
+  Future<void> _checkExpiry(AppState appState) async {
+    String? expiryStr = await appState.getSetting('app_expiry_date');
+    if (expiryStr == null || expiryStr.isEmpty) {
+      // First launch — set expiry to 1 year from now
+      final defaultExpiry = DateTime.now().add(const Duration(days: 365));
+      expiryStr = defaultExpiry.toIso8601String().split('T').first;
+      await appState.saveSetting('app_expiry_date', expiryStr);
+    }
+    _expiryDateStr = expiryStr;
+    final expiryDate = DateTime.tryParse(expiryStr);
+    if (expiryDate != null && DateTime.now().isAfter(expiryDate)) {
+      _expired = true;
+    }
+  }
+
+  void _onExpiryExtended() {
+    setState(() {
+      _expired = false;
+    });
+    _checkOnboarding();
   }
 
   @override
@@ -104,6 +136,13 @@ class _AuthGateState extends State<AuthGate> {
     if (_onboardingDone == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+    // Expired state (Windows/Android only)
+    if (_expired) {
+      return ExpiredScreen(
+        expiryDate: _expiryDateStr,
+        onExtended: _onExpiryExtended,
       );
     }
     // Show onboarding for first-time users
@@ -115,6 +154,125 @@ class _AuthGateState extends State<AuthGate> {
       return LoginScreen(onLogin: () => setState(() => _loggedIn = true));
     }
     return const MainShell();
+  }
+}
+
+/// Blocking screen shown when the app license has expired
+class ExpiredScreen extends StatelessWidget {
+  final String expiryDate;
+  final VoidCallback onExtended;
+  const ExpiredScreen({super.key, required this.expiryDate, required this.onExtended});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter, end: Alignment.bottomCenter,
+            colors: [Color(0xFF1A1A2E), Color(0xFF0F0F1A)],
+          ),
+        ),
+        child: Center(
+          child: Container(
+            width: 420, padding: const EdgeInsets.all(40),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.lock_clock, size: 64, color: AppColors.error),
+              ),
+              const SizedBox(height: 24),
+              const Text('License Expired', style: TextStyle(
+                fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.error)),
+              const SizedBox(height: 12),
+              Text('Your app license expired on $expiryDate.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.6))),
+              const SizedBox(height: 8),
+              Text('Please contact the developer to renew.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.4))),
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 12),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.phone, size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                const Text('9449831316', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+              ]),
+              const SizedBox(height: 8),
+              const Text('Sumukha Tech Solutions',
+                style: TextStyle(fontSize: 12, color: Colors.white54)),
+              const SizedBox(height: 24),
+              SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                onPressed: () => _showMasterPasswordDialog(context),
+                icon: const Icon(Icons.key, size: 18),
+                label: const Text('Enter Activation Code'),
+              )),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMasterPasswordDialog(BuildContext context) {
+    final pwdCtrl = TextEditingController();
+    showDialog(context: context, builder: (dCtx) => AlertDialog(
+      title: const Text('Enter Master Password'),
+      content: TextField(
+        controller: pwdCtrl,
+        obscureText: true,
+        decoration: InputDecoration(
+          hintText: 'Master password',
+          prefixIcon: const Icon(Icons.lock),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () {
+            if (pwdCtrl.text == '9449831316') {
+              Navigator.pop(dCtx);
+              _showDatePickerDialog(context);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Invalid password'), backgroundColor: AppColors.error));
+            }
+          },
+          child: const Text('Verify'),
+        ),
+      ],
+    ));
+  }
+
+  void _showDatePickerDialog(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 365)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2099),
+      helpText: 'SET NEW EXPIRY DATE',
+    );
+    if (picked != null && context.mounted) {
+      final newExpiry = picked.toIso8601String().split('T').first;
+      final appState = context.read<AppState>();
+      await appState.saveSetting('app_expiry_date', newExpiry);
+      onExtended();
+    }
   }
 }
 

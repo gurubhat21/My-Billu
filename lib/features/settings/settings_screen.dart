@@ -508,6 +508,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _aboutRow('Version', '1.0.0'),
               _aboutRow('Tax System', 'GST (India)'),
               _aboutRow('Currency', '₹ INR'),
+              // Expiry Date (Windows/Android only)
+              if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.android))
+                FutureBuilder<String?>(
+                  future: context.read<AppState>().getSetting('app_expiry_date'),
+                  builder: (ctx, snap) {
+                    final expiryStr = snap.data ?? 'Not set';
+                    final expiryDate = DateTime.tryParse(expiryStr);
+                    final isNearExpiry = expiryDate != null &&
+                        expiryDate.difference(DateTime.now()).inDays < 30;
+                    final isExpired = expiryDate != null &&
+                        DateTime.now().isAfter(expiryDate);
+                    return InkWell(
+                      onTap: () => _showExpiryChangeDialog(context),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          Row(children: [
+                            Icon(Icons.schedule,
+                              size: 16,
+                              color: isExpired ? AppColors.error : isNearExpiry ? AppColors.warning : AppColors.primary),
+                            const SizedBox(width: 8),
+                            const Text('License Expiry', style: TextStyle(fontWeight: FontWeight.w500)),
+                          ]),
+                          Row(children: [
+                            Text(expiryStr,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: isExpired ? AppColors.error : isNearExpiry ? AppColors.warning : AppColors.success)),
+                            const SizedBox(width: 4),
+                            Icon(Icons.edit, size: 14,
+                              color: Colors.white.withValues(alpha: 0.3)),
+                          ]),
+                        ]),
+                      ),
+                    );
+                  }),
               const Divider(height: 24),
               Center(child: Container(
                 width: 80, height: 80,
@@ -1324,6 +1361,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: AppColors.warning, behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
     }
+  }
+
+  void _showExpiryChangeDialog(BuildContext context) {
+    final pwdCtrl = TextEditingController();
+    showDialog(context: context, builder: (dCtx) => AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.lock, color: AppColors.warning, size: 22),
+        SizedBox(width: 10),
+        Text('Master Password Required'),
+      ]),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text('Enter master password to change expiry date.',
+          style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6))),
+        const SizedBox(height: 16),
+        TextField(
+          controller: pwdCtrl,
+          obscureText: true,
+          decoration: InputDecoration(
+            hintText: 'Master password',
+            prefixIcon: const Icon(Icons.key),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+        ),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel')),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+          onPressed: () async {
+            if (pwdCtrl.text == '9449831316') {
+              Navigator.pop(dCtx);
+              // Show date picker
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: DateTime.now().add(const Duration(days: 365)),
+                firstDate: DateTime.now(),
+                lastDate: DateTime(2099),
+                helpText: 'SET NEW EXPIRY DATE',
+              );
+              if (picked != null && context.mounted) {
+                final newExpiry = picked.toIso8601String().split('T').first;
+                await context.read<AppState>().saveSetting('app_expiry_date', newExpiry);
+                if (context.mounted) {
+                  setState(() {});
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Row(children: [
+                      const Icon(Icons.check_circle, color: Colors.white),
+                      const SizedBox(width: 10),
+                      Text('Expiry date updated to: $newExpiry'),
+                    ]),
+                    backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+                }
+              }
+            } else {
+              if (dCtx.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Invalid master password!'),
+                  backgroundColor: AppColors.error));
+              }
+            }
+          },
+          child: const Text('Verify & Change'),
+        ),
+      ],
+    ));
   }
 
   Widget _aboutRow(String label, String value) {
