@@ -22,6 +22,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   String _userName = '';
   String _logoUrl = '';
   String _financialYear = '';
+  int _expiryDaysLeft = -1; // -1 = not loaded
+  bool _expiryExpired = false;
   DateTime _currentTime = DateTime.now();
   Timer? _clockTimer;
 
@@ -49,6 +51,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final name = await appState.getSetting('businessName');
     final logo = await appState.getSetting('businessLogo');
     final fy = await appState.getSetting('financial_year');
+    final expiryStr = await appState.getSetting('app_expiry_date');
     if (mounted) {
       setState(() {
         _userName = name ?? '';
@@ -59,6 +62,15 @@ class _DashboardScreenState extends State<DashboardScreen>
           final now = DateTime.now();
           final fyStart = now.month >= 4 ? now.year : now.year - 1;
           _financialYear = '$fyStart-${(fyStart + 1).toString().substring(2)}';
+        }
+        // Expiry
+        if (expiryStr != null && expiryStr.isNotEmpty) {
+          final expiryDate = DateTime.tryParse(expiryStr);
+          if (expiryDate != null) {
+            final diff = expiryDate.difference(DateTime.now()).inDays;
+            _expiryDaysLeft = diff;
+            _expiryExpired = diff < 0;
+          }
         }
       });
     }
@@ -270,6 +282,62 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
             ],
           ),
+          // License expiry chip — top right
+          if (_expiryDaysLeft != -1) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _expiryExpired
+                    ? const Color(0xFFEF4444).withValues(alpha: 0.18)
+                    : _expiryDaysLeft <= 30
+                      ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                      : const Color(0xFF10B981).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _expiryExpired
+                      ? const Color(0xFFEF4444).withValues(alpha: 0.5)
+                      : _expiryDaysLeft <= 30
+                        ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
+                        : const Color(0xFF10B981).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _expiryExpired ? Icons.error_outline : Icons.verified_user,
+                      size: 14,
+                      color: _expiryExpired
+                        ? const Color(0xFFEF4444)
+                        : _expiryDaysLeft <= 30
+                          ? const Color(0xFFF59E0B)
+                          : const Color(0xFF10B981),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      _expiryExpired
+                        ? 'License Expired'
+                        : _expiryDaysLeft == 0
+                          ? 'Expires Today'
+                          : '$_expiryDaysLeft days left',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: _expiryExpired
+                          ? const Color(0xFFEF4444)
+                          : _expiryDaysLeft <= 30
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           // Main greeting with neon gradient
           ShaderMask(
