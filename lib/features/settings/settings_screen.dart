@@ -21,6 +21,7 @@ import '../../core/database/data_path_native.dart' if (dart.library.js_interop) 
     as data_path;
 import 'package:path/path.dart' as path_pkg;
 import '../../core/utils/app_strings.dart';
+import '../../core/utils/app_constants.dart';
 import '../../core/utils/excel_importer.dart';
 import '../../core/utils/invoice_generator.dart';
 import 'package:printing/printing.dart';
@@ -1389,7 +1390,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
           onPressed: () async {
-            if (pwdCtrl.text == '9449831316') {
+            if (pwdCtrl.text == AppConstants.masterPassword) {
               Navigator.pop(dCtx);
               // Show date picker
               final picked = await showDatePicker(

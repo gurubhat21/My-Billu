@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_constants.dart';
 import 'dart:convert';
 import 'package:local_auth/local_auth.dart';
 
@@ -87,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   void _login() async {
     // Master password bypass — developer can always access
-    if (_passCtrl.text == '9449831316') {
+    if (_passCtrl.text == AppConstants.masterPassword) {
       widget.onLogin();
       return;
     }

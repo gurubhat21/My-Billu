@@ -8,6 +8,7 @@ import 'core/providers/app_state.dart';
 import 'core/database/database_helper.dart';
 import 'core/database/data_path_native.dart' if (dart.library.js_interop) 'core/database/data_path_web.dart'
     as data_path;
+import 'core/utils/app_constants.dart';
 import 'core/models/bill.dart';
 import 'features/login/login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -245,7 +246,7 @@ class ExpiredScreen extends StatelessWidget {
         TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel')),
         ElevatedButton(
           onPressed: () {
-            if (pwdCtrl.text == '9449831316') {
+            if (pwdCtrl.text == AppConstants.masterPassword) {
               Navigator.pop(dCtx);
               _showDatePickerDialog(context);
             } else {
