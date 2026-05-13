@@ -401,24 +401,34 @@ class _BillingScreenState extends State<BillingScreen> {
             ])),
             Container(decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                InkWell(onTap: () {
-                  setState(() {
-                    if (_cart[index].quantity > 1) {
-                      _cart[index].updateQuantity(_cart[index].quantity - 1);
-                    } else {
-                      _cart.removeAt(index);
-                    }
-                  });
-                },
-                  child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.remove, size: 18, color: AppColors.primary))),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
-                InkWell(onTap: () {
-                  setState(() {
-                    _cart[index].updateQuantity(_cart[index].quantity + 1);
-                  });
-                },
-                  child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.add, size: 18, color: AppColors.primary))),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      if (_cart[index].quantity > 1) {
+                        _cart[index].updateQuantity(_cart[index].quantity - 1);
+                      } else {
+                        _cart.removeAt(index);
+                      }
+                    });
+                  },
+                  icon: const Icon(Icons.remove, size: 20, color: AppColors.primary),
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  padding: EdgeInsets.zero,
+                  splashRadius: 22,
+                ),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _cart[index].updateQuantity(_cart[index].quantity + 1);
+                    });
+                  },
+                  icon: const Icon(Icons.add, size: 20, color: AppColors.primary),
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  padding: EdgeInsets.zero,
+                  splashRadius: 22,
+                ),
               ])),
             const SizedBox(width: 12),
             SizedBox(width: 70, child: Text(AppFormatters.currency(c.subtotal),
