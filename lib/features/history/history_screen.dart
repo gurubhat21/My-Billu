@@ -488,6 +488,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     switch (value) {
       case 'classic': return InvoiceTemplate.classic;
       case 'minimal': return InvoiceTemplate.minimal;
+      case 'gstInvoice': return InvoiceTemplate.gstInvoice;
       default: return InvoiceTemplate.modern;
     }
   }

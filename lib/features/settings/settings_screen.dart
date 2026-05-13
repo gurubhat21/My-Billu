@@ -1880,6 +1880,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               desc: 'Clean and lightweight with blue accent line',
               features: ['Blue accent bar', 'Two-column layout', 'Spacious design'],
             ),
+            const SizedBox(height: 10),
+            _templatePreviewCard(
+              context: context,
+              name: 'GST Invoice',
+              value: 'gstInvoice',
+              selected: currentTemplate,
+              icon: Icons.receipt,
+              color: const Color(0xFFDC2626),
+              desc: 'Traditional Indian GST Tax Invoice with full breakdown',
+              features: ['GST split table', 'Amount in words', 'Signature & T&C'],
+            ),
           ]),
         );
       },
