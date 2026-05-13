@@ -1,6 +1,5 @@
 import 'dart:convert';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'package:web/web.dart' as web;
 import '../models/item.dart';
 import '../models/customer.dart';
 import '../models/bill.dart';
@@ -16,7 +15,7 @@ class WebDB {
 
   void _loadFromStorage() {
     for (final table in ['items', 'customers', 'bills', 'purchases', 'settings']) {
-      final data = html.window.localStorage['mybillu_$table'];
+      final data = web.window.localStorage.getItem('mybillu_$table');
       if (data != null) {
         _tables[table] = List<Map<String, dynamic>>.from(
             jsonDecode(data).map((e) => Map<String, dynamic>.from(e)));
@@ -27,7 +26,7 @@ class WebDB {
   }
 
   void _saveTable(String table) {
-    html.window.localStorage['mybillu_$table'] = jsonEncode(_tables[table]);
+    web.window.localStorage.setItem('mybillu_$table', jsonEncode(_tables[table]));
   }
 
   List<Map<String, dynamic>> getAll(String table) => _tables[table] ?? [];
