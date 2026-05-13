@@ -91,6 +91,24 @@ class _SalesReportTab extends StatefulWidget {
 
 class _SalesReportTabState extends State<_SalesReportTab> {
   String _period = 'This Month';
+  DateTimeRange? _customRange;
+
+  Future<void> _pickCustomRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _customRange ?? DateTimeRange(
+        start: DateTime.now().subtract(const Duration(days: 30)),
+        end: DateTime.now()),
+    );
+    if (picked != null) {
+      setState(() {
+        _customRange = picked;
+        _period = 'Custom';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +124,9 @@ class _SalesReportTabState extends State<_SalesReportTab> {
           return b.createdAt.month == now.month && b.createdAt.year == now.year;
         } else if (_period == 'This Year') {
           return b.createdAt.year == now.year;
+        } else if (_period == 'Custom' && _customRange != null) {
+          return b.createdAt.isAfter(_customRange!.start.subtract(const Duration(days: 1))) &&
+                 b.createdAt.isBefore(_customRange!.end.add(const Duration(days: 1)));
         }
         return true; // All Time
       }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -138,14 +159,23 @@ class _SalesReportTabState extends State<_SalesReportTab> {
           padding: EdgeInsets.all(isWide ? 24 : 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Period selector
-            Wrap(spacing: 8, runSpacing: 8, children:
-              ['Today', 'This Week', 'This Month', 'This Year', 'All Time'].map((p) =>
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              ...['Today', 'This Week', 'This Month', 'This Year', 'All Time'].map((p) =>
                 ChoiceChip(
                   label: Text(p, style: const TextStyle(fontSize: 12)),
                   selected: _period == p,
                   selectedColor: AppColors.primary,
                   onSelected: (_) => setState(() => _period = p),
-                )).toList()),
+                )),
+              ChoiceChip(
+                label: Text(_period == 'Custom' && _customRange != null
+                  ? '${AppFormatters.date(_customRange!.start)} - ${AppFormatters.date(_customRange!.end)}'
+                  : 'Custom', style: const TextStyle(fontSize: 12)),
+                selected: _period == 'Custom',
+                selectedColor: AppColors.primary,
+                onSelected: (_) => _pickCustomRange(),
+              ),
+            ]),
             const SizedBox(height: 12),
             Row(children: [
               OutlinedButton.icon(
@@ -425,6 +455,24 @@ class _GSTReportTab extends StatefulWidget {
 
 class _GSTReportTabState extends State<_GSTReportTab> {
   String _period = 'This Month';
+  DateTimeRange? _customRange;
+
+  Future<void> _pickCustomRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _customRange ?? DateTimeRange(
+        start: DateTime.now().subtract(const Duration(days: 30)),
+        end: DateTime.now()),
+    );
+    if (picked != null) {
+      setState(() {
+        _customRange = picked;
+        _period = 'Custom';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -441,6 +489,9 @@ class _GSTReportTabState extends State<_GSTReportTab> {
           return b.createdAt.isAfter(qStart.subtract(const Duration(days: 1)));
         } else if (_period == 'This Year') {
           return b.createdAt.year == now.year;
+        } else if (_period == 'Custom' && _customRange != null) {
+          return b.createdAt.isAfter(_customRange!.start.subtract(const Duration(days: 1))) &&
+                 b.createdAt.isBefore(_customRange!.end.add(const Duration(days: 1)));
         }
         return true;
       }).toList();
@@ -473,14 +524,23 @@ class _GSTReportTabState extends State<_GSTReportTab> {
           padding: EdgeInsets.all(isWide ? 24 : 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Period selector
-            Wrap(spacing: 8, runSpacing: 8, children:
-              ['This Month', 'Last Month', 'This Quarter', 'This Year', 'All Time'].map((p) =>
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              ...['This Month', 'Last Month', 'This Quarter', 'This Year', 'All Time'].map((p) =>
                 ChoiceChip(
                   label: Text(p, style: const TextStyle(fontSize: 12)),
                   selected: _period == p,
                   selectedColor: AppColors.primary,
                   onSelected: (_) => setState(() => _period = p),
-                )).toList()),
+                )),
+              ChoiceChip(
+                label: Text(_period == 'Custom' && _customRange != null
+                  ? '${AppFormatters.date(_customRange!.start)} - ${AppFormatters.date(_customRange!.end)}'
+                  : 'Custom', style: const TextStyle(fontSize: 12)),
+                selected: _period == 'Custom',
+                selectedColor: AppColors.primary,
+                onSelected: (_) => _pickCustomRange(),
+              ),
+            ]),
             const SizedBox(height: 12),
             Row(children: [
               OutlinedButton.icon(
@@ -672,6 +732,24 @@ class _PnLReportTab extends StatefulWidget {
 
 class _PnLReportTabState extends State<_PnLReportTab> {
   String _period = 'This Month';
+  DateTimeRange? _customRange;
+
+  Future<void> _pickCustomRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _customRange ?? DateTimeRange(
+        start: DateTime.now().subtract(const Duration(days: 30)),
+        end: DateTime.now()),
+    );
+    if (picked != null) {
+      setState(() {
+        _customRange = picked;
+        _period = 'Custom';
+      });
+    }
+  }
 
   List<T> _filterByPeriod<T>(List<T> list, DateTime Function(T) getDate) {
     final now = DateTime.now();
@@ -688,6 +766,9 @@ class _PnLReportTabState extends State<_PnLReportTab> {
         return d.isAfter(qStart.subtract(const Duration(days: 1)));
       } else if (_period == 'This Year') {
         return d.year == now.year;
+      } else if (_period == 'Custom' && _customRange != null) {
+        return d.isAfter(_customRange!.start.subtract(const Duration(days: 1))) &&
+               d.isBefore(_customRange!.end.add(const Duration(days: 1)));
       }
       return true;
     }).toList();
@@ -743,14 +824,23 @@ class _PnLReportTabState extends State<_PnLReportTab> {
           padding: EdgeInsets.all(isWide ? 24 : 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Period selector
-            Wrap(spacing: 8, runSpacing: 8, children:
-              ['Today', 'This Week', 'This Month', 'This Quarter', 'This Year', 'All Time'].map((p) =>
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              ...['Today', 'This Week', 'This Month', 'This Quarter', 'This Year', 'All Time'].map((p) =>
                 ChoiceChip(
                   label: Text(p, style: const TextStyle(fontSize: 12)),
                   selected: _period == p,
                   selectedColor: AppColors.primary,
                   onSelected: (_) => setState(() => _period = p),
-                )).toList()),
+                )),
+              ChoiceChip(
+                label: Text(_period == 'Custom' && _customRange != null
+                  ? '${AppFormatters.date(_customRange!.start)} - ${AppFormatters.date(_customRange!.end)}'
+                  : 'Custom', style: const TextStyle(fontSize: 12)),
+                selected: _period == 'Custom',
+                selectedColor: AppColors.primary,
+                onSelected: (_) => _pickCustomRange(),
+              ),
+            ]),
             const SizedBox(height: 12),
             Row(children: [
               OutlinedButton.icon(
