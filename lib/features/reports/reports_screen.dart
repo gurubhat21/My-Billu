@@ -265,10 +265,28 @@ class _SalesReportTabState extends State<_SalesReportTab> {
 
   Widget _buildSummaryCards(bool isWide, double totalSales, int count, double tax, double discount, double paid, double due, double avg) {
     final cards = [
-      _summaryCard('Total Sales', AppFormatters.currency(totalSales), '$count bills', Icons.trending_up, AppColors.primaryGradient),
-      _summaryCard('Tax Collected', AppFormatters.currency(tax), 'GST', Icons.account_balance, AppColors.accentGradient),
-      _summaryCard('Discount Given', AppFormatters.currency(discount), 'savings', Icons.local_offer, const LinearGradient(colors: [Color(0xFFEC4899), Color(0xFFBE185D)])),
-      _summaryCard('Collected', AppFormatters.currency(paid), 'Due: ${AppFormatters.currency(due)}', Icons.payments, due > 0 ? AppColors.warningGradient : AppColors.successGradient),
+      _summaryCard('Total Sales', AppFormatters.currency(totalSales), '$count bills', Icons.trending_up, AppColors.primaryGradient,
+        onTap: () => _showCardDetail(context, 'Total Sales', [
+          'Total: ${AppFormatters.currency(totalSales)}',
+          'Bills: $count',
+          'Avg Bill: ${AppFormatters.currency(avg)}',
+        ])),
+      _summaryCard('Tax Collected', AppFormatters.currency(tax), 'GST', Icons.account_balance, AppColors.accentGradient,
+        onTap: () => _showCardDetail(context, 'Tax Collected', [
+          'Total Tax: ${AppFormatters.currency(tax)}',
+          'From $count bills',
+        ])),
+      _summaryCard('Discount Given', AppFormatters.currency(discount), 'savings', Icons.local_offer, const LinearGradient(colors: [Color(0xFFEC4899), Color(0xFFBE185D)]),
+        onTap: () => _showCardDetail(context, 'Discount Given', [
+          'Total Discount: ${AppFormatters.currency(discount)}',
+          'From $count bills',
+        ])),
+      _summaryCard('Collected', AppFormatters.currency(paid), 'Due: ${AppFormatters.currency(due)}', Icons.payments, due > 0 ? AppColors.warningGradient : AppColors.successGradient,
+        onTap: () => _showCardDetail(context, 'Collection Details', [
+          'Total Collected: ${AppFormatters.currency(paid)}',
+          'Total Due: ${AppFormatters.currency(due)}',
+          'Collection %: ${totalSales > 0 ? (paid / totalSales * 100).toStringAsFixed(1) : 0}%',
+        ])),
     ];
 
     if (isWide) {
@@ -277,20 +295,36 @@ class _SalesReportTabState extends State<_SalesReportTab> {
     return Wrap(spacing: 8, runSpacing: 8, children: cards.map((c) => SizedBox(width: (MediaQuery.of(context).size.width - 48) / 2, child: c)).toList());
   }
 
-  Widget _summaryCard(String title, String value, String subtitle, IconData icon, Gradient gradient) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(gradient: gradient, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 22),
-        const SizedBox(height: 10),
-        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
-        const SizedBox(height: 2),
-        Text(title, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
-        Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5))),
-      ]),
+  Widget _summaryCard(String title, String value, String subtitle, IconData icon, Gradient gradient, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(gradient: gradient, borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 22),
+          const SizedBox(height: 10),
+          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
+          const SizedBox(height: 2),
+          Text(title, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+          Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5))),
+        ]),
+      ),
     );
+  }
+
+  void _showCardDetail(BuildContext context, String title, List<String> details) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+        children: details.map<Widget>((d) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(d, style: const TextStyle(fontSize: 14)),
+        )).toList()),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
   }
 
   Widget _buildBarChart(Map<String, double> data) {
@@ -564,10 +598,14 @@ class _GSTReportTabState extends State<_GSTReportTab> {
 
   Widget _buildGSTSummary(bool isWide, double taxable, double cgst, double sgst, double gst, double total, int count) {
     final cards = [
-      _gstCard('Taxable Value', AppFormatters.currency(taxable), Icons.receipt, const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4338CA)])),
-      _gstCard('CGST', AppFormatters.currency(cgst), Icons.account_balance, const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF0284C7)])),
-      _gstCard('SGST', AppFormatters.currency(sgst), Icons.account_balance_wallet, const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF047857)])),
-      _gstCard('Total GST', AppFormatters.currency(gst), Icons.summarize, const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)])),
+      _gstCard('Taxable Value', AppFormatters.currency(taxable), Icons.receipt, const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4338CA)]),
+        onTap: () => _showGSTDetail(context, 'Taxable Value', ['Total Taxable: ${AppFormatters.currency(taxable)}', 'From $count bills', 'Invoice Total: ${AppFormatters.currency(total)}'])),
+      _gstCard('CGST', AppFormatters.currency(cgst), Icons.account_balance, const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF0284C7)]),
+        onTap: () => _showGSTDetail(context, 'CGST', ['CGST Amount: ${AppFormatters.currency(cgst)}', 'SGST Amount: ${AppFormatters.currency(sgst)}', 'Total GST: ${AppFormatters.currency(gst)}'])),
+      _gstCard('SGST', AppFormatters.currency(sgst), Icons.account_balance_wallet, const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF047857)]),
+        onTap: () => _showGSTDetail(context, 'SGST', ['SGST Amount: ${AppFormatters.currency(sgst)}', 'CGST Amount: ${AppFormatters.currency(cgst)}', 'Total GST: ${AppFormatters.currency(gst)}'])),
+      _gstCard('Total GST', AppFormatters.currency(gst), Icons.summarize, const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+        onTap: () => _showGSTDetail(context, 'Total GST', ['CGST: ${AppFormatters.currency(cgst)}', 'SGST: ${AppFormatters.currency(sgst)}', 'Total GST: ${AppFormatters.currency(gst)}', 'Taxable Value: ${AppFormatters.currency(taxable)}'])),
     ];
 
     if (isWide) {
@@ -576,19 +614,35 @@ class _GSTReportTabState extends State<_GSTReportTab> {
     return Wrap(spacing: 8, runSpacing: 8, children: cards.map((c) => SizedBox(width: (MediaQuery.of(context).size.width - 48) / 2, child: c)).toList());
   }
 
-  Widget _gstCard(String title, String value, IconData icon, Gradient gradient) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(gradient: gradient, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 20),
-        const SizedBox(height: 10),
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-        const SizedBox(height: 2),
-        Text(title, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
-      ]),
+  Widget _gstCard(String title, String value, IconData icon, Gradient gradient, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(gradient: gradient, borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 20),
+          const SizedBox(height: 10),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
+          const SizedBox(height: 2),
+          Text(title, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+        ]),
+      ),
     );
+  }
+
+  void _showGSTDetail(BuildContext context, String title, List<String> details) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+        children: details.map<Widget>((d) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(d, style: const TextStyle(fontSize: 14)),
+        )).toList()),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
   }
 
   Color _slabColor(double rate) {
@@ -865,13 +919,17 @@ class _PnLReportTabState extends State<_PnLReportTab> {
   Widget _buildPnLCards(bool isWide, double sales, double purchases, double gross, double taxLiability) {
     final cards = [
       _pnlCard('Total Sales', AppFormatters.currency(sales), Icons.trending_up,
-        const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)])),
+        const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)]),
+        onTap: () => _showPnLDetail(context, 'Total Sales', ['Revenue: ${AppFormatters.currency(sales)}', 'Purchases: ${AppFormatters.currency(purchases)}', 'Gross Profit: ${AppFormatters.currency(gross)}'])),
       _pnlCard('Total Purchases', AppFormatters.currency(purchases), Icons.shopping_bag,
-        const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)])),
+        const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+        onTap: () => _showPnLDetail(context, 'Total Purchases', ['Purchase Cost: ${AppFormatters.currency(purchases)}', 'Sales Revenue: ${AppFormatters.currency(sales)}', 'Gross Profit: ${AppFormatters.currency(gross)}'])),
       _pnlCard('Gross Profit', AppFormatters.currency(gross), Icons.account_balance_wallet,
-        gross >= 0 ? AppColors.successGradient : const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)])),
+        gross >= 0 ? AppColors.successGradient : const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)]),
+        onTap: () => _showPnLDetail(context, 'Gross Profit', ['Sales: ${AppFormatters.currency(sales)}', 'Less Purchases: ${AppFormatters.currency(purchases)}', 'Gross Profit: ${AppFormatters.currency(gross)}', 'Margin: ${sales > 0 ? (gross / sales * 100).toStringAsFixed(1) : 0}%'])),
       _pnlCard('Tax Liability', AppFormatters.currency(taxLiability), Icons.receipt_long,
-        const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF0284C7)])),
+        const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF0284C7)]),
+        onTap: () => _showPnLDetail(context, 'Net Tax Liability', ['Net Tax: ${AppFormatters.currency(taxLiability)}', 'This is output tax minus input tax credit'])),
     ];
     if (isWide) {
       return Row(children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: c))).toList());
@@ -879,19 +937,35 @@ class _PnLReportTabState extends State<_PnLReportTab> {
     return Wrap(spacing: 8, runSpacing: 8, children: cards.map((c) => SizedBox(width: (MediaQuery.of(context).size.width - 48) / 2, child: c)).toList());
   }
 
-  Widget _pnlCard(String title, String value, IconData icon, Gradient gradient) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(gradient: gradient, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 20),
-        const SizedBox(height: 10),
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-        const SizedBox(height: 2),
-        Text(title, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
-      ]),
+  Widget _pnlCard(String title, String value, IconData icon, Gradient gradient, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(gradient: gradient, borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 20),
+          const SizedBox(height: 10),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
+          const SizedBox(height: 2),
+          Text(title, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+        ]),
+      ),
     );
+  }
+
+  void _showPnLDetail(BuildContext context, String title, List<String> details) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+        children: details.map<Widget>((d) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(d, style: const TextStyle(fontSize: 14)),
+        )).toList()),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
   }
 
   Widget _sectionHeader(String title) {

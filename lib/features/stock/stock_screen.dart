@@ -52,11 +52,16 @@ class _StockScreenState extends State<StockScreen> {
 
               // Summary Cards
               Wrap(spacing: 12, runSpacing: 12, children: [
-                _statCard('Total Items', '$totalItems', Icons.inventory_2, AppColors.primary),
-                _statCard('Total Stock', '$totalStock', Icons.stacked_bar_chart, AppColors.accent),
-                _statCard('Stock Value', AppFormatters.currency(totalValue), Icons.currency_rupee, AppColors.success),
-                _statCard('Low Stock', '$lowStock', Icons.warning_amber, AppColors.warning),
-                _statCard('Out of Stock', '$outOfStock', Icons.error_outline, AppColors.error),
+                _statCard('Total Items', '$totalItems', Icons.inventory_2, AppColors.primary,
+                  onTap: () => _showStockDetail(context, 'Total Items', appState.items.map((i) => '${i.name}: ${i.stockQuantity} ${i.unit}').toList())),
+                _statCard('Total Stock', '$totalStock', Icons.stacked_bar_chart, AppColors.accent,
+                  onTap: () => _showStockDetail(context, 'Total Stock', appState.items.map((i) => '${i.name}: ${i.stockQuantity} ${i.unit}').toList())),
+                _statCard('Stock Value', AppFormatters.currency(totalValue), Icons.currency_rupee, AppColors.success,
+                  onTap: () => _showStockDetail(context, 'Stock Value', appState.items.map((i) => '${i.name}: ${AppFormatters.currency(i.price * i.stockQuantity)}').toList())),
+                _statCard('Low Stock', '$lowStock', Icons.warning_amber, AppColors.warning,
+                  onTap: () => _showStockDetail(context, 'Low Stock Items', appState.items.where((i) => i.stockQuantity > 0 && i.stockQuantity <= 10).map((i) => '${i.name}: ${i.stockQuantity} ${i.unit}').toList())),
+                _statCard('Out of Stock', '$outOfStock', Icons.error_outline, AppColors.error,
+                  onTap: () => _showStockDetail(context, 'Out of Stock Items', appState.items.where((i) => i.stockQuantity <= 0).map((i) => i.name).toList())),
               ]),
               const SizedBox(height: 16),
 
@@ -90,21 +95,45 @@ class _StockScreenState extends State<StockScreen> {
     });
   }
 
-  Widget _statCard(String label, String value, IconData icon, Color color) {
-    return Container(
-      width: 160, padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+  Widget _statCard(String label, String value, IconData icon, Color color, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 160, padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: color)),
+          Text(label, style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.7))),
+        ]),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, color: color, size: 22),
-        const SizedBox(height: 8),
-        Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: color)),
-        Text(label, style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.7))),
-      ]),
     );
+  }
+
+  void _showStockDetail(BuildContext context, String title, List<String> items) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${items.length} items', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 8),
+          if (items.isEmpty)
+            const Text('No items found')
+          else
+            ...items.map<Widget>((item) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text('• $item', style: const TextStyle(fontSize: 13)),
+            )),
+        ]),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
   }
 
   Widget _stockTile(BuildContext context, Item item, bool isWide) {
