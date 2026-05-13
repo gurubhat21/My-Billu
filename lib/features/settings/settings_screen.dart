@@ -44,6 +44,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _bizPhoneCtrl = TextEditingController();
   final _bizGstinCtrl = TextEditingController();
   final _bizLogoCtrl = TextEditingController();
+  final _bizBankNameCtrl = TextEditingController();
+  final _bizBankAccountCtrl = TextEditingController();
+  final _bizBankIfscCtrl = TextEditingController();
   final _barcodeCtrl = TextEditingController();
   bool _loaded = false;
   bool _biometricEnabled = false;
@@ -69,6 +72,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _bizPhoneCtrl.text = settings['businessPhone'] ?? '';
       _bizGstinCtrl.text = settings['businessGstin'] ?? '';
       _bizLogoCtrl.text = settings['businessLogo'] ?? '';
+      _bizBankNameCtrl.text = settings['businessBankName'] ?? '';
+      _bizBankAccountCtrl.text = settings['businessBankAccount'] ?? '';
+      _bizBankIfscCtrl.text = settings['businessBankIfsc'] ?? '';
       _lanIpCtrl.text = settings['lan_sync_ip'] ?? '';
       _biometricEnabled = settings['biometric_enabled'] == 'true';
       _showItemDescription = settings['billing_show_description'] == 'true';
@@ -96,6 +102,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await appState.saveSetting('businessPhone', _bizPhoneCtrl.text.trim());
     await appState.saveSetting('businessGstin', _bizGstinCtrl.text.trim().toUpperCase());
     await appState.saveSetting('businessLogo', _bizLogoCtrl.text.trim());
+    await appState.saveSetting('businessBankName', _bizBankNameCtrl.text.trim());
+    await appState.saveSetting('businessBankAccount', _bizBankAccountCtrl.text.trim());
+    await appState.saveSetting('businessBankIfsc', _bizBankIfscCtrl.text.trim().toUpperCase());
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: const Row(children: [
@@ -303,6 +312,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 14),
                 TextField(controller: _bizGstinCtrl,
                   decoration: const InputDecoration(labelText: 'GSTIN', prefixIcon: Icon(Icons.badge_outlined))),
+                const SizedBox(height: 20),
+
+                // Bank Details section
+                Row(children: [
+                  Container(padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.account_balance, size: 22, color: Color(0xFF10B981))),
+                  const SizedBox(width: 12),
+                  Text('Bank Details (for invoices)', style: Theme.of(context).textTheme.titleMedium),
+                ]),
+                const SizedBox(height: 12),
+                TextField(controller: _bizBankNameCtrl,
+                  decoration: const InputDecoration(labelText: 'Bank Name', prefixIcon: Icon(Icons.account_balance_outlined),
+                    hintText: 'e.g. AXIS BANK, Branch: YELLAPUR')),
+                const SizedBox(height: 14),
+                TextField(controller: _bizBankAccountCtrl, keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Account Number', prefixIcon: Icon(Icons.credit_card_outlined),
+                    hintText: 'e.g. 925020007361962')),
+                const SizedBox(height: 14),
+                TextField(controller: _bizBankIfscCtrl, textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(labelText: 'IFSC Code', prefixIcon: Icon(Icons.pin_outlined),
+                    hintText: 'e.g. UTIB0006083')),
                 const SizedBox(height: 20),
 
                 // Logo section
@@ -1298,6 +1329,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _bizPhoneCtrl.dispose();
     _bizGstinCtrl.dispose();
     _bizLogoCtrl.dispose();
+    _bizBankNameCtrl.dispose();
+    _bizBankAccountCtrl.dispose();
+    _bizBankIfscCtrl.dispose();
     _lanIpCtrl.dispose();
     LanSyncService.stopServer();
     super.dispose();
@@ -2067,6 +2101,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       businessAddress: settings['businessAddress'] ?? 'Main Road, Yellapur 581359',
       businessPhone: settings['businessPhone'] ?? '9449831316',
       businessGstin: settings['businessGstin'] ?? '29ABCDE1234F1ZK',
+      businessBankName: settings['businessBankName'] ?? 'AXIS BANK, Branch: YELLAPUR',
+      businessBankAccount: settings['businessBankAccount'] ?? '925020007361962',
+      businessBankIfsc: settings['businessBankIfsc'] ?? 'UTIB0006083',
       template: template,
       paperSize: paperSize,
     );

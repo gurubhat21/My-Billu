@@ -92,8 +92,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ])));
   }
 
-  void _showBillDetail(BuildContext context, Bill bill) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
+  void _showBillDetail(BuildContext context, Bill bill) async {
+    final appState = context.read<AppState>();
+    final settings = await appState.getAllSettings();
+    String selectedSize = settings['pdf_paper_size'] ?? 'a4';
+
+    if (!context.mounted) return;
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) => AlertDialog(
       title: Row(children: [
         const Icon(Icons.receipt_long, color: AppColors.primary),
         const SizedBox(width: 10),
@@ -117,20 +122,40 @@ class _HistoryScreenState extends State<HistoryScreen> {
           if (bill.discount > 0) _detailRow('Discount', '- ${AppFormatters.currency(bill.discount)}'),
           _detailRow('GST', AppFormatters.currency(bill.totalTax)),
           const SizedBox(height: 4),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-            Text(AppFormatters.currency(bill.totalAmount),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.primary)),
-          ]),
-          if (bill.status != BillStatus.paid) ...[
-            const SizedBox(height: 8),
+          _detailRow('Total', AppFormatters.currency(bill.totalAmount)),
+          if (bill.paidAmount > 0) ...[
             _detailRow('Paid', AppFormatters.currency(bill.paidAmount)),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Balance Due', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.error)),
+            Row(children: [
+              Text('Balance Due: ', style: TextStyle(fontSize: 12, color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
               Text(AppFormatters.currency(bill.balanceDue),
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.error)),
             ]),
           ],
+
+          const SizedBox(height: 16),
+          // Paper size selector
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10)),
+            child: Row(children: [
+              const Icon(Icons.description, size: 16, color: Colors.grey),
+              const SizedBox(width: 8),
+              const Text('Paper: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              _sizeToggle('A4', 'a4', selectedSize, (v) async {
+                setDialogState(() => selectedSize = v);
+                await appState.saveSetting('pdf_paper_size', v);
+              }),
+              const SizedBox(width: 6),
+              _sizeToggle('A5', 'a5', selectedSize, (v) async {
+                setDialogState(() => selectedSize = v);
+                await appState.saveSetting('pdf_paper_size', v);
+              }),
+            ]),
+          ),
         ]))),
       actions: [
         TextButton(onPressed: () {
@@ -154,15 +179,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
         OutlinedButton.icon(
           onPressed: () async {
             Navigator.pop(ctx);
-            final appState = context.read<AppState>();
-            final settings = await appState.getAllSettings();
-            final template = _parseTemplate(settings['pdf_template']);
-            final paperSize = _parsePaperSize(settings['pdf_paper_size']);
+            final s = await appState.getAllSettings();
+            final template = _parseTemplate(s['pdf_template']);
+            final paperSize = _parsePaperSize(selectedSize);
             await InvoiceGenerator.generateAndPrint(bill,
-              businessName: settings['businessName'] ?? 'My Billu',
-              businessAddress: settings['businessAddress'] ?? '',
-              businessPhone: settings['businessPhone'] ?? '',
-              businessGstin: settings['businessGstin'] ?? '',
+              businessName: s['businessName'] ?? 'My Billu',
+              businessAddress: s['businessAddress'] ?? '',
+              businessPhone: s['businessPhone'] ?? '',
+              businessGstin: s['businessGstin'] ?? '',
+              businessBankName: s['businessBankName'] ?? '',
+              businessBankAccount: s['businessBankAccount'] ?? '',
+              businessBankIfsc: s['businessBankIfsc'] ?? '',
               template: template, paperSize: paperSize,
             );
           },
@@ -173,16 +200,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
           onPressed: () async {
             Navigator.pop(ctx);
-            final appState = context.read<AppState>();
-            final settings = await appState.getAllSettings();
-            final template = _parseTemplate(settings['pdf_template']);
-            final paperSize = _parsePaperSize(settings['pdf_paper_size']);
+            final s = await appState.getAllSettings();
+            final template = _parseTemplate(s['pdf_template']);
+            final paperSize = _parsePaperSize(selectedSize);
             try {
               await InvoiceGenerator.shareInvoice(bill,
-                businessName: settings['businessName'] ?? 'My Billu',
-                businessAddress: settings['businessAddress'] ?? '',
-                businessPhone: settings['businessPhone'] ?? '',
-                businessGstin: settings['businessGstin'] ?? '',
+                businessName: s['businessName'] ?? 'My Billu',
+                businessAddress: s['businessAddress'] ?? '',
+                businessPhone: s['businessPhone'] ?? '',
+                businessGstin: s['businessGstin'] ?? '',
+                businessBankName: s['businessBankName'] ?? '',
+                businessBankAccount: s['businessBankAccount'] ?? '',
+                businessBankIfsc: s['businessBankIfsc'] ?? '',
                 template: template, paperSize: paperSize,
               );
             } catch (e) {
@@ -199,16 +228,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2)),
           onPressed: () async {
             Navigator.pop(ctx);
-            final appState = context.read<AppState>();
-            final settings = await appState.getAllSettings();
-            final template = _parseTemplate(settings['pdf_template']);
-            final paperSize = _parsePaperSize(settings['pdf_paper_size']);
+            final s = await appState.getAllSettings();
+            final template = _parseTemplate(s['pdf_template']);
+            final paperSize = _parsePaperSize(selectedSize);
             try {
               await InvoiceGenerator.emailInvoice(bill,
-                businessName: settings['businessName'] ?? 'My Billu',
-                businessAddress: settings['businessAddress'] ?? '',
-                businessPhone: settings['businessPhone'] ?? '',
-                businessGstin: settings['businessGstin'] ?? '',
+                businessName: s['businessName'] ?? 'My Billu',
+                businessAddress: s['businessAddress'] ?? '',
+                businessPhone: s['businessPhone'] ?? '',
+                businessGstin: s['businessGstin'] ?? '',
+                businessBankName: s['businessBankName'] ?? '',
+                businessBankAccount: s['businessBankAccount'] ?? '',
+                businessBankIfsc: s['businessBankIfsc'] ?? '',
                 template: template, paperSize: paperSize,
               );
             } catch (e) {
@@ -223,7 +254,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
         ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
       ],
-    ));
+    )));
+  }
+
+  Widget _sizeToggle(String label, String value, String current, Function(String) onTap) {
+    final isSelected = current == value;
+    return InkWell(
+      onTap: () => onTap(value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.primary)),
+        child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : AppColors.primary)),
+      ),
+    );
   }
 
   Widget _detailRow(String label, String value) {
