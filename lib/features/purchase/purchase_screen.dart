@@ -410,16 +410,17 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                 prefixIcon: const Icon(Icons.description, size: 16)),
                             )),
-                        // Optional serial number field with scan
+                        // Optional serial number fields (one per qty)
                         if (_showSerialNumber)
-                          Padding(padding: const EdgeInsets.only(top: 6),
+                          ...List.generate(e.qty, (si) => Padding(
+                            padding: const EdgeInsets.only(top: 6),
                             child: TextFormField(
-                              key: ValueKey('pserial_${e.item.id}_${e.serialNumber}'),
-                              initialValue: e.serialNumber,
-                              onChanged: (v) => e.serialNumber = v,
+                              key: ValueKey('pserial_${e.item.id}_${si}_${e.serialNumbers[si]}'),
+                              initialValue: e.serialNumbers[si],
+                              onChanged: (v) => e.serialNumbers[si] = v,
                               style: const TextStyle(fontSize: 12),
                               decoration: InputDecoration(
-                                hintText: 'Serial number...',
+                                hintText: e.qty > 1 ? 'Serial #${si + 1} of ${e.qty}...' : 'Serial number...',
                                 isDense: true,
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -430,10 +431,10 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                   onPressed: () => _scanBarcode(context, (code) {
-                                    setState(() => e.serialNumber = code);
+                                    setState(() => e.serialNumbers[si] = code);
                                   }),
                                 )),
-                            )),
+                            ))),
                       ]),
                     ));
                 }),
@@ -501,13 +502,16 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
     if (_cart.isEmpty) return;
     try {
       final poNumber = await appState.getNextPurchaseNumber();
-      final purchaseItems = _cart.map((e) => PurchaseItem(
-        itemId: e.item.id, itemName: e.item.name,
-        unitCost: e.costPrice, quantity: e.qty,
-        taxRate: e.item.taxRate, unit: e.item.unit,
-        description: e.description.isNotEmpty ? e.description : null,
-        serialNumber: e.serialNumber.isNotEmpty ? e.serialNumber : null,
-      )).toList();
+      final purchaseItems = _cart.map((e) {
+        final serials = e.serialNumbers.where((s) => s.isNotEmpty).toList();
+        return PurchaseItem(
+          itemId: e.item.id, itemName: e.item.name,
+          unitCost: e.costPrice, quantity: e.qty,
+          taxRate: e.item.taxRate, unit: e.item.unit,
+          description: e.description.isNotEmpty ? e.description : null,
+          serialNumber: serials.isNotEmpty ? serials.join(', ') : null,
+        );
+      }).toList();
       final purchase = Purchase(
         purchaseNumber: poNumber,
         supplierName: _supplierCtrl.text.trim(),
@@ -717,8 +721,9 @@ class _CartEntry {
   final int qty;
   final double costPrice;
   String description;
-  String serialNumber;
-  _CartEntry({required this.item, required this.qty, required this.costPrice, this.description = '', this.serialNumber = ''});
+  List<String> serialNumbers;
+  _CartEntry({required this.item, required this.qty, required this.costPrice, this.description = '', List<String>? serialNumbers})
+    : serialNumbers = serialNumbers ?? List.filled(qty, '');
   double get subtotal => costPrice * qty;
   double get taxAmount => subtotal * item.taxRate / 100;
   double get total => subtotal + taxAmount;

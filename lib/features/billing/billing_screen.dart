@@ -16,10 +16,19 @@ class _CartItem {
   final Item item;
   int quantity;
   String description;
-  String serialNumber;
-  _CartItem({required this.item, required this.quantity, this.description = '', this.serialNumber = ''});
+  List<String> serialNumbers;
+  _CartItem({required this.item, required this.quantity, this.description = '', List<String>? serialNumbers})
+    : serialNumbers = serialNumbers ?? List.filled(quantity, '');
   double get subtotal => item.price * quantity;
   double get taxAmount => subtotal * item.taxRate / 100;
+  void updateQuantity(int newQty) {
+    if (newQty > quantity) {
+      serialNumbers.addAll(List.filled(newQty - quantity, ''));
+    } else if (newQty < quantity) {
+      serialNumbers = serialNumbers.sublist(0, newQty);
+    }
+    quantity = newQty;
+  }
 }
 
 class BillingScreen extends StatefulWidget {
@@ -293,11 +302,11 @@ class _BillingScreenState extends State<BillingScreen> {
             ])),
             Container(decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                InkWell(onTap: () => setState(() { if (c.quantity > 1) c.quantity--; else _cart.removeAt(index); }),
+                InkWell(onTap: () => setState(() { if (c.quantity > 1) { c.updateQuantity(c.quantity - 1); } else _cart.removeAt(index); }),
                   child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.remove, size: 18, color: AppColors.primary))),
                 Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
-                InkWell(onTap: () => setState(() => c.quantity++),
+                InkWell(onTap: () => setState(() => c.updateQuantity(c.quantity + 1)),
                   child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.add, size: 18, color: AppColors.primary))),
               ])),
             const SizedBox(width: 12),
@@ -319,16 +328,17 @@ class _BillingScreenState extends State<BillingScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   prefixIcon: const Icon(Icons.description, size: 16)),
               )),
-          // Optional serial number field with scan button
+          // Optional serial number fields (one per quantity)
           if (_showSerialNumber)
-            Padding(padding: const EdgeInsets.only(top: 6),
+            ...List.generate(c.quantity, (si) => Padding(
+              padding: const EdgeInsets.only(top: 6),
               child: TextFormField(
-                key: ValueKey('serial_${c.item.id}_${c.serialNumber}'),
-                initialValue: c.serialNumber,
-                onChanged: (v) => c.serialNumber = v,
+                key: ValueKey('serial_${c.item.id}_${si}_${c.serialNumbers[si]}'),
+                initialValue: c.serialNumbers[si],
+                onChanged: (v) => c.serialNumbers[si] = v,
                 style: const TextStyle(fontSize: 12),
                 decoration: InputDecoration(
-                  hintText: 'Serial number...',
+                  hintText: c.quantity > 1 ? 'Serial #${si + 1} of ${c.quantity}...' : 'Serial number...',
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -339,10 +349,10 @@ class _BillingScreenState extends State<BillingScreen> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => _scanBarcode(context, (code) {
-                      setState(() => c.serialNumber = code);
+                      setState(() => c.serialNumbers[si] = code);
                     }),
                   )),
-              )),
+              ))),
         ])));
   }
 
@@ -458,10 +468,13 @@ class _BillingScreenState extends State<BillingScreen> {
       final billNumber = await appState.getNextBillNumber();
       final walkInName = _walkInNameCtrl.text.trim();
       final walkInPhone = _walkInPhoneCtrl.text.trim();
-      final billItems = _cart.map((c) => BillItem(itemId: c.item.id, itemName: c.item.name,
-        unitPrice: c.item.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit,
-        description: c.description.isNotEmpty ? c.description : null,
-        serialNumber: c.serialNumber.isNotEmpty ? c.serialNumber : null)).toList();
+      final billItems = _cart.map((c) {
+        final serials = c.serialNumbers.where((s) => s.isNotEmpty).toList();
+        return BillItem(itemId: c.item.id, itemName: c.item.name,
+          unitPrice: c.item.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit,
+          description: c.description.isNotEmpty ? c.description : null,
+          serialNumber: serials.isNotEmpty ? serials.join(', ') : null);
+      }).toList();
       final bill = Bill(billNumber: billNumber, customerId: _selectedCustomer?.id,
         customerName: _selectedCustomer?.name ?? (walkInName.isNotEmpty ? walkInName : null),
         customerPhone: _selectedCustomer?.phone ?? (walkInPhone.isNotEmpty ? walkInPhone : null),
