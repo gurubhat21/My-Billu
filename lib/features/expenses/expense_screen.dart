@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/expense.dart';
+import '../../core/models/cash_book.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -249,8 +250,11 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     final notesCtrl = TextEditingController(text: existing?.notes ?? '');
     ExpenseCategory selectedCat = existing?.category ?? ExpenseCategory.misc;
     DateTime selectedDate = existing?.date ?? DateTime.now();
+    String paymentSource = 'cash';
+    String? selectedBankId;
 
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
+      final bankAccounts = appState.bankAccounts;
       return AlertDialog(
         title: Row(children: [
           Icon(isEdit ? Icons.edit : Icons.add_circle, color: AppColors.primary, size: 22),
@@ -271,7 +275,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
               controller: amountCtrl,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Amount (₹) *',
+                labelText: 'Amount (\u20b9) *',
                 hintText: '0.00',
                 prefixIcon: Icon(Icons.currency_rupee))),
             const SizedBox(height: 12),
@@ -311,6 +315,31 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                 labelText: 'Notes (optional)',
                 prefixIcon: Icon(Icons.note)),
               maxLines: 2),
+            const SizedBox(height: 16),
+            // Payment source selection
+            Align(alignment: Alignment.centerLeft,
+              child: Text('Paid From', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black54))),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              _sourceChip('cash', 'Cash', Icons.money, paymentSource, (v) => setDialogState(() => paymentSource = v)),
+              _sourceChip('upi', 'UPI', Icons.phone_android, paymentSource, (v) => setDialogState(() => paymentSource = v)),
+              _sourceChip('bank', 'Bank', Icons.account_balance, paymentSource, (v) => setDialogState(() => paymentSource = v)),
+              _sourceChip('card', 'Card', Icons.credit_card, paymentSource, (v) => setDialogState(() => paymentSource = v)),
+            ]),
+            if (paymentSource != 'cash' && bankAccounts.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedBankId,
+                decoration: const InputDecoration(
+                  labelText: 'Select Bank Account',
+                  prefixIcon: Icon(Icons.account_balance),
+                  isDense: true),
+                items: bankAccounts.map((a) => DropdownMenuItem(
+                  value: a.id,
+                  child: Text('${a.bankName} - ${a.accountNumber}', style: const TextStyle(fontSize: 13)))).toList(),
+                onChanged: (v) => setDialogState(() => selectedBankId = v)),
+            ],
           ]))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
@@ -334,23 +363,58 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                 await appState.updateExpense(exp);
               } else {
                 await appState.addExpense(exp);
+                // Auto-create cash/bank book entry for new expenses
+                final txType = paymentSource == 'cash' ? TransactionType.cashOut : TransactionType.bankOut;
+                final entry = CashBookEntry(
+                  type: txType,
+                  amount: amount,
+                  description: 'Expense: ${titleCtrl.text.trim()} (${selectedCat.label})',
+                  reference: exp.id,
+                  bankAccountId: paymentSource != 'cash' ? selectedBankId : null,
+                  category: 'Expense - ${selectedCat.label}',
+                );
+                await appState.addCashBookEntry(entry);
               }
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Row(children: [
-                  const Icon(Icons.check_circle, color: Colors.white, size: 18),
-                  const SizedBox(width: 8),
-                  Text(isEdit ? 'Expense updated' : 'Expense added'),
-                ]),
-                backgroundColor: AppColors.success,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+              if (mounted) {
+                final sourceLabel = paymentSource == 'cash' ? 'Cash' : paymentSource == 'upi' ? 'UPI' : paymentSource == 'bank' ? 'Bank' : 'Card';
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Row(children: [
+                    const Icon(Icons.check_circle, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(isEdit ? 'Expense updated' : 'Expense added (paid from $sourceLabel)')),
+                  ]),
+                  backgroundColor: AppColors.success,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+              }
             },
             icon: Icon(isEdit ? Icons.save : Icons.add, size: 18),
             label: Text(isEdit ? 'Update' : 'Add Expense')),
         ],
       );
     }));
+  }
+
+  Widget _sourceChip(String value, String label, IconData icon, String selected, void Function(String) onTap) {
+    final isActive = selected == value;
+    return InkWell(
+      onTap: () => onTap(value),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.error.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isActive ? AppColors.error : Colors.grey.withValues(alpha: 0.3), width: isActive ? 2 : 1)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 16, color: isActive ? AppColors.error : Colors.grey),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            color: isActive ? AppColors.error : null)),
+        ]),
+      ),
+    );
   }
 
   Color _catColor(ExpenseCategory cat) {
