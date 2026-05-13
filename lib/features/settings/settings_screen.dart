@@ -18,6 +18,7 @@ import '../../core/utils/web_helper.dart' as web_helper;
 import '../../core/database/full_backup_exporter.dart';
 import '../../core/utils/app_strings.dart';
 import '../../core/utils/excel_importer.dart';
+import '../../core/utils/invoice_generator.dart';
 import 'package:printing/printing.dart';
 
 import '../../widgets/common_widgets.dart';
@@ -398,6 +399,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // Financial Year
           _buildFinancialYearCard(context),
+          const SizedBox(height: 20),
+
+          // PDF Template & Paper Size
+          _buildPdfTemplateCard(context),
           const SizedBox(height: 20),
 
           // Biometric Authentication Toggle (Android/iOS only)
@@ -1795,5 +1800,211 @@ class _SettingsScreenState extends State<SettingsScreen> {
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
       ],
     ));
+  }
+
+  Widget _buildPdfTemplateCard(BuildContext context) {
+    return FutureBuilder<Map<String, String?>>(
+      future: _loadPdfSettings(context),
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? {};
+        final currentTemplate = data['pdf_template'] ?? 'modern';
+        final currentSize = data['pdf_paper_size'] ?? 'a4';
+
+        return GlassCard(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.picture_as_pdf, color: Color(0xFF6366F1), size: 22)),
+              const SizedBox(width: 14),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('PDF Invoice Template', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                const SizedBox(height: 2),
+                Text('Choose template style and paper size for invoices',
+                  style: TextStyle(fontSize: 12,
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+              ])),
+            ]),
+            const SizedBox(height: 20),
+
+            // Paper Size Toggle
+            Text('Paper Size', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+            const SizedBox(height: 8),
+            Row(children: [
+              _paperSizeChip('a4', 'A4 (210×297mm)', Icons.description, currentSize, context),
+              const SizedBox(width: 10),
+              _paperSizeChip('a5', 'A5 (148×210mm)', Icons.note, currentSize, context),
+            ]),
+            const SizedBox(height: 20),
+
+            // Template Selection
+            Text('Template Style', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+            const SizedBox(height: 10),
+
+            // Template cards
+            _templatePreviewCard(
+              context: context,
+              name: 'Modern',
+              value: 'modern',
+              selected: currentTemplate,
+              icon: Icons.auto_awesome,
+              color: const Color(0xFF6366F1),
+              desc: 'Indigo accented, colored header badge, professional layout',
+              features: ['Colored INVOICE badge', 'Modern table styling', 'Gradient accents'],
+            ),
+            const SizedBox(height: 10),
+            _templatePreviewCard(
+              context: context,
+              name: 'Classic',
+              value: 'classic',
+              selected: currentTemplate,
+              icon: Icons.account_balance,
+              color: const Color(0xFF78716C),
+              desc: 'Traditional bordered design with signature lines',
+              features: ['Bordered header', 'Gold-toned totals', 'Signature lines'],
+            ),
+            const SizedBox(height: 10),
+            _templatePreviewCard(
+              context: context,
+              name: 'Minimal',
+              value: 'minimal',
+              selected: currentTemplate,
+              icon: Icons.remove_red_eye,
+              color: const Color(0xFF3B82F6),
+              desc: 'Clean and lightweight with blue accent line',
+              features: ['Blue accent bar', 'Two-column layout', 'Spacious design'],
+            ),
+          ]),
+        );
+      },
+    );
+  }
+
+  Future<Map<String, String?>> _loadPdfSettings(BuildContext context) async {
+    final appState = context.read<AppState>();
+    return {
+      'pdf_template': await appState.getSetting('pdf_template'),
+      'pdf_paper_size': await appState.getSetting('pdf_paper_size'),
+    };
+  }
+
+  Widget _paperSizeChip(String value, String label, IconData icon, String selected, BuildContext context) {
+    final isActive = selected == value;
+    return Expanded(child: InkWell(
+      onTap: () async {
+        await context.read<AppState>().saveSetting('pdf_paper_size', value);
+        setState(() {});
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF6366F1).withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive ? const Color(0xFF6366F1) : Colors.grey.withValues(alpha: 0.3),
+            width: isActive ? 2 : 1)),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 18, color: isActive ? const Color(0xFF6366F1) : Colors.grey),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(fontSize: 12,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            color: isActive ? const Color(0xFF6366F1) : null)),
+          if (isActive) ...[
+            const SizedBox(width: 6),
+            const Icon(Icons.check_circle, size: 16, color: Color(0xFF6366F1)),
+          ],
+        ]),
+      ),
+    ));
+  }
+
+  Widget _templatePreviewCard({
+    required BuildContext context,
+    required String name,
+    required String value,
+    required String selected,
+    required IconData icon,
+    required Color color,
+    required String desc,
+    required List<String> features,
+  }) {
+    final isActive = selected == value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: () async {
+        await context.read<AppState>().saveSetting('pdf_template', value);
+        setState(() {});
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Invoice template set to $name'),
+            backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ));
+        }
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isActive ? color.withValues(alpha: 0.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isActive ? color : Colors.grey.withValues(alpha: 0.2),
+            width: isActive ? 2 : 1)),
+        child: Row(children: [
+          // Template icon
+          Container(
+            width: 48, height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: isActive ? 0.2 : 0.1),
+              borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: color, size: 24)),
+          const SizedBox(width: 14),
+          // Info
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text(name, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
+                color: isActive ? color : null)),
+              if (isActive) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6)),
+                  child: Text('Active', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color))),
+              ],
+            ]),
+            const SizedBox(height: 2),
+            Text(desc, style: TextStyle(fontSize: 11,
+              color: isDark ? Colors.white54 : Colors.black45)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 6, children: features.map((f) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(4)),
+              child: Text(f, style: TextStyle(fontSize: 9,
+                color: isDark ? Colors.white38 : Colors.black38)),
+            )).toList()),
+          ])),
+          // Radio-style indicator
+          Container(
+            width: 22, height: 22,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: isActive ? color : Colors.grey.withValues(alpha: 0.4), width: 2),
+              color: isActive ? color : Colors.transparent),
+            child: isActive ? const Icon(Icons.check, size: 14, color: Colors.white) : null),
+        ]),
+      ),
+    );
   }
 }

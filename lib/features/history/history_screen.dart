@@ -156,11 +156,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Navigator.pop(ctx);
             final appState = context.read<AppState>();
             final settings = await appState.getAllSettings();
+            final template = _parseTemplate(settings['pdf_template']);
+            final paperSize = _parsePaperSize(settings['pdf_paper_size']);
             await InvoiceGenerator.generateAndPrint(bill,
               businessName: settings['businessName'] ?? 'My Billu',
               businessAddress: settings['businessAddress'] ?? '',
               businessPhone: settings['businessPhone'] ?? '',
               businessGstin: settings['businessGstin'] ?? '',
+              template: template, paperSize: paperSize,
             );
           },
           icon: const Icon(Icons.print, size: 18),
@@ -172,12 +175,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Navigator.pop(ctx);
             final appState = context.read<AppState>();
             final settings = await appState.getAllSettings();
+            final template = _parseTemplate(settings['pdf_template']);
+            final paperSize = _parsePaperSize(settings['pdf_paper_size']);
             try {
               await InvoiceGenerator.shareInvoice(bill,
                 businessName: settings['businessName'] ?? 'My Billu',
                 businessAddress: settings['businessAddress'] ?? '',
                 businessPhone: settings['businessPhone'] ?? '',
                 businessGstin: settings['businessGstin'] ?? '',
+                template: template, paperSize: paperSize,
               );
             } catch (e) {
               if (context.mounted) {
@@ -195,12 +201,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Navigator.pop(ctx);
             final appState = context.read<AppState>();
             final settings = await appState.getAllSettings();
+            final template = _parseTemplate(settings['pdf_template']);
+            final paperSize = _parsePaperSize(settings['pdf_paper_size']);
             try {
               await InvoiceGenerator.emailInvoice(bill,
                 businessName: settings['businessName'] ?? 'My Billu',
                 businessAddress: settings['businessAddress'] ?? '',
                 businessPhone: settings['businessPhone'] ?? '',
                 businessGstin: settings['businessGstin'] ?? '',
+                template: template, paperSize: paperSize,
               );
             } catch (e) {
               if (context.mounted) {
@@ -473,5 +482,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
       ],
     )));
+  }
+
+  InvoiceTemplate _parseTemplate(String? value) {
+    switch (value) {
+      case 'classic': return InvoiceTemplate.classic;
+      case 'minimal': return InvoiceTemplate.minimal;
+      default: return InvoiceTemplate.modern;
+    }
+  }
+
+  PaperSize _parsePaperSize(String? value) {
+    switch (value) {
+      case 'a5': return PaperSize.a5;
+      default: return PaperSize.a4;
+    }
   }
 }
