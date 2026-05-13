@@ -7,7 +7,7 @@ import '../models/bill.dart';
 import '../utils/formatters.dart';
 
 // Conditional import for saving files
-import 'export_save_native.dart' if (dart.library.html) 'export_save_web.dart'
+import 'export_save_native.dart' if (dart.library.js_interop) 'export_save_web.dart'
     as saver;
 
 class ExcelExporter {

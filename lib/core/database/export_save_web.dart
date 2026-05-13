@@ -1,17 +1,18 @@
 import 'dart:typed_data';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 
 /// Save file on web — triggers browser download
 Future<void> saveFile(Uint8List bytes, String fileName, String mimeType) async {
-  final blob = html.Blob([bytes], mimeType);
-  final url = html.Url.createObjectUrlFromBlob(blob);
-  final anchor = html.AnchorElement()
+  final jsArray = [bytes.toJS].toJS;
+  final blob = web.Blob(jsArray, web.BlobPropertyBag(type: mimeType));
+  final url = web.URL.createObjectURL(blob);
+  final anchor = web.HTMLAnchorElement()
     ..href = url
-    ..style.display = 'none'
-    ..download = fileName;
-  html.document.body?.children.add(anchor);
+    ..download = fileName
+    ..style.display = 'none';
+  web.document.body?.appendChild(anchor);
   anchor.click();
-  html.document.body?.children.remove(anchor);
-  html.Url.revokeObjectUrl(url);
+  web.document.body?.removeChild(anchor);
+  web.URL.revokeObjectURL(url);
 }
