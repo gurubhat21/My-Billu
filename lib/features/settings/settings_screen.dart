@@ -2081,8 +2081,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       customerName: 'Rajesh Kumar',
       customerPhone: '9876543210',
       items: [
-        BillItem(itemId: '1', itemName: 'Laptop HP Pavilion 15', unitPrice: 45000, quantity: 1, taxRate: 18, unit: 'pcs'),
-        BillItem(itemId: '2', itemName: 'Wireless Mouse Logitech', unitPrice: 850, quantity: 2, taxRate: 18, unit: 'pcs'),
+        BillItem(itemId: '1', itemName: 'Laptop HP Pavilion 15', unitPrice: 45000, quantity: 1, taxRate: 18, unit: 'pcs', description: '15.6" FHD, 8GB RAM, 512GB SSD', serialNumber: 'HP-2024-A7X91'),
+        BillItem(itemId: '2', itemName: 'Wireless Mouse Logitech', unitPrice: 850, quantity: 2, taxRate: 18, unit: 'pcs', serialNumber: 'LG-M1001, LG-M1002'),
         BillItem(itemId: '3', itemName: 'USB-C Cable 1m', unitPrice: 250, quantity: 3, taxRate: 12, unit: 'pcs'),
       ],
       subtotal: 45000 + 1700 + 750,
