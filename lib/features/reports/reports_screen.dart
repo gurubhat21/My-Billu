@@ -7,6 +7,7 @@ import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/report_pdf_exporter.dart';
+import '../../core/utils/gstr1_exporter.dart';
 import '../../widgets/common_widgets.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -542,7 +543,7 @@ class _GSTReportTabState extends State<_GSTReportTab> {
               ),
             ]),
             const SizedBox(height: 12),
-            Row(children: [
+            Wrap(spacing: 8, runSpacing: 8, children: [
               OutlinedButton.icon(
                 onPressed: () async {
                   final name = await _getBusinessName(appState);
@@ -551,7 +552,6 @@ class _GSTReportTabState extends State<_GSTReportTab> {
                 },
                 icon: const Icon(Icons.picture_as_pdf, size: 16),
                 label: const Text('Export PDF', style: TextStyle(fontSize: 12))),
-              const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: () async {
                   final name = await _getBusinessName(appState);
@@ -560,6 +560,28 @@ class _GSTReportTabState extends State<_GSTReportTab> {
                 },
                 icon: const Icon(Icons.share, size: 16),
                 label: const Text('Share', style: TextStyle(fontSize: 12))),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final name = await _getBusinessName(appState);
+                  final addr = await appState.getSetting('businessAddress') ?? '';
+                  final bytes = await GSTR1Exporter.generateExcel(
+                    bills: bills, customers: appState.customers,
+                    businessName: name, businessAddress: addr, period: _period);
+                  await GSTR1Exporter.shareExcel(bytes, 'GSTR1_$_period.xlsx');
+                },
+                icon: const Icon(Icons.table_chart, size: 16, color: Colors.greenAccent),
+                label: const Text('GSTR1 Excel', style: TextStyle(fontSize: 12, color: Colors.greenAccent))),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final name = await _getBusinessName(appState);
+                  final addr = await appState.getSetting('businessAddress') ?? '';
+                  final bytes = await GSTR1Exporter.generatePdf(
+                    bills: bills, customers: appState.customers,
+                    businessName: name, businessAddress: addr, period: _period);
+                  await GSTR1Exporter.printPdf(bytes);
+                },
+                icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.orangeAccent),
+                label: const Text('GSTR1 PDF', style: TextStyle(fontSize: 12, color: Colors.orangeAccent))),
             ]),
             const SizedBox(height: 16),
             // GST Summary cards
