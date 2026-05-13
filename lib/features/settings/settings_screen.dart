@@ -58,6 +58,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _biometricAvailable = false;
   bool _showItemDescription = false;
   bool _showSerialNumber = false;
+  bool _featuresExpanded = false;
   final _invPrefixCtrl = TextEditingController(text: 'INV');
   final _invPatternCtrl = TextEditingController();
   final _invStartCtrl = TextEditingController(text: '1');
@@ -159,155 +160,160 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
 
           // ═══════════════════════════════════════════════════
-          // FEATURES SECTION
+          // FEATURES SECTION (collapsible)
           // ═══════════════════════════════════════════════════
-          _sectionHeader(context, Icons.widgets, 'Features', const Color(0xFF7C3AED)),
-          const SizedBox(height: 16),
-
-          // Cloud Sync Section
-          _buildCloudSyncCard(context),
-          const SizedBox(height: 20),
-
-          // Import & Export
-          GlassCard(padding: const EdgeInsets.all(20), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)]),
-                    borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.import_export, size: 22, color: Colors.white)),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Import & Export', style: Theme.of(context).textTheme.titleLarge),
-                  Text('JSON, Excel, CSV — bulk import & export all data',
-                    style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
-                ])),
-              ]),
+          _buildCollapsibleSection(
+            context,
+            icon: Icons.widgets,
+            title: 'Features',
+            color: const Color(0xFF7C3AED),
+            isExpanded: _featuresExpanded,
+            onToggle: () => setState(() => _featuresExpanded = !_featuresExpanded),
+            children: [
+              // Cloud Sync Section
+              _buildCloudSyncCard(context),
               const SizedBox(height: 16),
-              SizedBox(width: double.infinity, child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED),
-                  padding: const EdgeInsets.symmetric(vertical: 14)),
-                onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const ImportExportScreen())),
-                icon: const Icon(Icons.open_in_new, size: 18),
-                label: const Text('Open Import & Export'),
-              )),
-            ])),
-          const SizedBox(height: 20),
 
-          // Data Storage Path (Windows only)
-          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
-            _buildDataPathCard(context),
-          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
-            const SizedBox(height: 20),
-
-
-
-          // Language Selection
-          GlassCard(padding: const EdgeInsets.all(20), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.language, size: 22, color: AppColors.warning)),
-                const SizedBox(width: 12),
-                Text('Language / ಭಾಷೆ', style: Theme.of(context).textTheme.titleLarge),
-              ]),
-              const SizedBox(height: 12),
-              Row(children: [
-                _langChip(context, 'English', 'en'),
-                const SizedBox(width: 12),
-                _langChip(context, 'ಕನ್ನಡ', 'kn'),
-              ]),
-            ])),
-          const SizedBox(height: 20),
-
-          // Barcode / HSN Lookup
-          GlassCard(padding: const EdgeInsets.all(20), child: StatefulBuilder(
-            builder: (ctx, setLocalState) {
-              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Container(padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.qr_code_scanner, size: 22, color: Color(0xFF8B5CF6))),
-                  const SizedBox(width: 12),
-                  Text('Barcode / HSN Lookup', style: Theme.of(context).textTheme.titleLarge),
-                ]),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(child: TextField(
-                    controller: _barcodeCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Enter barcode or HSN code...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-                    onSubmitted: (_) => _doBarcodeLookup(context),
-                  )),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
+              // Import & Export
+              GlassCard(padding: const EdgeInsets.all(20), child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Container(padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)]),
+                        borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.import_export, size: 22, color: Colors.white)),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Import & Export', style: Theme.of(context).textTheme.titleLarge),
+                      Text('JSON, Excel, CSV — bulk import & export all data',
+                        style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+                    ])),
+                  ]),
+                  const SizedBox(height: 16),
+                  SizedBox(width: double.infinity, child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8B5CF6),
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                    onPressed: () => _doBarcodeLookup(context),
-                    child: const Icon(Icons.search, color: Colors.white)),
-                ]),
-                const SizedBox(height: 8),
-                Text('Type barcode, HSN code or item name → press Search or Enter',
-                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
-              ]);
-            })),
-          const SizedBox(height: 20),
+                      backgroundColor: const Color(0xFF7C3AED),
+                      padding: const EdgeInsets.symmetric(vertical: 14)),
+                    onPressed: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const ImportExportScreen())),
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    label: const Text('Open Import & Export'),
+                  )),
+                ])),
+              const SizedBox(height: 16),
 
-          // Staff Management
-          GlassCard(padding: const EdgeInsets.all(20), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.people, size: 22, color: AppColors.accent)),
-                const SizedBox(width: 12),
-                Text('Staff / Multi-User', style: Theme.of(context).textTheme.titleLarge),
-                const Spacer(),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-                  onPressed: () => _showStaffDialog(context),
-                  icon: const Icon(Icons.person_add, size: 16), label: const Text('Add Staff', style: TextStyle(fontSize: 12))),
-              ]),
-              const SizedBox(height: 12),
-              FutureBuilder<String?>(
-                future: context.read<AppState>().getSetting('staff_list'),
-                builder: (ctx, snap) {
-                  if (!snap.hasData || snap.data == null || snap.data!.isEmpty) {
-                    return Text('No staff accounts. Admin login: admin / 12345',
-                      style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4)));
-                  }
-                  final staffList = (jsonDecode(snap.data!) as List).cast<Map<String, dynamic>>();
-                  return Column(children: staffList.map((s) => ListTile(
-                    dense: true,
-                    leading: CircleAvatar(radius: 16, backgroundColor: AppColors.accent.withValues(alpha: 0.2),
-                      child: Text((s['name'] as String)[0].toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent))),
-                    title: Text(s['name'] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    subtitle: Text('Role: ${s['role']} • User: ${s['username']}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
-                    trailing: IconButton(icon: const Icon(Icons.delete, size: 16, color: AppColors.error),
-                      onPressed: () async {
-                        staffList.removeWhere((x) => x['username'] == s['username']);
-                        await context.read<AppState>().saveSetting('staff_list', jsonEncode(staffList));
-                        setState(() {});
-                      }),
-                  )).toList());
-                }),
-            ])),
-          const SizedBox(height: 16),
+              // Data Storage Path (Windows only)
+              if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+                _buildDataPathCard(context),
+              if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+                const SizedBox(height: 16),
 
-          // Billing & Quotation Column Settings
-          _buildBillingColumnsCard(context),
-          const SizedBox(height: 16),
+              // Language Selection
+              GlassCard(padding: const EdgeInsets.all(20), child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Container(padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.language, size: 22, color: AppColors.warning)),
+                    const SizedBox(width: 12),
+                    Text('Language / \u0c95\u0ca8\u0ccd\u0ca8\u0ca1', style: Theme.of(context).textTheme.titleLarge),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    _langChip(context, 'English', 'en'),
+                    const SizedBox(width: 12),
+                    _langChip(context, '\u0c95\u0ca8\u0ccd\u0ca8\u0ca1', 'kn'),
+                  ]),
+                ])),
+              const SizedBox(height: 16),
 
-          // Invoice Number Pattern
-          _buildInvoicePatternCard(context),
+              // Barcode / HSN Lookup
+              GlassCard(padding: const EdgeInsets.all(20), child: StatefulBuilder(
+                builder: (ctx, setLocalState) {
+                  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Container(padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.qr_code_scanner, size: 22, color: Color(0xFF8B5CF6))),
+                      const SizedBox(width: 12),
+                      Text('Barcode / HSN Lookup', style: Theme.of(context).textTheme.titleLarge),
+                    ]),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(child: TextField(
+                        controller: _barcodeCtrl,
+                        decoration: InputDecoration(
+                          hintText: 'Enter barcode or HSN code...',
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                        onSubmitted: (_) => _doBarcodeLookup(context),
+                      )),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF8B5CF6),
+                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                        onPressed: () => _doBarcodeLookup(context),
+                        child: const Icon(Icons.search, color: Colors.white)),
+                    ]),
+                    const SizedBox(height: 8),
+                    Text('Type barcode, HSN code or item name \u2192 press Search or Enter',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+                  ]);
+                })),
+              const SizedBox(height: 16),
+
+              // Staff Management
+              GlassCard(padding: const EdgeInsets.all(20), child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Container(padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.people, size: 22, color: AppColors.accent)),
+                    const SizedBox(width: 12),
+                    Text('Staff / Multi-User', style: Theme.of(context).textTheme.titleLarge),
+                    const Spacer(),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+                      onPressed: () => _showStaffDialog(context),
+                      icon: const Icon(Icons.person_add, size: 16), label: const Text('Add Staff', style: TextStyle(fontSize: 12))),
+                  ]),
+                  const SizedBox(height: 12),
+                  FutureBuilder<String?>(
+                    future: context.read<AppState>().getSetting('staff_list'),
+                    builder: (ctx, snap) {
+                      if (!snap.hasData || snap.data == null || snap.data!.isEmpty) {
+                        return Text('No staff accounts. Admin login: admin / 12345',
+                          style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4)));
+                      }
+                      final staffList = (jsonDecode(snap.data!) as List).cast<Map<String, dynamic>>();
+                      return Column(children: staffList.map((s) => ListTile(
+                        dense: true,
+                        leading: CircleAvatar(radius: 16, backgroundColor: AppColors.accent.withValues(alpha: 0.2),
+                          child: Text((s['name'] as String)[0].toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent))),
+                        title: Text(s['name'] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        subtitle: Text('Role: ${s['role']} • User: ${s['username']}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+                        trailing: IconButton(icon: const Icon(Icons.delete, size: 16, color: AppColors.error),
+                          onPressed: () async {
+                            staffList.removeWhere((x) => x['username'] == s['username']);
+                            await context.read<AppState>().saveSetting('staff_list', jsonEncode(staffList));
+                            setState(() {});
+                          }),
+                      )).toList());
+                    }),
+                ])),
+              const SizedBox(height: 16),
+
+              // Billing & Quotation Column Settings
+              _buildBillingColumnsCard(context),
+              const SizedBox(height: 16),
+
+              // Invoice Number Pattern
+              _buildInvoicePatternCard(context),
+            ],
+          ),
           const SizedBox(height: 32),
 
           // ═══════════════════════════════════════════════════
@@ -1346,6 +1352,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.2)]),
           borderRadius: BorderRadius.circular(2))),
+    ]);
+  }
+
+  Widget _buildCollapsibleSection(BuildContext context, {
+    required IconData icon,
+    required String title,
+    required Color color,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required List<Widget> children,
+  }) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Clickable header
+      InkWell(
+        onTap: onToggle,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.2))),
+          child: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.7)]),
+                borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 20, color: Colors.white)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+              Text(isExpanded ? 'Tap to collapse' : 'Tap to expand',
+                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+            ])),
+            AnimatedRotation(
+              turns: isExpanded ? 0.5 : 0,
+              duration: const Duration(milliseconds: 300),
+              child: Icon(Icons.keyboard_arrow_down, color: color, size: 28)),
+          ]),
+        ),
+      ),
+      // Animated content
+      AnimatedCrossFade(
+        firstChild: const SizedBox.shrink(),
+        secondChild: Padding(
+          padding: const EdgeInsets.only(top: 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+        ),
+        crossFadeState: isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+        duration: const Duration(milliseconds: 300),
+      ),
     ]);
   }
 
