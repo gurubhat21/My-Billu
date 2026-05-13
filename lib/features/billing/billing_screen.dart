@@ -41,6 +41,10 @@ class _BillingScreenState extends State<BillingScreen> {
   final List<_CartItem> _cart = [];
   Customer? _selectedCustomer;
   PaymentMethod _paymentMethod = PaymentMethod.cash;
+  bool _isPartial = false;
+  PaymentMethod _partialMethod1 = PaymentMethod.cash;
+  PaymentMethod _partialMethod2 = PaymentMethod.upi;
+  final _partialAmount1Ctrl = TextEditingController();
   String _itemSearch = '';
   final _discountCtrl = TextEditingController(text: '0');
   final _walkInNameCtrl = TextEditingController();
@@ -265,13 +269,107 @@ class _BillingScreenState extends State<BillingScreen> {
           _row('Total', AppFormatters.currency(_totalAmount), bold: true),
           const SizedBox(height: 12),
           Wrap(spacing: 8, runSpacing: 8,
-            children: PaymentMethod.values.map((pm) {
-              final sel = _paymentMethod == pm;
-              return ChoiceChip(label: Text(AppFormatters.paymentMethod(pm.name)),
-                selected: sel, selectedColor: AppColors.primary,
-                labelStyle: TextStyle(color: sel ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w500),
-                onSelected: (_) => setState(() => _paymentMethod = pm));
-            }).toList()),
+            children: [
+              ...PaymentMethod.values.map((pm) {
+                final sel = !_isPartial && _paymentMethod == pm;
+                return ChoiceChip(label: Text(AppFormatters.paymentMethod(pm.name)),
+                  selected: sel, selectedColor: AppColors.primary,
+                  labelStyle: TextStyle(color: sel ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w500),
+                  onSelected: (_) => setState(() { _paymentMethod = pm; _isPartial = false; }));
+              }),
+              ChoiceChip(
+                avatar: _isPartial ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
+                label: const Text('Partial'),
+                selected: _isPartial,
+                selectedColor: Colors.orangeAccent,
+                labelStyle: TextStyle(color: _isPartial ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w600),
+                onSelected: (_) => setState(() {
+                  _isPartial = true;
+                  _partialAmount1Ctrl.text = '';
+                })),
+            ]),
+          // ── Partial payment split UI ──
+          if (_isPartial) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.orangeAccent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3))),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Row(children: [
+                  Icon(Icons.call_split, size: 16, color: Colors.orangeAccent),
+                  SizedBox(width: 6),
+                  Text('Split Payment', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.orangeAccent)),
+                ]),
+                const SizedBox(height: 12),
+                // Method 1
+                Row(children: [
+                  const Text('Method 1: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Wrap(spacing: 6, runSpacing: 6, children: [PaymentMethod.cash, PaymentMethod.upi, PaymentMethod.card, PaymentMethod.bank].map((pm) {
+                    final sel = _partialMethod1 == pm;
+                    return ChoiceChip(label: Text(AppFormatters.paymentMethod(pm.name), style: TextStyle(fontSize: 10, color: sel ? Colors.white : null)),
+                      selected: sel, selectedColor: AppColors.primary,
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) => setState(() => _partialMethod1 = pm));
+                  }).toList())),
+                ]),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _partialAmount1Ctrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Amount for ${AppFormatters.paymentMethod(_partialMethod1.name)}',
+                    prefixIcon: const Icon(Icons.currency_rupee, size: 18),
+                    isDense: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+                // Method 2
+                Row(children: [
+                  const Text('Method 2: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Wrap(spacing: 6, runSpacing: 6, children: [PaymentMethod.cash, PaymentMethod.upi, PaymentMethod.card, PaymentMethod.bank].map((pm) {
+                    final sel = _partialMethod2 == pm;
+                    return ChoiceChip(label: Text(AppFormatters.paymentMethod(pm.name), style: TextStyle(fontSize: 10, color: sel ? Colors.white : null)),
+                      selected: sel, selectedColor: AppColors.accent,
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) => setState(() => _partialMethod2 = pm));
+                  }).toList())),
+                ]),
+                const SizedBox(height: 8),
+                Builder(builder: (_) {
+                  final amt1 = double.tryParse(_partialAmount1Ctrl.text) ?? 0;
+                  final amt2 = _totalAmount - amt1;
+                  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.accent.withValues(alpha: 0.3))),
+                      child: Row(children: [
+                        const Icon(Icons.currency_rupee, size: 16, color: AppColors.accent),
+                        const SizedBox(width: 6),
+                        Text('${AppFormatters.paymentMethod(_partialMethod2.name)}: ',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                        Text(AppFormatters.currency(amt2 > 0 ? amt2 : 0),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.accent)),
+                      ]),
+                    ),
+                    if (amt1 > _totalAmount)
+                      Padding(padding: const EdgeInsets.only(top: 6),
+                        child: Text('⚠ Amount exceeds total (${AppFormatters.currency(_totalAmount)})',
+                          style: const TextStyle(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.w600))),
+                  ]);
+                }),
+              ]),
+            ),
+          ],
           const SizedBox(height: 12),
           SizedBox(width: double.infinity, height: 50,
             child: ElevatedButton(
@@ -494,13 +592,65 @@ class _BillingScreenState extends State<BillingScreen> {
         items: billItems, subtotal: _subtotal,
         discount: _discount,
         totalTax: _totalTax, totalAmount: _totalAmount,
-        paidAmount: _paymentMethod == PaymentMethod.credit ? 0 : _totalAmount,
-        paymentMethod: _paymentMethod,
-        status: _paymentMethod == PaymentMethod.credit ? BillStatus.unpaid : BillStatus.paid);
+        paidAmount: _isPartial ? _totalAmount : (_paymentMethod == PaymentMethod.credit ? 0 : _totalAmount),
+        paymentMethod: _isPartial ? _partialMethod1 : _paymentMethod,
+        status: _isPartial ? BillStatus.paid : (_paymentMethod == PaymentMethod.credit ? BillStatus.unpaid : BillStatus.paid));
       await appState.createBill(bill);
 
       // Auto-add to Cash Book or Bank Book based on payment method
-      if (_paymentMethod != PaymentMethod.credit && _totalAmount > 0) {
+      if (_isPartial && _totalAmount > 0) {
+        // Handle partial: two entries
+        final amt1 = double.tryParse(_partialAmount1Ctrl.text) ?? 0;
+        final amt2 = _totalAmount - amt1;
+        try {
+          // Entry 1
+          if (amt1 > 0) {
+            if (_partialMethod1 == PaymentMethod.cash) {
+              await appState.addCashBookEntry(CashBookEntry(
+                type: TransactionType.cashIn,
+                amount: amt1,
+                description: 'Sales (SPLIT-${_partialMethod1.name.toUpperCase()}) - $billNumber',
+                reference: billNumber,
+                category: 'Sales',
+              ));
+            } else {
+              final bankId = appState.bankAccounts.isNotEmpty ? appState.bankAccounts.first.id : null;
+              await appState.addCashBookEntry(CashBookEntry(
+                type: TransactionType.bankIn,
+                amount: amt1,
+                description: 'Sales (SPLIT-${_partialMethod1.name.toUpperCase()}) - $billNumber',
+                reference: billNumber,
+                bankAccountId: bankId,
+                category: 'Sales',
+              ));
+            }
+          }
+          // Entry 2
+          if (amt2 > 0) {
+            if (_partialMethod2 == PaymentMethod.cash) {
+              await appState.addCashBookEntry(CashBookEntry(
+                type: TransactionType.cashIn,
+                amount: amt2,
+                description: 'Sales (SPLIT-${_partialMethod2.name.toUpperCase()}) - $billNumber',
+                reference: billNumber,
+                category: 'Sales',
+              ));
+            } else {
+              final bankId = appState.bankAccounts.isNotEmpty ? appState.bankAccounts.first.id : null;
+              await appState.addCashBookEntry(CashBookEntry(
+                type: TransactionType.bankIn,
+                amount: amt2,
+                description: 'Sales (SPLIT-${_partialMethod2.name.toUpperCase()}) - $billNumber',
+                reference: billNumber,
+                bankAccountId: bankId,
+                category: 'Sales',
+              ));
+            }
+          }
+        } catch (e) {
+          debugPrint('Partial Cash/Bank book entry error: $e');
+        }
+      } else if (_paymentMethod != PaymentMethod.credit && _totalAmount > 0) {
         try {
           if (_paymentMethod == PaymentMethod.cash) {
             await appState.addCashBookEntry(CashBookEntry(
@@ -528,6 +678,7 @@ class _BillingScreenState extends State<BillingScreen> {
 
       if (mounted) {
         setState(() { _cart.clear(); _selectedCustomer = null; _paymentMethod = PaymentMethod.cash;
+          _isPartial = false; _partialAmount1Ctrl.text = '';
           _discountCtrl.text = '0'; _walkInNameCtrl.clear(); _walkInPhoneCtrl.clear(); });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10), Text('Bill $billNumber created!')]),
