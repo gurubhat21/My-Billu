@@ -262,15 +262,14 @@ class _BillingScreenState extends State<BillingScreen> {
           const Divider(height: 16),
           _row('Total', AppFormatters.currency(_totalAmount), bold: true),
           const SizedBox(height: 12),
-          SizedBox(height: 36, child: ListView(scrollDirection: Axis.horizontal,
+          Wrap(spacing: 8, runSpacing: 8,
             children: PaymentMethod.values.map((pm) {
               final sel = _paymentMethod == pm;
-              return Padding(padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(label: Text(AppFormatters.paymentMethod(pm.name)),
-                  selected: sel, selectedColor: AppColors.primary,
-                  labelStyle: TextStyle(color: sel ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w500),
-                  onSelected: (_) => setState(() => _paymentMethod = pm)));
-            }).toList())),
+              return ChoiceChip(label: Text(AppFormatters.paymentMethod(pm.name)),
+                selected: sel, selectedColor: AppColors.primary,
+                labelStyle: TextStyle(color: sel ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w500),
+                onSelected: (_) => setState(() => _paymentMethod = pm));
+            }).toList()),
           const SizedBox(height: 12),
           SizedBox(width: double.infinity, height: 50,
             child: ElevatedButton(
