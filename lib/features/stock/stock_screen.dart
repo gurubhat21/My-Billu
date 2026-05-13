@@ -121,7 +121,10 @@ class _StockScreenState extends State<StockScreen> {
             : 'IN STOCK';
 
     return Padding(padding: const EdgeInsets.only(bottom: 8),
-      child: GlassCard(padding: const EdgeInsets.all(16), child: Row(children: [
+      child: InkWell(
+        onTap: () => _showItemDetail(context, item),
+        borderRadius: BorderRadius.circular(16),
+        child: GlassCard(padding: const EdgeInsets.all(16), child: Row(children: [
         // Item icon
         Container(
           width: 44, height: 44,
@@ -166,7 +169,51 @@ class _StockScreenState extends State<StockScreen> {
             Text('Stock Value', style: Theme.of(context).textTheme.bodySmall),
           ]),
         ],
-      ])));
+      ]))));
+  }
+
+  void _showItemDetail(BuildContext context, Item item) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          child: Text(item.name.isNotEmpty ? item.name[0].toUpperCase() : '?',
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary))),
+        const SizedBox(width: 10),
+        Expanded(child: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700))),
+      ]),
+      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _infoRow('Category', item.category ?? 'N/A'),
+        _infoRow('Unit', item.unit),
+        _infoRow('Sale Price', AppFormatters.currency(item.price)),
+        _infoRow('Purchase Price', AppFormatters.currency(item.purchasePrice)),
+        _infoRow('Tax Rate', '${item.taxRate}%'),
+        const Divider(),
+        _infoRow('Stock Qty', '${item.stockQuantity} ${item.unit}'),
+        _infoRow('Stock Value', AppFormatters.currency(item.price * item.stockQuantity)),
+        _infoRow('Purchase Value', AppFormatters.currency(item.purchasePrice * item.stockQuantity)),
+        if (item.hsnCode != null && item.hsnCode!.isNotEmpty)
+          _infoRow('HSN Code', item.hsnCode!),
+        if (item.barcode != null && item.barcode!.isNotEmpty)
+          _infoRow('Barcode', item.barcode!),
+        if (item.description != null && item.description!.isNotEmpty) ...[
+          const Divider(),
+          const Text('Description:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+          const SizedBox(height: 4),
+          Text(item.description!, style: const TextStyle(fontSize: 12)),
+        ],
+      ])),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(padding: const EdgeInsets.only(bottom: 6),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: const TextStyle(fontSize: 13)),
+        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+      ]));
   }
 }
 

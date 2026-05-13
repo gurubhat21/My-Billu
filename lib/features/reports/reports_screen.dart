@@ -233,7 +233,10 @@ class _SalesReportTabState extends State<_SalesReportTab> {
                 if (bills.isEmpty)
                   const Padding(padding: EdgeInsets.all(20), child: Center(child: Text('No sales in this period')))
                 else
-                  ...bills.take(20).map((b) => Container(
+                  ...bills.take(20).map((b) => InkWell(
+                    onTap: () => _showBillDetail(context, b),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
                     margin: const EdgeInsets.only(bottom: 6),
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
@@ -252,7 +255,7 @@ class _SalesReportTabState extends State<_SalesReportTab> {
                       ])),
                       Text(AppFormatters.currency(b.totalAmount),
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    ]))),
+                    ])))),
               ])),
           ]),
         );
@@ -329,6 +332,51 @@ class _SalesReportTabState extends State<_SalesReportTab> {
       case PaymentMethod.bank: return AppColors.warning;
       case PaymentMethod.credit: return AppColors.error;
     }
+  }
+
+  void _showBillDetail(BuildContext context, Bill b) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        const Icon(Icons.receipt_long, color: AppColors.primary),
+        const SizedBox(width: 10),
+        Expanded(child: Text(b.billNumber, style: const TextStyle(fontWeight: FontWeight.w700))),
+      ]),
+      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _dRow('Customer', b.customerName ?? 'Walk-in'),
+        _dRow('Date', AppFormatters.date(b.createdAt)),
+        _dRow('Status', b.status.name.toUpperCase()),
+        _dRow('Payment', b.paymentMethod.name.toUpperCase()),
+        const Divider(),
+        _dRow('Subtotal', AppFormatters.currency(b.subtotal)),
+        _dRow('Tax', AppFormatters.currency(b.totalTax)),
+        _dRow('Discount', AppFormatters.currency(b.discount)),
+        const Divider(),
+        _dRow('Total', AppFormatters.currency(b.totalAmount)),
+        _dRow('Paid', AppFormatters.currency(b.paidAmount)),
+        _dRow('Balance Due', AppFormatters.currency(b.balanceDue)),
+        if (b.items.isNotEmpty) ...[
+          const Divider(),
+          const Text('Items:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 8),
+          ...b.items.map<Widget>((item) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(children: [
+              Expanded(child: Text('${item.itemName} × ${item.quantity}', style: const TextStyle(fontSize: 12))),
+              Text(AppFormatters.currency(item.subtotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            ]),
+          )),
+        ],
+      ])),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
+  }
+
+  Widget _dRow(String label, String value) {
+    return Padding(padding: const EdgeInsets.only(bottom: 6),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: const TextStyle(fontSize: 13)),
+        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+      ]));
   }
 }
 

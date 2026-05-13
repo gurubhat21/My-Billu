@@ -449,7 +449,10 @@ class _DashboardScreenState extends State<DashboardScreen>
             ? AppColors.warning
             : AppColors.error;
 
-    return Container(
+    return InkWell(
+      onTap: () => _showBillDetail(context, bill),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -515,7 +518,81 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ],
       ),
-    );
+    ));
+  }
+
+  void _showBillDetail(BuildContext context, dynamic bill) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        const Icon(Icons.receipt_long, color: AppColors.primary),
+        const SizedBox(width: 10),
+        Text(bill.billNumber, style: const TextStyle(fontWeight: FontWeight.w700)),
+      ]),
+      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _detailRow('Customer', bill.customerName ?? 'Walk-in'),
+        _detailRow('Date', AppFormatters.date(bill.createdAt)),
+        _detailRow('Status', bill.status.name.toUpperCase()),
+        _detailRow('Payment', bill.paymentMethod.name.toUpperCase()),
+        const Divider(),
+        _detailRow('Subtotal', AppFormatters.currency(bill.subtotal)),
+        _detailRow('Tax', AppFormatters.currency(bill.totalTax)),
+        _detailRow('Discount', AppFormatters.currency(bill.discount)),
+        const Divider(),
+        _detailRow('Total', AppFormatters.currency(bill.totalAmount), bold: true),
+        _detailRow('Paid', AppFormatters.currency(bill.paidAmount)),
+        _detailRow('Balance Due', AppFormatters.currency(bill.balanceDue), bold: true),
+        if (bill.items.isNotEmpty) ...[
+          const Divider(),
+          const Text('Items:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 8),
+          ...bill.items.map<Widget>((item) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(children: [
+              Expanded(child: Text('${item.itemName} × ${item.quantity}', style: const TextStyle(fontSize: 12))),
+              Text(AppFormatters.currency(item.subtotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            ]),
+          )),
+        ],
+      ])),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
+  }
+
+  Widget _detailRow(String label, String value, {bool bold = false}) {
+    return Padding(padding: const EdgeInsets.only(bottom: 6),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: const TextStyle(fontSize: 13)),
+        Text(value, style: TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.w800 : FontWeight.w600, color: bold ? AppColors.primary : null)),
+      ]));
+  }
+
+  void _showItemDetail(BuildContext context, dynamic item) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          child: Text(item.name.isNotEmpty ? item.name[0].toUpperCase() : '?',
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary))),
+        const SizedBox(width: 10),
+        Expanded(child: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700))),
+      ]),
+      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _detailRow('Category', item.category ?? 'N/A'),
+        _detailRow('Unit', item.unit),
+        _detailRow('Sale Price', AppFormatters.currency(item.price)),
+        _detailRow('Purchase Price', AppFormatters.currency(item.purchasePrice)),
+        _detailRow('Tax Rate', '${item.taxRate}%'),
+        const Divider(),
+        _detailRow('Stock Qty', '${item.stockQuantity} ${item.unit}', bold: true),
+        _detailRow('Stock Value', AppFormatters.currency(item.price * item.stockQuantity)),
+        if (item.hsnCode != null && item.hsnCode!.isNotEmpty)
+          _detailRow('HSN Code', item.hsnCode!),
+        if (item.barcode != null && item.barcode!.isNotEmpty)
+          _detailRow('Barcode', item.barcode!),
+      ])),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+    ));
   }
 
   Widget _buildSalesChart(BuildContext context, AppState appState, bool isWide) {
@@ -642,7 +719,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           const SizedBox(height: 14),
           ...lowStockItems.take(10).map((item) {
             final isOut = item.stockQuantity == 0;
-            return Container(
+            return InkWell(
+              onTap: () => _showItemDetail(context, item),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -671,7 +751,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
                         color: isOut ? AppColors.error : AppColors.warning)),
                   ])),
-              ]));
+              ])));
           }),
           if (lowStockItems.length > 10)
             Padding(padding: const EdgeInsets.only(top: 4), child:
@@ -755,7 +835,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           const SizedBox(height: 8),
           const Text('Recent Unpaid', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
           const SizedBox(height: 8),
-          ...unpaidBills.take(5).map((bill) => Container(
+          ...unpaidBills.take(5).map((bill) => InkWell(
+            onTap: () => _showBillDetail(context, bill),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
             margin: const EdgeInsets.only(bottom: 6),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -779,7 +862,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Text('Paid: ${AppFormatters.currency(bill.paidAmount)}',
                     style: const TextStyle(fontSize: 9, color: AppColors.success)),
               ]),
-            ]))),
+            ])))),
         ])),
       const SizedBox(height: 24),
     ]);
