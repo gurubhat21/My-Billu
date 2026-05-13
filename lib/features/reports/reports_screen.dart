@@ -178,7 +178,7 @@ class _SalesReportTabState extends State<_SalesReportTab> {
               ),
             ]),
             const SizedBox(height: 12),
-            Row(children: [
+            Wrap(spacing: 8, runSpacing: 8, children: [
               OutlinedButton.icon(
                 onPressed: () async {
                   final name = await _getBusinessName(appState);
@@ -187,7 +187,6 @@ class _SalesReportTabState extends State<_SalesReportTab> {
                 },
                 icon: const Icon(Icons.picture_as_pdf, size: 16),
                 label: const Text('Export PDF', style: TextStyle(fontSize: 12))),
-              const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: () async {
                   final name = await _getBusinessName(appState);
@@ -196,6 +195,15 @@ class _SalesReportTabState extends State<_SalesReportTab> {
                 },
                 icon: const Icon(Icons.share, size: 16),
                 label: const Text('Share', style: TextStyle(fontSize: 12))),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final name = await _getBusinessName(appState);
+                  final bytes = await GSTR1Exporter.generateSalesExcel(
+                    bills: bills, businessName: name, period: _period);
+                  await GSTR1Exporter.shareExcel(bytes, 'Sales_Report_$_period.xlsx');
+                },
+                icon: const Icon(Icons.table_chart, size: 16, color: Colors.greenAccent),
+                label: const Text('Export Excel', style: TextStyle(fontSize: 12, color: Colors.greenAccent))),
             ]),
             const SizedBox(height: 16),
             // Summary cards

@@ -453,6 +453,130 @@ class GSTR1Exporter {
     return pdf.save();
   }
 
+  // ═══════════════════════════════════════
+  //  SALES REGISTER EXCEL EXPORT
+  // ═══════════════════════════════════════
+  static Future<Uint8List> generateSalesExcel({
+    required List<Bill> bills,
+    required String businessName,
+    required String period,
+  }) async {
+    final excel = Excel.createExcel();
+
+    // ── Sales Register Sheet ──
+    final sheet = excel['Sales Register'];
+    excel.setDefaultSheet('Sales Register');
+
+    // Header
+    sheet.appendRow([TextCellValue(businessName)]);
+    sheet.appendRow([TextCellValue('Sales Register — $period')]);
+    sheet.appendRow([TextCellValue('Generated: ${_fd(DateTime.now())}')]);
+    sheet.appendRow([]);
+
+    // Column headers
+    sheet.appendRow([
+      TextCellValue('Date'), TextCellValue('Bill No'),
+      TextCellValue('Customer'), TextCellValue('Phone'),
+      TextCellValue('Items'), TextCellValue('Taxable Value'),
+      TextCellValue('GST'), TextCellValue('Discount'),
+      TextCellValue('Total Amount'), TextCellValue('Paid'),
+      TextCellValue('Balance Due'), TextCellValue('Payment Method'),
+      TextCellValue('Status'),
+    ]);
+
+    double totalSub = 0, totalTax = 0, totalDisc = 0, totalAmt = 0, totalPaid = 0, totalDue = 0;
+    for (final b in bills) {
+      totalSub += b.subtotal;
+      totalTax += b.totalTax;
+      totalDisc += b.discount;
+      totalAmt += b.totalAmount;
+      totalPaid += b.paidAmount;
+      totalDue += b.balanceDue;
+      sheet.appendRow([
+        TextCellValue(_fd(b.createdAt)),
+        TextCellValue(b.billNumber),
+        TextCellValue(b.customerName ?? 'Walk-in'),
+        TextCellValue(b.customerPhone ?? ''),
+        IntCellValue(b.items.length),
+        DoubleCellValue(b.subtotal),
+        DoubleCellValue(b.totalTax),
+        DoubleCellValue(b.discount),
+        DoubleCellValue(b.totalAmount),
+        DoubleCellValue(b.paidAmount),
+        DoubleCellValue(b.balanceDue),
+        TextCellValue(b.paymentMethod.name.toUpperCase()),
+        TextCellValue(b.status.name.toUpperCase()),
+      ]);
+    }
+
+    // Totals row
+    sheet.appendRow([
+      TextCellValue('TOTAL'), TextCellValue(''),
+      TextCellValue('${bills.length} Bills'), TextCellValue(''),
+      TextCellValue(''),
+      DoubleCellValue(totalSub), DoubleCellValue(totalTax),
+      DoubleCellValue(totalDisc), DoubleCellValue(totalAmt),
+      DoubleCellValue(totalPaid), DoubleCellValue(totalDue),
+      TextCellValue(''), TextCellValue(''),
+    ]);
+
+    // ── Item Details Sheet ──
+    final itemSheet = excel['Item Details'];
+    itemSheet.appendRow([
+      TextCellValue('Bill No'), TextCellValue('Date'),
+      TextCellValue('Customer'), TextCellValue('Item Name'),
+      TextCellValue('Qty'), TextCellValue('Unit'),
+      TextCellValue('Unit Price'), TextCellValue('Subtotal'),
+      TextCellValue('Tax Rate %'), TextCellValue('CGST'),
+      TextCellValue('SGST'), TextCellValue('Total'),
+    ]);
+    for (final b in bills) {
+      for (final item in b.items) {
+        itemSheet.appendRow([
+          TextCellValue(b.billNumber), TextCellValue(_fd(b.createdAt)),
+          TextCellValue(b.customerName ?? 'Walk-in'),
+          TextCellValue(item.itemName),
+          IntCellValue(item.quantity), TextCellValue(item.unit),
+          DoubleCellValue(item.unitPrice), DoubleCellValue(item.subtotal),
+          DoubleCellValue(item.taxRate), DoubleCellValue(item.cgst),
+          DoubleCellValue(item.sgst), DoubleCellValue(item.total),
+        ]);
+      }
+    }
+
+    // ── Summary Sheet ──
+    final sumSheet = excel['Summary'];
+    sumSheet.appendRow([TextCellValue(businessName)]);
+    sumSheet.appendRow([TextCellValue('Sales Summary — $period')]);
+    sumSheet.appendRow([]);
+    sumSheet.appendRow([TextCellValue('Metric'), TextCellValue('Value')]);
+    sumSheet.appendRow([TextCellValue('Total Bills'), IntCellValue(bills.length)]);
+    sumSheet.appendRow([TextCellValue('Taxable Value'), DoubleCellValue(totalSub)]);
+    sumSheet.appendRow([TextCellValue('Total GST'), DoubleCellValue(totalTax)]);
+    sumSheet.appendRow([TextCellValue('Total Discount'), DoubleCellValue(totalDisc)]);
+    sumSheet.appendRow([TextCellValue('Total Sales'), DoubleCellValue(totalAmt)]);
+    sumSheet.appendRow([TextCellValue('Total Collected'), DoubleCellValue(totalPaid)]);
+    sumSheet.appendRow([TextCellValue('Total Outstanding'), DoubleCellValue(totalDue)]);
+    sumSheet.appendRow([TextCellValue('Average Bill'), DoubleCellValue(bills.isNotEmpty ? totalAmt / bills.length : 0)]);
+    sumSheet.appendRow([]);
+
+    // Payment method breakdown
+    sumSheet.appendRow([TextCellValue('Payment Method'), TextCellValue('Count'), TextCellValue('Amount')]);
+    final methodMap = <String, List<double>>{};
+    for (final b in bills) {
+      final m = b.paymentMethod.name.toUpperCase();
+      methodMap.putIfAbsent(m, () => [0, 0]);
+      methodMap[m]![0] += 1;
+      methodMap[m]![1] += b.totalAmount;
+    }
+    for (final e in methodMap.entries) {
+      sumSheet.appendRow([TextCellValue(e.key), DoubleCellValue(e.value[0]), DoubleCellValue(e.value[1])]);
+    }
+
+    if (excel.sheets.containsKey('Sheet1')) excel.delete('Sheet1');
+    return Uint8List.fromList(excel.encode()!);
+  }
+
   static Future<void> printPdf(Uint8List bytes) async {
     await Printing.layoutPdf(onLayout: (_) async => bytes);
   }
