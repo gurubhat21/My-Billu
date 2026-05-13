@@ -2006,6 +2006,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: isDark ? Colors.white38 : Colors.black38)),
             )).toList()),
           ])),
+          // Preview button
+          IconButton(
+            tooltip: 'Preview $name',
+            onPressed: () => _previewTemplate(context, value),
+            icon: Icon(Icons.visibility, size: 20, color: color),
+          ),
+          const SizedBox(width: 4),
           // Radio-style indicator
           Container(
             width: 22, height: 22,
@@ -2016,6 +2023,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: isActive ? const Icon(Icons.check, size: 14, color: Colors.white) : null),
         ]),
       ),
+    );
+  }
+
+  void _previewTemplate(BuildContext context, String templateValue) async {
+    final appState = context.read<AppState>();
+    final settings = await appState.getAllSettings();
+    final sizeStr = settings['pdf_paper_size'] ?? 'a4';
+    final paperSize = sizeStr == 'a5' ? PaperSize.a5 : PaperSize.a4;
+
+    InvoiceTemplate template;
+    switch (templateValue) {
+      case 'classic': template = InvoiceTemplate.classic; break;
+      case 'minimal': template = InvoiceTemplate.minimal; break;
+      case 'gstInvoice': template = InvoiceTemplate.gstInvoice; break;
+      default: template = InvoiceTemplate.modern;
+    }
+
+    // Create a sample bill for preview
+    final sampleBill = Bill(
+      id: 'sample-preview',
+      billNumber: settings['invoice_prefix'] != null ? '${settings['invoice_prefix']}-001' : 'INV-001',
+      customerName: 'Rajesh Kumar',
+      customerPhone: '9876543210',
+      items: [
+        BillItem(itemId: '1', itemName: 'Laptop HP Pavilion 15', unitPrice: 45000, quantity: 1, taxRate: 18, unit: 'pcs'),
+        BillItem(itemId: '2', itemName: 'Wireless Mouse Logitech', unitPrice: 850, quantity: 2, taxRate: 18, unit: 'pcs'),
+        BillItem(itemId: '3', itemName: 'USB-C Cable 1m', unitPrice: 250, quantity: 3, taxRate: 12, unit: 'pcs'),
+      ],
+      subtotal: 45000 + 1700 + 750,
+      discount: 0,
+      totalTax: (45000 * 0.18) + (1700 * 0.18) + (750 * 0.12),
+      totalAmount: (45000 * 1.18) + (1700 * 1.18) + (750 * 1.12),
+      paidAmount: 45000,
+      paymentMethod: PaymentMethod.upi,
+      status: BillStatus.partial,
+      createdAt: DateTime.now(),
+    );
+
+    final bytes = await InvoiceGenerator.generatePdfBytes(
+      sampleBill,
+      businessName: settings['businessName'] ?? 'My Billu',
+      businessAddress: settings['businessAddress'] ?? 'Main Road, Yellapur 581359',
+      businessPhone: settings['businessPhone'] ?? '9449831316',
+      businessGstin: settings['businessGstin'] ?? '29ABCDE1234F1ZK',
+      template: template,
+      paperSize: paperSize,
+    );
+
+    if (!context.mounted) return;
+
+    await Printing.layoutPdf(
+      onLayout: (_) async => bytes,
+      name: 'Preview_${templateValue}_invoice',
     );
   }
 }
