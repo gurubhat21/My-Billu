@@ -53,7 +53,20 @@ class InvoiceGenerator {
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
   }) async {
-    final pdf = pw.Document();
+    // Load font that supports ₹ (Rupee) symbol
+    final fontRegular = await PdfGoogleFonts.notoSansRegular();
+    final fontBold = await PdfGoogleFonts.notoSansBold();
+    final fontItalic = await PdfGoogleFonts.notoSansItalic();
+    final fontBoldItalic = await PdfGoogleFonts.notoSansBoldItalic();
+
+    final pdf = pw.Document(
+      theme: pw.ThemeData.withFont(
+        base: fontRegular,
+        bold: fontBold,
+        italic: fontItalic,
+        boldItalic: fontBoldItalic,
+      ),
+    );
     final pageFormat = _getPageFormat(paperSize);
     final isA5 = paperSize == PaperSize.a5;
     final margin = isA5 ? const pw.EdgeInsets.all(20) : const pw.EdgeInsets.all(32);
