@@ -304,20 +304,24 @@ class _MainShellState extends State<MainShell> {
               color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
               child: Column(children: [
                 // Logo header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                  child: Row(children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradient,
-                        borderRadius: BorderRadius.circular(12),
+                InkWell(
+                  onTap: () => _showFYPicker(context),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                    child: Row(children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: AppColors.primaryGradient,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.receipt_long, color: Colors.white, size: 22),
                       ),
-                      child: const Icon(Icons.receipt_long, color: Colors.white, size: 22),
-                    ),
-                    const SizedBox(width: 10),
-                    const Text('My Billu', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
-                  ]),
+                      const SizedBox(width: 10),
+                      const Text('My Billu', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
+                    ]),
+                  ),
                 ),
                 Divider(height: 1, color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
                 // Scrollable menu items
@@ -456,6 +460,83 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  void _showFYPicker(BuildContext context) {
+    final appState = context.read<AppState>();
+    final now = DateTime.now();
+    final currentFYStart = now.month >= 4 ? now.year : now.year - 1;
+    final fyOptions = List.generate(8, (i) {
+      final y = currentFYStart - 5 + i;
+      return '$y-${(y + 1).toString().substring(2)}';
+    });
+
+    showDialog(context: context, builder: (ctx) {
+      return AlertDialog(
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
+              borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.date_range, color: Colors.white, size: 20)),
+          const SizedBox(width: 12),
+          const Text('Select Financial Year'),
+        ]),
+        content: SizedBox(width: 320, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Choose the financial year (April - March) you want to work with.',
+            style: TextStyle(fontSize: 13, color: Colors.grey)),
+          const SizedBox(height: 16),
+          ...fyOptions.map((fy) {
+            final isCurrent = fy == '$currentFYStart-${(currentFYStart + 1).toString().substring(2)}';
+            return Padding(padding: const EdgeInsets.only(bottom: 6),
+              child: InkWell(
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await appState.saveSetting('financial_year', fy);
+                  if (mounted) {
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Row(children: [
+                        const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
+                        Text('Financial Year set to FY $fy'),
+                      ]),
+                      backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ));
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isCurrent ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isCurrent ? AppColors.primary : Colors.grey.withValues(alpha: 0.2))),
+                  child: Row(children: [
+                    Icon(Icons.calendar_month, size: 18, color: isCurrent ? AppColors.primary : Colors.grey),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text('FY $fy', style: TextStyle(
+                      fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                      color: isCurrent ? AppColors.primary : null, fontSize: 14))),
+                    if (isCurrent)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8)),
+                        child: const Text('Current', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary))),
+                  ]),
+                ),
+              ));
+          }),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ],
+      );
+    });
+  }
+
   Widget _buildDrawer(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Drawer(
@@ -473,13 +554,19 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(14),
+            InkWell(
+              onTap: () {
+                Navigator.pop(context);
+                _showFYPicker(context);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.receipt_long, color: Colors.white, size: 28),
               ),
-              child: const Icon(Icons.receipt_long, color: Colors.white, size: 28),
             ),
             const SizedBox(height: 14),
             ShaderMask(

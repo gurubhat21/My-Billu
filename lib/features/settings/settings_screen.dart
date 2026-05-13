@@ -396,6 +396,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildInvoicePatternCard(context),
           const SizedBox(height: 20),
 
+          // Financial Year
+          _buildFinancialYearCard(context),
+          const SizedBox(height: 20),
+
           // Biometric Authentication Toggle (Android/iOS only)
           if (!kIsWeb) _buildBiometricCard(context),
           if (!kIsWeb) const SizedBox(height: 20),
@@ -1662,5 +1666,134 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: added > 0 ? AppColors.success : AppColors.warning,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+  }
+
+  Widget _buildFinancialYearCard(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: context.read<AppState>().getSetting('financial_year'),
+      builder: (context, snapshot) {
+        final now = DateTime.now();
+        final defaultFYStart = now.month >= 4 ? now.year : now.year - 1;
+        final defaultFY = '$defaultFYStart-${(defaultFYStart + 1).toString().substring(2)}';
+        final currentFY = snapshot.data ?? defaultFY;
+
+        return GlassCard(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBBF24).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.date_range, color: Color(0xFFFBBF24), size: 22)),
+              const SizedBox(width: 14),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Financial Year', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                const SizedBox(height: 2),
+                Text('Indian FY runs April to March', style: TextStyle(fontSize: 12,
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+              ])),
+            ]),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFFFBBF24).withValues(alpha: 0.1), const Color(0xFFF59E0B).withValues(alpha: 0.05)]),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.3))),
+              child: Row(children: [
+                const Icon(Icons.calendar_today, color: Color(0xFFFBBF24), size: 20),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Current Financial Year', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 4),
+                  Text('FY $currentFY', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFFFBBF24))),
+                ])),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFBBF24),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                  onPressed: () => _showFYPickerDialog(context, currentFY),
+                  icon: const Icon(Icons.swap_horiz, size: 18),
+                  label: const Text('Change', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ]),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+
+  void _showFYPickerDialog(BuildContext context, String currentFY) {
+    final appState = context.read<AppState>();
+    final now = DateTime.now();
+    final currentFYStart = now.month >= 4 ? now.year : now.year - 1;
+    final fyOptions = List.generate(8, (i) {
+      final y = currentFYStart - 5 + i;
+      return '$y-${(y + 1).toString().substring(2)}';
+    });
+
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.date_range, color: Color(0xFFFBBF24)),
+        SizedBox(width: 10),
+        Text('Change Financial Year'),
+      ]),
+      content: SizedBox(width: 320, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        ...fyOptions.map((fy) {
+          final isSelected = fy == currentFY;
+          final isCurrentReal = fy == '$currentFYStart-${(currentFYStart + 1).toString().substring(2)}';
+          return Padding(padding: const EdgeInsets.only(bottom: 6),
+            child: InkWell(
+              onTap: () async {
+                Navigator.pop(ctx);
+                await appState.saveSetting('financial_year', fy);
+                if (mounted) {
+                  setState(() {});
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Financial Year changed to FY $fy'),
+                    backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ));
+                }
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFFFBBF24).withValues(alpha: 0.15) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isSelected ? const Color(0xFFFBBF24) : Colors.grey.withValues(alpha: 0.2))),
+                child: Row(children: [
+                  Icon(Icons.calendar_month, size: 18,
+                    color: isSelected ? const Color(0xFFFBBF24) : Colors.grey),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text('FY $fy', style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? const Color(0xFFFBBF24) : null))),
+                  if (isSelected)
+                    const Icon(Icons.check_circle, size: 18, color: Color(0xFFFBBF24)),
+                  if (isCurrentReal && !isSelected)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6)),
+                      child: const Text('Current', style: TextStyle(fontSize: 9, color: Colors.grey))),
+                ]),
+              ),
+            ));
+        }),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+      ],
+    ));
   }
 }

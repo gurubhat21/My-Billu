@@ -21,6 +21,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   late Animation<double> _fadeAnim;
   String _userName = '';
   String _logoUrl = '';
+  String _financialYear = '';
   DateTime _currentTime = DateTime.now();
   Timer? _clockTimer;
 
@@ -47,10 +48,18 @@ class _DashboardScreenState extends State<DashboardScreen>
     final appState = context.read<AppState>();
     final name = await appState.getSetting('businessName');
     final logo = await appState.getSetting('businessLogo');
+    final fy = await appState.getSetting('financial_year');
     if (mounted) {
       setState(() {
         _userName = name ?? '';
         _logoUrl = logo ?? '';
+        if (fy != null && fy.isNotEmpty) {
+          _financialYear = fy;
+        } else {
+          final now = DateTime.now();
+          final fyStart = now.month >= 4 ? now.year : now.year - 1;
+          _financialYear = '$fyStart-${(fyStart + 1).toString().substring(2)}';
+        }
       });
     }
   }
@@ -237,6 +246,28 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ],
                 ),
               ),
+              const SizedBox(width: 10),
+              // Financial Year chip
+              if (_financialYear.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.date_range, size: 14, color: Color(0xFFFBBF24)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'FY $_financialYear',
+                        style: const TextStyle(color: Color(0xFFFBBF24), fontWeight: FontWeight.w700, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 16),
