@@ -158,6 +158,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text('Settings', style: Theme.of(context).textTheme.headlineLarge),
           const SizedBox(height: 24),
 
+          // ═══════════════════════════════════════════════════
+          // FEATURES SECTION
+          // ═══════════════════════════════════════════════════
+          _sectionHeader(context, Icons.widgets, 'Features', const Color(0xFF7C3AED)),
+          const SizedBox(height: 16),
+
           // Cloud Sync Section
           _buildCloudSyncCard(context),
           const SizedBox(height: 20),
@@ -298,7 +304,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   )).toList());
                 }),
             ])),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // Billing & Quotation Column Settings
+          _buildBillingColumnsCard(context),
+          const SizedBox(height: 16),
+
+          // Invoice Number Pattern
+          _buildInvoicePatternCard(context),
+          const SizedBox(height: 32),
+
+          // ═══════════════════════════════════════════════════
+          // SETTINGS SECTION
+          // ═══════════════════════════════════════════════════
+          _sectionHeader(context, Icons.settings, 'Settings', AppColors.primary),
+          const SizedBox(height: 16),
+
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
@@ -428,14 +449,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: const Icon(Icons.save, size: 20), label: const Text('Save Settings'))),
               ],
             ])),
-          const SizedBox(height: 20),
-
-          // Billing & Quotation Column Settings
-          _buildBillingColumnsCard(context),
-          const SizedBox(height: 20),
-
-          // Invoice Number Pattern
-          _buildInvoicePatternCard(context),
           const SizedBox(height: 20),
 
           // Financial Year
@@ -1313,6 +1326,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary)),
       ]));
+  }
+
+  Widget _sectionHeader(BuildContext context, IconData icon, String title, Color color) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.7)]),
+            borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, size: 20, color: Colors.white)),
+        const SizedBox(width: 12),
+        Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+      ]),
+      const SizedBox(height: 8),
+      Container(height: 3, width: 60,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.2)]),
+          borderRadius: BorderRadius.circular(2))),
+    ]);
   }
 
   Widget _shortcutRow(String keys, String action) {
