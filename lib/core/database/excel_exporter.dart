@@ -18,7 +18,7 @@ class ExcelExporter {
     excel.delete('Sheet1');
 
     // Header row
-    final headers = ['Name', 'Price (₹)', 'GST %', 'HSN Code', 'Unit', 'Stock Qty', 'Category'];
+    final headers = ['Name', 'Purchase Price (₹)', 'Sales Price (₹)', 'GST %', 'HSN Code', 'Unit', 'Stock Qty', 'Category'];
     for (int i = 0; i < headers.length; i++) {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0))
         ..value = TextCellValue(headers[i]);
@@ -29,12 +29,13 @@ class ExcelExporter {
       final item = items[r];
       final row = r + 1;
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue(item.name);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = DoubleCellValue(item.price);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value = DoubleCellValue(item.taxRate);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue(item.hsnCode ?? '');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue(item.unit);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: row)).value = IntCellValue(item.stockQuantity);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row)).value = TextCellValue(item.category ?? '');
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = DoubleCellValue(item.purchasePrice);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value = DoubleCellValue(item.price);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = DoubleCellValue(item.taxRate);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue(item.hsnCode ?? '');
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: row)).value = TextCellValue(item.unit);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row)).value = IntCellValue(item.stockQuantity);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: row)).value = TextCellValue(item.category ?? '');
     }
 
     final bytes = excel.encode();

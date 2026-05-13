@@ -333,7 +333,7 @@ class _BillingScreenState extends State<BillingScreen> {
             ...List.generate(c.quantity, (si) => Padding(
               padding: const EdgeInsets.only(top: 6),
               child: TextFormField(
-                key: ValueKey('serial_${c.item.id}_${si}_${c.serialNumbers[si]}'),
+                key: ValueKey('serial_${c.item.id}_$si'),
                 initialValue: c.serialNumbers[si],
                 onChanged: (v) => c.serialNumbers[si] = v,
                 style: const TextStyle(fontSize: 12),

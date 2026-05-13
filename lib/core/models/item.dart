@@ -11,6 +11,7 @@ class Item {
   String unit; // pcs, kg, ltr, etc.
   int stockQuantity;
   String? category;
+  double purchasePrice;
   DateTime createdAt;
   DateTime updatedAt;
 
@@ -25,6 +26,7 @@ class Item {
     this.unit = 'pcs',
     this.stockQuantity = 0,
     this.category,
+    this.purchasePrice = 0.0,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
@@ -43,6 +45,7 @@ class Item {
       'unit': unit,
       'stockQuantity': stockQuantity,
       'category': category,
+      'purchasePrice': purchasePrice,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -60,6 +63,7 @@ class Item {
       unit: map['unit'] as String? ?? 'pcs',
       stockQuantity: (map['stockQuantity'] as num?)?.toInt() ?? 0,
       category: map['category'] as String?,
+      purchasePrice: (map['purchasePrice'] as num?)?.toDouble() ?? 0.0,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
@@ -75,6 +79,7 @@ class Item {
     String? unit,
     int? stockQuantity,
     String? category,
+    double? purchasePrice,
   }) {
     return Item(
       id: id,
@@ -87,6 +92,7 @@ class Item {
       unit: unit ?? this.unit,
       stockQuantity: stockQuantity ?? this.stockQuantity,
       category: category ?? this.category,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
     );

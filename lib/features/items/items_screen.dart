@@ -273,6 +273,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
     final nameCtrl = TextEditingController(text: item?.name ?? '');
     final priceCtrl =
         TextEditingController(text: item?.price.toStringAsFixed(2) ?? '');
+    final purchasePriceCtrl =
+        TextEditingController(text: item != null && item.purchasePrice > 0 ? item.purchasePrice.toStringAsFixed(2) : '');
     final taxCtrl =
         TextEditingController(text: item?.taxRate.toStringAsFixed(1) ?? '18.0');
     final stockCtrl =
@@ -303,22 +305,24 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   children: [
                     Expanded(
                       child: TextField(
-                        controller: priceCtrl,
+                        controller: purchasePriceCtrl,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: 'Price (₹) *',
-                          prefixIcon: Icon(Icons.currency_rupee),
+                          labelText: 'Purchase Price (₹)',
+                          prefixIcon: Icon(Icons.shopping_cart_outlined),
+                          hintText: 'Cost price',
                         ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
-                        controller: taxCtrl,
+                        controller: priceCtrl,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: 'GST %',
-                          prefixIcon: Icon(Icons.percent),
+                          labelText: 'Sales Price (₹) *',
+                          prefixIcon: Icon(Icons.currency_rupee),
+                          hintText: 'Selling price',
                         ),
                       ),
                     ),
@@ -329,6 +333,17 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   children: [
                     Expanded(
                       child: TextField(
+                        controller: taxCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'GST %',
+                          prefixIcon: Icon(Icons.percent),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
                         controller: stockCtrl,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
@@ -337,7 +352,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
                     Expanded(
                       child: StatefulBuilder(
                         builder: (context, setDropState) {
@@ -428,6 +447,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   ? item.copyWith(
                       name: nameCtrl.text.trim(),
                       price: double.tryParse(priceCtrl.text) ?? 0,
+                      purchasePrice: double.tryParse(purchasePriceCtrl.text) ?? 0,
                       taxRate: double.tryParse(taxCtrl.text) ?? 18.0,
                       stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
                       hsnCode: hsnCtrl.text.trim(),
@@ -437,6 +457,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   : Item(
                       name: nameCtrl.text.trim(),
                       price: double.tryParse(priceCtrl.text) ?? 0,
+                      purchasePrice: double.tryParse(purchasePriceCtrl.text) ?? 0,
                       taxRate: double.tryParse(taxCtrl.text) ?? 18.0,
                       stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
                       hsnCode: hsnCtrl.text.trim(),
