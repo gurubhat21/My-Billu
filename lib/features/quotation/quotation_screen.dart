@@ -9,6 +9,7 @@ import '../../core/models/quotation.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/invoice_generator.dart';
 import '../../widgets/common_widgets.dart';
 
 class QuotationScreen extends StatefulWidget {
@@ -120,6 +121,9 @@ class _QuotationScreenState extends State<QuotationScreen> {
           ],
           if (q.status == QuotationStatus.accepted)
             _actionBtn(Icons.receipt, 'Convert to Bill', () => _convertToBill(context, appState, q)),
+          _actionBtn(Icons.print, 'Print', () => _printQuotation(context, appState, q)),
+          const SizedBox(width: 4),
+          _actionBtn(Icons.share, 'Share', () => _shareQuotation(context, appState, q), color: const Color(0xFF25D366)),
           const Spacer(),
           if (q.status == QuotationStatus.draft || q.status == QuotationStatus.sent)
             _actionBtn(Icons.cancel, 'Reject', () async {
@@ -539,6 +543,187 @@ class _QuotationScreenState extends State<QuotationScreen> {
         }, child: const Text('Add')),
       ],
     )));
+  }
+
+  // Convert quotation to a temporary Bill for invoice generation
+  Bill _quotationAsBill(Quotation q) {
+    return Bill(
+      id: q.id,
+      billNumber: q.quotationNumber,
+      customerName: q.customerName,
+      items: q.items,
+      subtotal: q.subtotal,
+      discount: q.discount,
+      totalTax: q.totalTax,
+      totalAmount: q.totalAmount,
+      paidAmount: 0,
+      paymentMethod: PaymentMethod.cash,
+      status: BillStatus.unpaid,
+      createdAt: q.createdAt,
+    );
+  }
+
+  void _printQuotation(BuildContext context, AppState appState, Quotation q) async {
+    final settings = await appState.getAllSettings();
+    String selectedSize = settings['pdf_paper_size'] ?? 'a4';
+
+    if (!context.mounted) return;
+    final action = await showDialog<String>(context: context, builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDialogState) => AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.print, color: AppColors.primary), const SizedBox(width: 10),
+          Text('Print ${q.quotationNumber}')]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Quotation for ${q.customerName ?? 'customer'}'),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10)),
+            child: Row(children: [
+              const Icon(Icons.description, size: 16, color: Colors.grey),
+              const SizedBox(width: 8),
+              const Text('Paper: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              _paperChip('A4', 'a4', selectedSize, (v) async {
+                setDialogState(() => selectedSize = v);
+                await appState.saveSetting('pdf_paper_size', v);
+              }),
+              const SizedBox(width: 6),
+              _paperChip('A5', 'a5', selectedSize, (v) async {
+                setDialogState(() => selectedSize = v);
+                await appState.saveSetting('pdf_paper_size', v);
+              }),
+            ]),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, 'print'),
+            icon: const Icon(Icons.print, size: 18),
+            label: const Text('Print'),
+          ),
+        ],
+      ),
+    ));
+
+    if (action == 'print' && context.mounted) {
+      final s = await appState.getAllSettings();
+      final bill = _quotationAsBill(q);
+      final template = _parseTemplate(s['pdf_template']);
+      final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
+      await InvoiceGenerator.generateAndPrint(bill,
+        businessName: s['businessName'] ?? 'My Billu',
+        businessAddress: s['businessAddress'] ?? '',
+        businessPhone: s['businessPhone'] ?? '',
+        businessGstin: s['businessGstin'] ?? '',
+        businessBankName: s['businessBankName'] ?? '',
+        businessBankAccount: s['businessBankAccount'] ?? '',
+        businessBankIfsc: s['businessBankIfsc'] ?? '',
+        template: template, paperSize: paperSize,
+      );
+    }
+  }
+
+  void _shareQuotation(BuildContext context, AppState appState, Quotation q) async {
+    final settings = await appState.getAllSettings();
+    String selectedSize = settings['pdf_paper_size'] ?? 'a4';
+
+    if (!context.mounted) return;
+    final action = await showDialog<String>(context: context, builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDialogState) => AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.share, color: Color(0xFF25D366)), const SizedBox(width: 10),
+          Text('Share ${q.quotationNumber}')]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Share quotation for ${q.customerName ?? 'customer'}'),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10)),
+            child: Row(children: [
+              const Icon(Icons.description, size: 16, color: Colors.grey),
+              const SizedBox(width: 8),
+              const Text('Paper: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              _paperChip('A4', 'a4', selectedSize, (v) async {
+                setDialogState(() => selectedSize = v);
+                await appState.saveSetting('pdf_paper_size', v);
+              }),
+              const SizedBox(width: 6),
+              _paperChip('A5', 'a5', selectedSize, (v) async {
+                setDialogState(() => selectedSize = v);
+                await appState.saveSetting('pdf_paper_size', v);
+              }),
+            ]),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+            onPressed: () => Navigator.pop(ctx, 'share'),
+            icon: const Icon(Icons.share, size: 18),
+            label: const Text('Share'),
+          ),
+        ],
+      ),
+    ));
+
+    if (action == 'share' && context.mounted) {
+      final s = await appState.getAllSettings();
+      final bill = _quotationAsBill(q);
+      final template = _parseTemplate(s['pdf_template']);
+      final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
+      try {
+        await InvoiceGenerator.shareInvoice(bill,
+          businessName: s['businessName'] ?? 'My Billu',
+          businessAddress: s['businessAddress'] ?? '',
+          businessPhone: s['businessPhone'] ?? '',
+          businessGstin: s['businessGstin'] ?? '',
+          businessBankName: s['businessBankName'] ?? '',
+          businessBankAccount: s['businessBankAccount'] ?? '',
+          businessBankIfsc: s['businessBankIfsc'] ?? '',
+          template: template, paperSize: paperSize,
+        );
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Share error: $e'), backgroundColor: AppColors.error));
+        }
+      }
+    }
+  }
+
+  Widget _paperChip(String label, String value, String current, Function(String) onTap) {
+    final isSelected = current == value;
+    return InkWell(
+      onTap: () => onTap(value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.primary)),
+        child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
+          color: isSelected ? Colors.white : AppColors.primary)),
+      ),
+    );
+  }
+
+  InvoiceTemplate _parseTemplate(String? value) {
+    switch (value) {
+      case 'classic': return InvoiceTemplate.classic;
+      case 'minimal': return InvoiceTemplate.minimal;
+      case 'gstInvoice': return InvoiceTemplate.gstInvoice;
+      default: return InvoiceTemplate.modern;
+    }
   }
 }
 

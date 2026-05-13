@@ -521,29 +521,86 @@ class _BillingScreenState extends State<BillingScreen> {
           backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
 
-        // Offer to print invoice
-        final shouldPrint = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-          title: const Row(children: [
-            Icon(Icons.print, color: AppColors.primary), SizedBox(width: 10), Text('Print Invoice?')]),
-          content: Text('Bill $billNumber created successfully.\nWould you like to print/download the invoice?'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Skip')),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pop(ctx, true),
-              icon: const Icon(Icons.print, size: 18),
-              label: const Text('Print Invoice'),
-            ),
-          ],
+        // Offer to print invoice with paper size selection
+        final settings = await appState.getAllSettings();
+        String selectedSize = settings['pdf_paper_size'] ?? 'a4';
+
+        if (!mounted) return;
+        final action = await showDialog<String>(context: context, builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: const Row(children: [
+              Icon(Icons.print, color: AppColors.primary), SizedBox(width: 10), Text('Print Invoice?')]),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('Bill $billNumber created successfully.\nWould you like to print/share the invoice?'),
+              const SizedBox(height: 16),
+              // Paper size toggle
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10)),
+                child: Row(children: [
+                  const Icon(Icons.description, size: 16, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  const Text('Paper Size: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  _paperChip('A4', 'a4', selectedSize, (v) async {
+                    setDialogState(() => selectedSize = v);
+                    await appState.saveSetting('pdf_paper_size', v);
+                  }),
+                  const SizedBox(width: 6),
+                  _paperChip('A5', 'a5', selectedSize, (v) async {
+                    setDialogState(() => selectedSize = v);
+                    await appState.saveSetting('pdf_paper_size', v);
+                  }),
+                ]),
+              ),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, 'skip'), child: const Text('Skip')),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+                onPressed: () => Navigator.pop(ctx, 'share'),
+                icon: const Icon(Icons.share, size: 18),
+                label: const Text('Share'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(ctx, 'print'),
+                icon: const Icon(Icons.print, size: 18),
+                label: const Text('Print'),
+              ),
+            ],
+          ),
         ));
 
-        if (shouldPrint == true && mounted) {
-          final settings = await appState.getAllSettings();
-          await InvoiceGenerator.generateAndPrint(bill,
-            businessName: settings['businessName'] ?? 'My Billu',
-            businessAddress: settings['businessAddress'] ?? '',
-            businessPhone: settings['businessPhone'] ?? '',
-            businessGstin: settings['businessGstin'] ?? '',
-          );
+        if (action != null && action != 'skip' && mounted) {
+          final s = await appState.getAllSettings();
+          final template = _parseTemplate(s['pdf_template']);
+          final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
+          if (action == 'print') {
+            await InvoiceGenerator.generateAndPrint(bill,
+              businessName: s['businessName'] ?? 'My Billu',
+              businessAddress: s['businessAddress'] ?? '',
+              businessPhone: s['businessPhone'] ?? '',
+              businessGstin: s['businessGstin'] ?? '',
+              businessBankName: s['businessBankName'] ?? '',
+              businessBankAccount: s['businessBankAccount'] ?? '',
+              businessBankIfsc: s['businessBankIfsc'] ?? '',
+              template: template, paperSize: paperSize,
+            );
+          } else if (action == 'share') {
+            await InvoiceGenerator.shareInvoice(bill,
+              businessName: s['businessName'] ?? 'My Billu',
+              businessAddress: s['businessAddress'] ?? '',
+              businessPhone: s['businessPhone'] ?? '',
+              businessGstin: s['businessGstin'] ?? '',
+              businessBankName: s['businessBankName'] ?? '',
+              businessBankAccount: s['businessBankAccount'] ?? '',
+              businessBankIfsc: s['businessBankIfsc'] ?? '',
+              template: template, paperSize: paperSize,
+            );
+          }
         }
       }
     } catch (e) {
@@ -553,6 +610,31 @@ class _BillingScreenState extends State<BillingScreen> {
           content: Text('Error creating bill: $e'),
           backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating));
       }
+    }
+  }
+
+  Widget _paperChip(String label, String value, String current, Function(String) onTap) {
+    final isSelected = current == value;
+    return InkWell(
+      onTap: () => onTap(value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.primary)),
+        child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
+          color: isSelected ? Colors.white : AppColors.primary)),
+      ),
+    );
+  }
+
+  InvoiceTemplate _parseTemplate(String? value) {
+    switch (value) {
+      case 'classic': return InvoiceTemplate.classic;
+      case 'minimal': return InvoiceTemplate.minimal;
+      case 'gstInvoice': return InvoiceTemplate.gstInvoice;
+      default: return InvoiceTemplate.modern;
     }
   }
 }
