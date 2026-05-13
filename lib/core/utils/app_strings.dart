@@ -75,3 +75,5 @@ class AppStrings {
 
   static String get(String key) => _strings[key]?[_lang] ?? _strings[key]?['en'] ?? key;
 }
+
+

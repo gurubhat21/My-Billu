@@ -782,3 +782,5 @@ class _PurchaseBarcodeScannerPageState extends State<_PurchaseBarcodeScannerPage
     );
   }
 }
+
+

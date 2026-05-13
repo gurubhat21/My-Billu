@@ -258,3 +258,5 @@ Future<String?> getSetting(WebDB db, String key) async {
 Future<Map<String, String>> getAllSettings(WebDB db) async {
   return {for (var m in db.getAll('settings')) m['key'] as String: m['value'] as String};
 }
+
+

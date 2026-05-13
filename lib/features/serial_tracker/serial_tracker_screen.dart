@@ -373,3 +373,5 @@ class _ScannerPageState extends State<_ScannerPage> {
     );
   }
 }
+
+

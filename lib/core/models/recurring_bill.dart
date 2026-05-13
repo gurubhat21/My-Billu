@@ -64,3 +64,5 @@ class RecurringBill {
     isActive: isActive ?? this.isActive, notes: notes,
   );
 }
+
+

@@ -169,3 +169,5 @@ class _StockScreenState extends State<StockScreen> {
       ])));
   }
 }
+
+

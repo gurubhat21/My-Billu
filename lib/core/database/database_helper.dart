@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/item.dart';
 import '../models/customer.dart';
@@ -28,10 +26,9 @@ class DatabaseHelper {
   Future<dynamic> get database async {
     if (_db != null) return _db;
     if (!kIsWeb && _customDataPath != null) {
-      // Use custom path on native (Windows)
-      final dir = Directory(_customDataPath!);
-      if (!dir.existsSync()) dir.createSync(recursive: true);
-      _db = await platform_db.initDatabaseAtPath('$_customDataPath${Platform.pathSeparator}my_billu.db');
+      // Use custom path on native (Windows) — pass full db file path
+      // The path separator and directory creation are handled in initDatabaseAtPath
+      _db = await platform_db.initDatabaseAtPath(_customDataPath!);
     } else {
       _db = await platform_db.initDatabase('my_billu.db');
     }
@@ -90,3 +87,4 @@ class DatabaseHelper {
   Future<String?> getSetting(String key) async => await platform_db.getSetting(await database, key);
   Future<Map<String, String>> getAllSettings() async => await platform_db.getAllSettings(await database);
 }
+

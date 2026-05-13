@@ -71,3 +71,5 @@ class CreditNote {
 }
 
 enum CreditNoteStatus { issued, adjusted, cancelled }
+
+

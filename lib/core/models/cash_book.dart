@@ -99,3 +99,5 @@ class CashBookEntry {
     date: DateTime.tryParse(map['date'] as String? ?? '') ?? DateTime.now(),
   );
 }
+
+

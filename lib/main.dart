@@ -1,13 +1,13 @@
-import 'dart:io' show Directory, File, Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:path/path.dart' as p;
 import 'core/theme/app_theme.dart';
 import 'core/providers/app_state.dart';
 import 'core/database/database_helper.dart';
+import 'core/database/data_path_native.dart' if (dart.library.js_interop) 'core/database/data_path_web.dart'
+    as data_path;
 import 'core/models/bill.dart';
 import 'features/login/login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -43,39 +43,10 @@ void main() async {
     databaseFactory = databaseFactoryFfi;
 
     // Load saved data path for Windows
-    try {
-      final configPath = _getConfigFilePath();
-      final configFile = File(configPath);
-      if (configFile.existsSync()) {
-        final savedPath = configFile.readAsStringSync().trim();
-        if (savedPath.isNotEmpty) {
-          DatabaseHelper.setDataPath(savedPath);
-        }
-      } else {
-        // Default path
-        const defaultPath = r'D:\My_billu\data';
-        final dir = Directory(defaultPath);
-        if (!dir.existsSync()) dir.createSync(recursive: true);
-        DatabaseHelper.setDataPath(defaultPath);
-        // Save default to config
-        configFile.parent.createSync(recursive: true);
-        configFile.writeAsStringSync(defaultPath);
-      }
-    } catch (_) {
-      // Fallback to default sqflite path if config read fails
-    }
+    await data_path.loadDataPathConfig();
   }
 
   runApp(const MyBilluApp());
-}
-
-/// Get config file path (stored next to executable on Windows)
-String _getConfigFilePath() {
-  if (!kIsWeb && Platform.isWindows) {
-    final exeDir = p.dirname(Platform.resolvedExecutable);
-    return p.join(exeDir, 'mybillu_config.txt');
-  }
-  return '';
 }
 
 class MyBilluApp extends StatelessWidget {
@@ -766,3 +737,5 @@ class _SearchResult {
   final int screenIndex;
   _SearchResult(this.icon, this.title, this.subtitle, this.screenIndex);
 }
+
+

@@ -695,3 +695,5 @@ class _BarcodeScannerPageState extends State<_BarcodeScannerPage> {
     );
   }
 }
+
+

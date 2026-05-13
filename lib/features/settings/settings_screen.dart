@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io' show Directory, File, Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/item.dart';
@@ -18,6 +17,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/web_helper.dart' as web_helper;
 import '../../core/database/full_backup_exporter.dart';
 import '../../core/database/database_helper.dart';
+import '../../core/database/data_path_native.dart' if (dart.library.js_interop) '../../core/database/data_path_web.dart'
+    as data_path;
 import 'package:path/path.dart' as path_pkg;
 import '../../core/utils/app_strings.dart';
 import '../../core/utils/excel_importer.dart';
@@ -34,6 +35,7 @@ import 'package:flutter/foundation.dart';
 import 'keyboard_shortcuts_screen.dart';
 import 'import_export_screen.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:file_picker/file_picker.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -2188,8 +2190,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               suffixIcon: IconButton(
                 icon: const Icon(Icons.folder, color: AppColors.primary),
                 tooltip: 'Browse folder',
-                onPressed: () {
-                  // Manual entry — no file picker needed
+                onPressed: () async {
+                  final selectedDir = await FilePicker.platform.getDirectoryPath(
+                    dialogTitle: 'Select Data Storage Folder',
+                    initialDirectory: pathCtrl.text.isNotEmpty ? pathCtrl.text : r'D:\',
+                  );
+                  if (selectedDir != null) {
+                    pathCtrl.text = selectedDir;
+                    setCardState(() {});
+                  }
                 },
               ),
             ),
@@ -2199,7 +2208,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Icon(Icons.info_outline, size: 14, color: Colors.amber),
             const SizedBox(width: 6),
             Expanded(child: Text(
-              'Current: $currentPath${Platform.pathSeparator}my_billu.db',
+              'Current: $currentPath${data_path.pathSeparator}my_billu.db',
               style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
               maxLines: 2, overflow: TextOverflow.ellipsis)),
           ]),
@@ -2237,17 +2246,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (confirmed != true || !context.mounted) return;
 
               try {
-                // Create directory
-                final dir = Directory(newPath);
-                if (!dir.existsSync()) dir.createSync(recursive: true);
-
-                // Save config file
-                final exeDir = path_pkg.dirname(Platform.resolvedExecutable);
-                final configFile = File(path_pkg.join(exeDir, 'mybillu_config.txt'));
-                configFile.writeAsStringSync(newPath);
-
-                // Reinitialize database
-                await DatabaseHelper.instance.reinitializeWithPath(newPath);
+                // Save config, create dir, reinitialize DB
+                await data_path.saveAndApplyDataPath(newPath);
 
                 // Reload all data
                 if (context.mounted) {
@@ -2280,3 +2280,5 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 }
+
+

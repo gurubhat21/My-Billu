@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import '../models/item.dart';
@@ -15,9 +16,12 @@ Future<Database> initDatabase(String fileName) async {
   );
 }
 
-/// Open database at a specific full file path (for custom data directory on Windows)
-Future<Database> initDatabaseAtPath(String fullPath) async {
-  return await openDatabase(fullPath, version: 4,
+/// Open database at a custom directory path (for Windows data path setting)
+Future<Database> initDatabaseAtPath(String dirPath) async {
+  final dir = Directory(dirPath);
+  if (!dir.existsSync()) dir.createSync(recursive: true);
+  final dbFile = p.join(dirPath, 'my_billu.db');
+  return await openDatabase(dbFile, version: 4,
     onCreate: _createDB,
     onUpgrade: _upgradeDB,
   );
@@ -266,3 +270,5 @@ Future<Map<String, String>> getAllSettings(Database db) async {
   final maps = await db.query('settings');
   return {for (var m in maps) m['key'] as String: m['value'] as String};
 }
+
+

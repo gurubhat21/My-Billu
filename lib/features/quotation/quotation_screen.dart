@@ -781,3 +781,5 @@ class _QuotationBarcodeScannerPageState extends State<_QuotationBarcodeScannerPa
     );
   }
 }
+
+

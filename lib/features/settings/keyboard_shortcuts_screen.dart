@@ -497,3 +497,5 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
     );
   }
 }
+
+

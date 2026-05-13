@@ -34,3 +34,5 @@ Future<String?> triggerImageUpload() async {
   await reader.onLoadEnd.first;
   return reader.result as String?;
 }
+
+

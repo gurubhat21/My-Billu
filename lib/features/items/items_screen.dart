@@ -722,3 +722,5 @@ class _ItemPurchaseRecord {
     required this.unitCost, required this.quantity, required this.total,
   });
 }
+
+

@@ -807,3 +807,5 @@ class _BankInfo {
   const _BankInfo(this.name, this.account, this.ifsc);
   bool get hasData => name.isNotEmpty || account.isNotEmpty || ifsc.isNotEmpty;
 }
+
+
