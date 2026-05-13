@@ -272,51 +272,110 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _showCollectPayment(BuildContext context, Bill bill) {
     final amountCtrl = TextEditingController(text: bill.balanceDue.toStringAsFixed(2));
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: const Row(children: [
-        Icon(Icons.payments, color: AppColors.success), SizedBox(width: 10), Text('Collect Payment')]),
-      content: SizedBox(width: 350, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        _detailRow('Bill', bill.billNumber),
-        _detailRow('Customer', bill.customerName ?? 'Walk-in'),
-        _detailRow('Total', AppFormatters.currency(bill.totalAmount)),
-        _detailRow('Paid', AppFormatters.currency(bill.paidAmount)),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('Balance Due', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.error)),
-          Text(AppFormatters.currency(bill.balanceDue),
-            style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.error)),
+    String paymentType = 'cash';
+    String? selectedBankId;
+    final appState = context.read<AppState>();
+
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setPayState) {
+      final bankAccounts = appState.bankAccounts;
+      return AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.payments, color: AppColors.success), SizedBox(width: 10), Text('Collect Payment')]),
+        content: SizedBox(width: 380, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          _detailRow('Bill', bill.billNumber),
+          _detailRow('Customer', bill.customerName ?? 'Walk-in'),
+          _detailRow('Total', AppFormatters.currency(bill.totalAmount)),
+          _detailRow('Paid', AppFormatters.currency(bill.paidAmount)),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Balance Due', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.error)),
+            Text(AppFormatters.currency(bill.balanceDue),
+              style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.error)),
+          ]),
+          const SizedBox(height: 16),
+          TextField(controller: amountCtrl, keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Payment Amount (\u20b9)',
+              prefixIcon: Icon(Icons.currency_rupee),
+            )),
+          const SizedBox(height: 16),
+          // Payment method selection
+          Text('Payment Method', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            _payMethodChip('cash', 'Cash', Icons.money, paymentType, (v) => setPayState(() => paymentType = v)),
+            _payMethodChip('upi', 'UPI', Icons.phone_android, paymentType, (v) => setPayState(() => paymentType = v)),
+            _payMethodChip('bank', 'Bank Transfer', Icons.account_balance, paymentType, (v) => setPayState(() => paymentType = v)),
+            _payMethodChip('card', 'Card', Icons.credit_card, paymentType, (v) => setPayState(() => paymentType = v)),
+          ]),
+          // Bank account picker for non-cash
+          if (paymentType != 'cash' && bankAccounts.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: selectedBankId,
+              decoration: const InputDecoration(
+                labelText: 'Select Bank Account',
+                prefixIcon: Icon(Icons.account_balance),
+                isDense: true),
+              items: bankAccounts.map((a) => DropdownMenuItem(
+                value: a.id,
+                child: Text('${a.bankName} - ${a.accountNumber}', style: const TextStyle(fontSize: 13)))).toList(),
+              onChanged: (v) => setPayState(() => selectedBankId = v),
+            ),
+          ],
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+            onPressed: () async {
+              final amount = double.tryParse(amountCtrl.text) ?? 0;
+              if (amount <= 0) return;
+              Navigator.pop(ctx);
+              await appState.collectPayment(
+                bill.id, amount,
+                paymentType: paymentType,
+                bankAccountId: selectedBankId,
+              );
+              if (mounted) {
+                final methodLabel = paymentType == 'cash' ? 'Cash' : paymentType == 'upi' ? 'UPI' : paymentType == 'bank' ? 'Bank Transfer' : 'Card';
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Row(children: [
+                    const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
+                    Expanded(child: Text('\u20b9${amount.toStringAsFixed(2)} collected via $methodLabel for ${bill.billNumber}')),
+                  ]),
+                  backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ));
+              }
+            },
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('Collect'),
+          ),
+        ],
+      );
+    }));
+  }
+
+  Widget _payMethodChip(String value, String label, IconData icon, String selected, void Function(String) onTap) {
+    final isActive = selected == value;
+    return InkWell(
+      onTap: () => onTap(value),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.primary.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isActive ? AppColors.primary : Colors.grey.withValues(alpha: 0.3), width: isActive ? 2 : 1)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 16, color: isActive ? AppColors.primary : Colors.grey),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            color: isActive ? AppColors.primary : null)),
         ]),
-        const SizedBox(height: 16),
-        TextField(controller: amountCtrl, keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Payment Amount (₹)',
-            prefixIcon: Icon(Icons.currency_rupee),
-          )),
-      ])),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-          onPressed: () async {
-            final amount = double.tryParse(amountCtrl.text) ?? 0;
-            if (amount <= 0) return;
-            Navigator.pop(ctx);
-            await context.read<AppState>().collectPayment(bill.id, amount);
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Row(children: [
-                  const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
-                  Text('₹${amount.toStringAsFixed(2)} collected for ${bill.billNumber}'),
-                ]),
-                backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ));
-            }
-          },
-          icon: const Icon(Icons.check, size: 18),
-          label: const Text('Collect'),
-        ),
-      ],
-    ));
+      ),
+    );
   }
 
   void _showEditBill(BuildContext context, Bill bill) {

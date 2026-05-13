@@ -312,7 +312,7 @@ class AppState extends ChangeNotifier {
     await loadDashboardStats();
   }
 
-  Future<void> collectPayment(String billId, double amount) async {
+  Future<void> collectPayment(String billId, double amount, {String paymentType = 'cash', String? bankAccountId}) async {
     final bill = _bills.firstWhere((b) => b.id == billId);
     bill.paidAmount += amount;
     if (bill.paidAmount >= bill.totalAmount) {
@@ -335,6 +335,23 @@ class AppState extends ChangeNotifier {
         await _db.updateCustomer(customer);
       }
     }
+
+    // Auto-create cash/bank book entry
+    final TransactionType txType;
+    if (paymentType == 'cash') {
+      txType = TransactionType.cashIn;
+    } else {
+      txType = TransactionType.bankIn;
+    }
+    final entry = CashBookEntry(
+      type: txType,
+      amount: amount,
+      description: 'Payment collected - ${bill.billNumber} (${bill.customerName ?? "Walk-in"})',
+      reference: bill.billNumber,
+      bankAccountId: paymentType != 'cash' ? bankAccountId : null,
+      category: 'Sales Collection',
+    );
+    await addCashBookEntry(entry);
 
     await Future.wait([loadBills(), loadCustomers(), loadDashboardStats()]);
   }
