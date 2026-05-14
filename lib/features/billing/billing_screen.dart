@@ -412,6 +412,16 @@ class _BillingScreenState extends State<BillingScreen> {
   }
 
   Widget _buildPartialUI(bool isDark) {
+    final amt1 = double.tryParse(_partialAmount1Ctrl.text) ?? 0;
+    final amt2 = _totalAmount - amt1;
+    final bool hasCreditMethod = _partialMethod1 == PaymentMethod.credit || _partialMethod2 == PaymentMethod.credit;
+    // Calculate pending: credit portion is unpaid
+    double pendingAmount = 0;
+    if (_partialMethod1 == PaymentMethod.credit) pendingAmount += amt1;
+    if (_partialMethod2 == PaymentMethod.credit) pendingAmount += (amt2 > 0 ? amt2 : 0);
+
+    const allMethods = [PaymentMethod.cash, PaymentMethod.upi, PaymentMethod.card, PaymentMethod.bank, PaymentMethod.credit];
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -425,17 +435,18 @@ class _BillingScreenState extends State<BillingScreen> {
         const SizedBox(height: 12),
         Row(children: [
           const Text('Method 1: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-          ...([PaymentMethod.cash, PaymentMethod.upi, PaymentMethod.card, PaymentMethod.bank].map((pm) {
+          ...(allMethods.map((pm) {
             final sel = _partialMethod1 == pm;
             return Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(
               label: Text(AppFormatters.paymentMethod(pm.name), style: TextStyle(fontSize: 10, color: sel ? Colors.white : null)),
-              selected: sel, selectedColor: AppColors.primary, visualDensity: VisualDensity.compact,
+              selected: sel, selectedColor: pm == PaymentMethod.credit ? AppColors.error : AppColors.primary,
+              visualDensity: VisualDensity.compact,
               onSelected: (_) => setState(() => _partialMethod1 = pm)));
           })),
           const SizedBox(width: 12),
           SizedBox(width: 150, child: TextField(controller: _partialAmount1Ctrl, keyboardType: TextInputType.number,
             style: const TextStyle(fontSize: 12),
-            decoration: InputDecoration(labelText: 'Amount', prefixText: 'â‚¹', isDense: true,
+            decoration: InputDecoration(labelText: 'Amount', prefixText: '₹', isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
             onChanged: (_) => setState(() {}))),
@@ -443,21 +454,39 @@ class _BillingScreenState extends State<BillingScreen> {
         const SizedBox(height: 10),
         Row(children: [
           const Text('Method 2: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-          ...([PaymentMethod.cash, PaymentMethod.upi, PaymentMethod.card, PaymentMethod.bank].map((pm) {
+          ...(allMethods.map((pm) {
             final sel = _partialMethod2 == pm;
             return Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(
               label: Text(AppFormatters.paymentMethod(pm.name), style: TextStyle(fontSize: 10, color: sel ? Colors.white : null)),
-              selected: sel, selectedColor: AppColors.accent, visualDensity: VisualDensity.compact,
+              selected: sel, selectedColor: pm == PaymentMethod.credit ? AppColors.error : AppColors.accent,
+              visualDensity: VisualDensity.compact,
               onSelected: (_) => setState(() => _partialMethod2 = pm)));
           })),
           const SizedBox(width: 12),
-          Builder(builder: (_) {
-            final amt1 = double.tryParse(_partialAmount1Ctrl.text) ?? 0;
-            final amt2 = _totalAmount - amt1;
-            return Text('${AppFormatters.paymentMethod(_partialMethod2.name)}: ${AppFormatters.currency(amt2 > 0 ? amt2 : 0)}',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.accent));
-          }),
+          Text('${AppFormatters.paymentMethod(_partialMethod2.name)}: ${AppFormatters.currency(amt2 > 0 ? amt2 : 0)}',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+              color: _partialMethod2 == PaymentMethod.credit ? AppColors.error : AppColors.accent)),
         ]),
+        // Pending amount when credit is selected
+        if (hasCreditMethod && pendingAmount > 0) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.3))),
+            child: Row(children: [
+              const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.error),
+              const SizedBox(width: 8),
+              Text('Pending Amount: ', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black54)),
+              Text(AppFormatters.currency(pendingAmount),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.error)),
+              const Spacer(),
+              Text('Bill will be marked as Partial/Unpaid', style: TextStyle(fontSize: 10, color: isDark ? Colors.white38 : Colors.black38)),
+            ]),
+          ),
+        ],
       ]),
     );
   }
@@ -613,15 +642,30 @@ class _BillingScreenState extends State<BillingScreen> {
           description: c.description.isNotEmpty ? c.description : null,
           serialNumber: serials.isNotEmpty ? serials.join(', ') : null);
       }).toList();
+      // Calculate paid amount for partial with credit
+      double paidAmt = _totalAmount;
+      BillStatus billStatus = BillStatus.paid;
+      if (_isPartial) {
+        final a1 = double.tryParse(_partialAmount1Ctrl.text) ?? 0;
+        final a2 = _totalAmount - a1;
+        double creditAmt = 0;
+        if (_partialMethod1 == PaymentMethod.credit) creditAmt += a1;
+        if (_partialMethod2 == PaymentMethod.credit) creditAmt += (a2 > 0 ? a2 : 0);
+        paidAmt = _totalAmount - creditAmt;
+        if (creditAmt > 0) billStatus = BillStatus.partial;
+      } else if (_paymentMethod == PaymentMethod.credit) {
+        paidAmt = 0;
+        billStatus = BillStatus.unpaid;
+      }
       final bill = Bill(billNumber: billNumber, customerId: _selectedCustomer?.id,
         customerName: _selectedCustomer?.name ?? (walkInName.isNotEmpty ? walkInName : null),
         customerPhone: _selectedCustomer?.phone ?? (walkInPhone.isNotEmpty ? walkInPhone : null),
         items: billItems, subtotal: _subtotal,
         discount: _discount,
         totalTax: _totalTax, totalAmount: _totalAmount,
-        paidAmount: _isPartial ? _totalAmount : (_paymentMethod == PaymentMethod.credit ? 0 : _totalAmount),
+        paidAmount: paidAmt,
         paymentMethod: _isPartial ? _partialMethod1 : _paymentMethod,
-        status: _isPartial ? BillStatus.paid : (_paymentMethod == PaymentMethod.credit ? BillStatus.unpaid : BillStatus.paid));
+        status: billStatus);
       await appState.createBill(bill);
 
       // Auto-add to Cash Book or Bank Book based on payment method
@@ -630,8 +674,8 @@ class _BillingScreenState extends State<BillingScreen> {
         final amt1 = double.tryParse(_partialAmount1Ctrl.text) ?? 0;
         final amt2 = _totalAmount - amt1;
         try {
-          // Entry 1
-          if (amt1 > 0) {
+          // Entry 1 (skip if credit)
+          if (amt1 > 0 && _partialMethod1 != PaymentMethod.credit) {
             if (_partialMethod1 == PaymentMethod.cash) {
               await appState.addCashBookEntry(CashBookEntry(
                 type: TransactionType.cashIn,
@@ -653,7 +697,7 @@ class _BillingScreenState extends State<BillingScreen> {
             }
           }
           // Entry 2
-          if (amt2 > 0) {
+          if (amt2 > 0 && _partialMethod2 != PaymentMethod.credit) {
             if (_partialMethod2 == PaymentMethod.cash) {
               await appState.addCashBookEntry(CashBookEntry(
                 type: TransactionType.cashIn,
