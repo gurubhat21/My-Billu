@@ -367,72 +367,121 @@ class _BillingScreenState extends State<BillingScreen> {
   }
 
   Widget _buildTableRow(BuildContext context, AppState appState, int index, _CartItem c, bool isDark) {
+    final isMeter = c.item.unit.toLowerCase() == 'mtr' || c.item.unit.toLowerCase() == 'meter';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade200))),
-      child: Row(children: [
-        // #
-        SizedBox(width: 30, child: Text('${index + 1}', style: TextStyle(fontSize: 12, color: isDark ? Colors.white38 : Colors.black38), textAlign: TextAlign.center)),
-        // ITEM name
-        Expanded(flex: 3, child: Text(c.item.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
-        // QTY - typable
-        SizedBox(width: 70, child: SizedBox(height: 30, child: TextField(
-          key: ValueKey('qty_${c.item.id}'),
-          controller: TextEditingController(text: '${c.quantity}'),
-          keyboardType: TextInputType.number, textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
-          onChanged: (v) {
-            final newQty = int.tryParse(v) ?? 0;
-            if (newQty > 0) setState(() => c.updateQuantity(newQty));
-          },
-          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-        ))),
-        // UNIT dropdown
-        SizedBox(width: 80, child: SizedBox(height: 30, child: DropdownButtonFormField<String>(
-          value: c.item.unit,
-          isDense: true,
-          style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black87),
-          decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
-          items: ['pcs', 'kg', 'ltr', 'mtr', 'box', 'nos', 'set', 'pair'].map((u) =>
-            DropdownMenuItem(value: u, child: Text(u.toUpperCase(), style: const TextStyle(fontSize: 11)))).toList(),
-          onChanged: (v) { if (v != null) setState(() => c.item.unit = v); },
-        ))),
-        // PRICE
-        SizedBox(width: 90, child: Text(AppFormatters.currency(c.item.price), style: const TextStyle(fontSize: 12), textAlign: TextAlign.right)),
-        // DISCOUNT
-        SizedBox(width: 80, child: SizedBox(height: 30, child: TextField(
-          key: ValueKey('disc_${c.item.id}'),
-          keyboardType: TextInputType.number, textAlign: TextAlign.right,
-          style: const TextStyle(fontSize: 11), controller: TextEditingController(text: c.itemDiscount > 0 ? c.itemDiscount.toStringAsFixed(0) : ''),
-          decoration: InputDecoration(isDense: true, hintText: '0', contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
-          onChanged: (v) => setState(() => c.itemDiscount = double.tryParse(v) ?? 0),
-          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-        ))),
-        // TAX % dropdown
-        SizedBox(width: 90, child: SizedBox(height: 30, child: DropdownButtonFormField<double>(
-          value: c.item.taxRate,
-          isDense: true,
-          style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black87),
-          decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
-          items: [0, 5, 12, 18, 28].map((r) =>
-            DropdownMenuItem(value: r.toDouble(), child: Text(r == 0 ? 'NONE' : 'GST@$r%', style: const TextStyle(fontSize: 10)))).toList(),
-          onChanged: (v) { if (v != null) setState(() => c.item.taxRate = v); },
-        ))),
-        // TAX AMT
-        SizedBox(width: 80, child: Text(AppFormatters.currency(_itemTax(c)), style: const TextStyle(fontSize: 11), textAlign: TextAlign.right)),
-        // AMOUNT
-        SizedBox(width: 90, child: Text(AppFormatters.currency(_itemSubtotal(c) - c.itemDiscount + _itemTax(c)),
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700), textAlign: TextAlign.right)),
-        // Delete
-        SizedBox(width: 36, child: IconButton(
-          onPressed: () => setState(() => _cart.removeAt(index)),
-          icon: Icon(Icons.close, size: 16, color: isDark ? Colors.white24 : Colors.black26),
-          padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 30, minHeight: 30))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Main row
+        Row(children: [
+          SizedBox(width: 30, child: Text('${index + 1}', style: TextStyle(fontSize: 12, color: isDark ? Colors.white38 : Colors.black38), textAlign: TextAlign.center)),
+          Expanded(flex: 3, child: Text(c.item.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+          // QTY
+          SizedBox(width: 70, child: SizedBox(height: 30, child: TextField(
+            key: ValueKey('qty_${c.item.id}'),
+            controller: TextEditingController(text: '${c.quantity}'),
+            keyboardType: TextInputType.number, textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
+            onChanged: (v) { final q = int.tryParse(v) ?? 0; if (q > 0) setState(() => c.updateQuantity(q)); },
+            onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+          ))),
+          // UNIT
+          SizedBox(width: 80, child: SizedBox(height: 30, child: DropdownButtonFormField<String>(
+            value: c.item.unit, isDense: true,
+            style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black87),
+            decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
+            items: ['pcs', 'kg', 'ltr', 'mtr', 'box', 'nos', 'set', 'pair'].map((u) =>
+              DropdownMenuItem(value: u, child: Text(u.toUpperCase(), style: const TextStyle(fontSize: 11)))).toList(),
+            onChanged: (v) { if (v != null) setState(() => c.item.unit = v); },
+          ))),
+          // PRICE - typable
+          SizedBox(width: 90, child: SizedBox(height: 30, child: TextField(
+            key: ValueKey('price_${c.item.id}'),
+            controller: TextEditingController(text: c.item.price.toStringAsFixed(2)),
+            keyboardType: TextInputType.number, textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 11),
+            decoration: InputDecoration(isDense: true, prefixText: '₹', prefixStyle: const TextStyle(fontSize: 10),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
+            onChanged: (v) { final p = double.tryParse(v); if (p != null && p >= 0) setState(() => c.item.price = p); },
+            onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+          ))),
+          // DISCOUNT
+          SizedBox(width: 80, child: SizedBox(height: 30, child: TextField(
+            key: ValueKey('disc_${c.item.id}'),
+            keyboardType: TextInputType.number, textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 11), controller: TextEditingController(text: c.itemDiscount > 0 ? c.itemDiscount.toStringAsFixed(0) : ''),
+            decoration: InputDecoration(isDense: true, hintText: '0', contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
+            onChanged: (v) => setState(() => c.itemDiscount = double.tryParse(v) ?? 0),
+            onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+          ))),
+          // TAX %
+          SizedBox(width: 90, child: SizedBox(height: 30, child: DropdownButtonFormField<double>(
+            value: c.item.taxRate, isDense: true,
+            style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black87),
+            decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
+            items: [0, 5, 12, 18, 28].map((r) =>
+              DropdownMenuItem(value: r.toDouble(), child: Text(r == 0 ? 'NONE' : 'GST@$r%', style: const TextStyle(fontSize: 10)))).toList(),
+            onChanged: (v) { if (v != null) setState(() => c.item.taxRate = v); },
+          ))),
+          // TAX AMT
+          SizedBox(width: 80, child: Text(AppFormatters.currency(_itemTax(c)), style: const TextStyle(fontSize: 11), textAlign: TextAlign.right)),
+          // AMOUNT
+          SizedBox(width: 90, child: Text(AppFormatters.currency(_itemSubtotal(c) - c.itemDiscount + _itemTax(c)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700), textAlign: TextAlign.right)),
+          // Delete
+          SizedBox(width: 36, child: IconButton(
+            onPressed: () => setState(() => _cart.removeAt(index)),
+            icon: Icon(Icons.close, size: 16, color: isDark ? Colors.white24 : Colors.black26),
+            padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 30, minHeight: 30))),
+        ]),
+        // Description + Serial sub-row
+        Padding(padding: const EdgeInsets.only(left: 30, top: 4, right: 36),
+          child: Row(children: [
+            // Description
+            Expanded(child: SizedBox(height: 28, child: TextField(
+              key: ValueKey('desc_${c.item.id}'),
+              controller: TextEditingController(text: c.description),
+              style: const TextStyle(fontSize: 11),
+              decoration: InputDecoration(isDense: true, hintText: 'Item description...', hintStyle: TextStyle(fontSize: 10, color: isDark ? Colors.white24 : Colors.black26),
+                prefixIcon: const Icon(Icons.description_outlined, size: 14), prefixIconConstraints: const BoxConstraints(minWidth: 28),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade200))),
+              onChanged: (v) => c.description = v,
+              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+            ))),
+            // Serial numbers (hidden for meter unit)
+            if (!isMeter) ...[
+              const SizedBox(width: 8),
+              ...List.generate(c.quantity > 3 ? 1 : c.quantity, (si) => Expanded(child: Padding(
+                padding: EdgeInsets.only(left: si > 0 ? 4 : 0),
+                child: SizedBox(height: 28, child: TextField(
+                  key: ValueKey('serial_${c.item.id}_$si'),
+                  controller: TextEditingController(text: si < c.serialNumbers.length ? c.serialNumbers[si] : ''),
+                  style: const TextStyle(fontSize: 11),
+                  decoration: InputDecoration(isDense: true,
+                    hintText: c.quantity > 3 ? 'Serials (comma sep)' : 'S/N ${si + 1}',
+                    hintStyle: TextStyle(fontSize: 10, color: isDark ? Colors.white24 : Colors.black26),
+                    prefixIcon: const Icon(Icons.qr_code, size: 14), prefixIconConstraints: const BoxConstraints(minWidth: 28),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade200))),
+                  onChanged: (v) {
+                    if (c.quantity > 3) {
+                      c.serialNumbers = List.filled(c.quantity, '');
+                      final parts = v.split(',');
+                      for (int p = 0; p < parts.length && p < c.quantity; p++) c.serialNumbers[p] = parts[p].trim();
+                    } else if (si < c.serialNumbers.length) { c.serialNumbers[si] = v; }
+                  },
+                  onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                ))))),
+            ],
+          ]),
+        ),
       ]),
     );
   }
