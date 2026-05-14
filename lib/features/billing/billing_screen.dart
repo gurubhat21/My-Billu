@@ -15,12 +15,14 @@ import '../../widgets/common_widgets.dart';
 class _CartItem {
   final Item item;
   int quantity;
+  double itemDiscount;
   String description;
   List<String> serialNumbers;
-  _CartItem({required this.item, required this.quantity, this.description = '', List<String>? serialNumbers})
+  _CartItem({required this.item, required this.quantity, this.itemDiscount = 0, this.description = '', List<String>? serialNumbers})
     : serialNumbers = serialNumbers ?? List.filled(quantity, '');
   double get subtotal => item.price * quantity;
-  double get taxAmount => subtotal * item.taxRate / 100;
+  double get taxAmount => (subtotal - itemDiscount) * item.taxRate / 100;
+  double get rowTotal => subtotal - itemDiscount + taxAmount;
   void updateQuantity(int newQty) {
     if (newQty > quantity) {
       serialNumbers.addAll(List.filled(newQty - quantity, ''));
@@ -45,13 +47,17 @@ class _BillingScreenState extends State<BillingScreen> {
   PaymentMethod _partialMethod1 = PaymentMethod.cash;
   PaymentMethod _partialMethod2 = PaymentMethod.upi;
   final _partialAmount1Ctrl = TextEditingController();
-  String _itemSearch = '';
   final _discountCtrl = TextEditingController(text: '0');
   final _walkInNameCtrl = TextEditingController();
   final _walkInPhoneCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
   bool _showDescription = false;
   bool _showSerialNumber = false;
   bool _gstInclusive = false;
+  bool _roundOff = false;
+  String _invoiceNumber = '';
+  DateTime _billDate = DateTime.now();
+  TimeOfDay _billTime = TimeOfDay.now();
 
   @override
   void initState() {
@@ -64,17 +70,17 @@ class _BillingScreenState extends State<BillingScreen> {
     final desc = await appState.getSetting('billing_show_description');
     final serial = await appState.getSetting('billing_show_serial_number');
     final gstMode = await appState.getSetting('billing_gst_inclusive');
+    final nextBill = await appState.getNextBillNumber();
     if (mounted) {
       setState(() {
         _showDescription = desc == 'true';
         _showSerialNumber = serial == 'true';
         _gstInclusive = gstMode == 'true';
+        _invoiceNumber = nextBill;
       });
     }
   }
 
-  // When GST exclusive: subtotal = price * qty, tax = subtotal * rate/100
-  // When GST inclusive: price already includes GST, so extract it
   double _itemSubtotal(_CartItem c) {
     if (_gstInclusive) {
       return c.item.price * c.quantity / (1 + c.item.taxRate / 100);
@@ -83,397 +89,408 @@ class _BillingScreenState extends State<BillingScreen> {
   }
 
   double _itemTax(_CartItem c) {
+    final base = _itemSubtotal(c) - c.itemDiscount;
     if (_gstInclusive) {
-      final inclTotal = c.item.price * c.quantity;
+      final inclTotal = c.item.price * c.quantity - c.itemDiscount;
       return inclTotal - inclTotal / (1 + c.item.taxRate / 100);
     }
-    return c.item.price * c.quantity * c.item.taxRate / 100;
+    return base * c.item.taxRate / 100;
   }
 
   double get _subtotal => _cart.fold(0.0, (s, c) => s + _itemSubtotal(c));
+  double get _totalItemDiscount => _cart.fold(0.0, (s, c) => s + c.itemDiscount);
   double get _totalTax => _cart.fold(0.0, (s, c) => s + _itemTax(c));
   double get _discount => double.tryParse(_discountCtrl.text) ?? 0;
-  double get _totalAmount => (_subtotal + _totalTax - _discount).clamp(0, double.infinity);
+  double get _rawTotal => (_subtotal - _totalItemDiscount + _totalTax - _discount).clamp(0, double.infinity);
+  double get _roundOffAmount => _roundOff ? (_rawTotal.roundToDouble() - _rawTotal) : 0;
+  double get _totalAmount => _rawTotal + _roundOffAmount;
+
+
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppState>(builder: (context, appState, _) {
-      return LayoutBuilder(builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 900;
-        if (isWide) {
-          return Row(children: [
-            Expanded(flex: 3, child: _buildItemPicker(context, appState)),
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return Scaffold(
+        backgroundColor: isDark ? AppColors.darkSurface : const Color(0xFFF5F7FA),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // === TOP BAR: Sale + toggles ===
             Container(
-              width: 380,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? AppColors.darkSurface : AppColors.lightSurface,
-                border: Border(left: BorderSide(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white.withValues(alpha: 0.06)
-                      : Colors.black.withValues(alpha: 0.06),
-                )),
-              ),
-              child: _buildCartPanel(context, appState),
+                color: isDark ? AppColors.darkCard : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
+              child: Row(children: [
+                Text('Sale', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: isDark ? Colors.white : Colors.black87)),
+                const SizedBox(width: 16),
+                // Credit/Cash toggle
+                Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(color: isDark ? Colors.white10 : Colors.grey.shade200, borderRadius: BorderRadius.circular(20)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    _toggleChip('Credit', _paymentMethod == PaymentMethod.credit, () => setState(() { _paymentMethod = PaymentMethod.credit; _isPartial = false; }), isDark),
+                    _toggleChip('Cash', _paymentMethod == PaymentMethod.cash, () => setState(() { _paymentMethod = PaymentMethod.cash; _isPartial = false; }), isDark),
+                  ]),
+                ),
+                const SizedBox(width: 12),
+                // GST toggle
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_gstInclusive ? 'Inclusive' : 'Exclusive', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _gstInclusive ? AppColors.success : AppColors.primary)),
+                  SizedBox(height: 24, child: Switch(value: _gstInclusive, activeColor: AppColors.success, onChanged: (v) async {
+                    setState(() => _gstInclusive = v);
+                    await appState.saveSetting('billing_gst_inclusive', v.toString());
+                  })),
+                ]),
+                const Spacer(),
+                // More payment methods
+                Wrap(spacing: 6, children: [PaymentMethod.upi, PaymentMethod.card, PaymentMethod.bank].map((pm) {
+                  final sel = !_isPartial && _paymentMethod == pm;
+                  return ChoiceChip(label: Text(AppFormatters.paymentMethod(pm.name), style: TextStyle(fontSize: 10, color: sel ? Colors.white : null)),
+                    selected: sel, selectedColor: AppColors.primary, visualDensity: VisualDensity.compact,
+                    onSelected: (_) => setState(() { _paymentMethod = pm; _isPartial = false; }));
+                }).toList()),
+                const SizedBox(width: 6),
+                ChoiceChip(label: const Text('Partial', style: TextStyle(fontSize: 10)),
+                  selected: _isPartial, selectedColor: Colors.orangeAccent, visualDensity: VisualDensity.compact,
+                  labelStyle: TextStyle(color: _isPartial ? Colors.white : null, fontWeight: FontWeight.w600),
+                  onSelected: (_) => setState(() { _isPartial = true; _partialAmount1Ctrl.text = ''; })),
+              ]),
             ),
-          ]);
-        }
-        return DefaultTabController(length: 2, child: Column(children: [
-          TabBar(tabs: [
-            Tab(icon: const Icon(Icons.grid_view_rounded), text: 'Items'),
-            Tab(icon: const Icon(Icons.shopping_cart_rounded), text: 'Cart (${_cart.length})'),
-          ], indicatorColor: AppColors.primary, labelColor: AppColors.primary),
-          Expanded(child: TabBarView(children: [
-            _buildItemPicker(context, appState),
-            _buildCartPanel(context, appState),
-          ])),
-        ]));
-      });
+            const SizedBox(height: 12),
+
+            // === CUSTOMER + INVOICE INFO ===
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkCard : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // Left: customer fields
+                Expanded(flex: 3, child: Column(children: [
+                  Row(children: [
+                    Expanded(child: TextField(controller: _walkInNameCtrl,
+                      style: const TextStyle(fontSize: 13),
+                      decoration: _fieldDeco('Billing Name (Optional)', Icons.person_outline),
+                      onChanged: (_) => setState(() {}))),
+                    const SizedBox(width: 12),
+                    Expanded(child: TextField(controller: _walkInPhoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      style: const TextStyle(fontSize: 13),
+                      decoration: _fieldDeco('Phone No.', Icons.phone_outlined),
+                      onChanged: (_) => setState(() {}))),
+                    const SizedBox(width: 8),
+                    IconButton(onPressed: () => _showCustomerPicker(context, appState),
+                      icon: const Icon(Icons.contacts, color: AppColors.primary, size: 20),
+                      tooltip: 'Select Customer'),
+                  ]),
+                  const SizedBox(height: 10),
+                  TextField(controller: _addressCtrl, maxLines: 2,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: _fieldDeco('Billing Address', Icons.location_on_outlined)),
+                ])),
+                const SizedBox(width: 24),
+                // Right: invoice metadata
+                SizedBox(width: 220, child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  _metaRow('Invoice Number', _invoiceNumber),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final d = await showDatePicker(context: context, initialDate: _billDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
+                      if (d != null) setState(() => _billDate = d);
+                    },
+                    child: _metaRow('Invoice Date', AppFormatters.date(_billDate), icon: Icons.calendar_today)),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final t = await showTimePicker(context: context, initialTime: _billTime);
+                      if (t != null) setState(() => _billTime = t);
+                    },
+                    child: _metaRow('Time', _billTime.format(context), icon: Icons.access_time)),
+                ])),
+              ]),
+            ),
+            const SizedBox(height: 12),
+
+            // === ITEMS TABLE ===
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkCard : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
+              child: Column(children: [
+                // Table header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF2A2A4A) : const Color(0xFFF1F3F8),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
+                  child: Row(children: [
+                    _thCell('#', 30), _thCell('ITEM', 0, flex: 3), _thCell('QTY', 60),
+                    _thCell('UNIT', 60), _thCell('PRICE/UNIT', 90), _thCell('DISCOUNT', 80),
+                    _thCell('TAX %', 70), _thCell('TAX AMT', 80), _thCell('AMOUNT', 90),
+                    const SizedBox(width: 36),
+                  ]),
+                ),
+                // Table rows
+                ..._cart.asMap().entries.map((e) => _buildTableRow(context, appState, e.key, e.value, isDark)),
+                // Add Row button + totals
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(border: Border(top: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300))),
+                  child: Row(children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _showAddItemDialog(context, appState),
+                      icon: const Icon(Icons.add, size: 16), label: const Text('ADD ROW', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                      style: OutlinedButton.styleFrom(foregroundColor: AppColors.primary, side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), visualDensity: VisualDensity.compact)),
+                    const Spacer(),
+                    Text('TOTAL', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: isDark ? Colors.white54 : Colors.black54)),
+                    const SizedBox(width: 16),
+                    SizedBox(width: 80, child: Text(AppFormatters.currency(_totalItemDiscount), textAlign: TextAlign.right,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+                    const SizedBox(width: 16),
+                    SizedBox(width: 80, child: Text(AppFormatters.currency(_totalTax), textAlign: TextAlign.right,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+                    const SizedBox(width: 16),
+                    SizedBox(width: 90, child: Text(AppFormatters.currency(_rawTotal), textAlign: TextAlign.right,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.primary))),
+                    const SizedBox(width: 36),
+                  ]),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 12),
+
+            // === PARTIAL PAYMENT UI (if selected) ===
+            if (_isPartial) _buildPartialUI(isDark),
+
+            // === BOTTOM: Round off + Total + Buttons ===
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkCard : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
+              child: Row(children: [
+                // Description/notes area
+                if (_showDescription)
+                  Expanded(flex: 2, child: TextField(
+                    decoration: _fieldDeco('Add Description / Notes', Icons.description_outlined),
+                    maxLines: 2, style: const TextStyle(fontSize: 12))),
+                if (_showDescription) const SizedBox(width: 16),
+                const Spacer(),
+                // Round off
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  SizedBox(height: 20, width: 20, child: Checkbox(value: _roundOff, activeColor: AppColors.primary,
+                    onChanged: (v) => setState(() => _roundOff = v ?? false))),
+                  const SizedBox(width: 4),
+                  Text('Round Off', style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.black54)),
+                  if (_roundOff) ...[
+                    const SizedBox(width: 8),
+                    Text(_roundOffAmount >= 0 ? '+${_roundOffAmount.toStringAsFixed(2)}' : _roundOffAmount.toStringAsFixed(2),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  ],
+                ]),
+                const SizedBox(width: 24),
+                // Extra discount
+                SizedBox(width: 100, child: TextField(controller: _discountCtrl, keyboardType: TextInputType.number,
+                  textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  decoration: InputDecoration(labelText: 'Discount', prefixText: 'â‚¹', isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                  onChanged: (_) => setState(() {}))),
+                const SizedBox(width: 16),
+                // Total
+                Text('Total', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black54)),
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+                  child: Text(AppFormatters.currency(_totalAmount),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary))),
+                const SizedBox(width: 16),
+                // Buttons
+                OutlinedButton.icon(
+                  onPressed: _cart.isEmpty ? null : () => _createBill(context, appState),
+                  icon: const Icon(Icons.share, size: 18),
+                  label: const Text('Share'),
+                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12))),
+                const SizedBox(width: 10),
+                ElevatedButton.icon(
+                  onPressed: _cart.isEmpty ? null : () => _createBill(context, appState),
+                  icon: const Icon(Icons.check_circle, size: 18),
+                  label: const Text('Save', style: TextStyle(fontWeight: FontWeight.w700)),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12))),
+              ]),
+            ),
+          ]),
+        ),
+      );
     });
   }
 
-  Widget _buildItemPicker(BuildContext context, AppState appState) {
-    final items = _itemSearch.isEmpty ? appState.items
-        : appState.items.where((i) => i.name.toLowerCase().contains(_itemSearch.toLowerCase())).toList();
-    return Column(children: [
-      Padding(padding: const EdgeInsets.all(16), child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Create Bill', style: Theme.of(context).textTheme.headlineLarge),
-          const SizedBox(height: 12),
-          TextField(onChanged: (v) => setState(() => _itemSearch = v),
-            decoration: const InputDecoration(hintText: 'Search items...', prefixIcon: Icon(Icons.search, color: AppColors.primary))),
-        ],
-      )),
-      Expanded(child: items.isEmpty
-          ? const EmptyState(icon: Icons.inventory_2_outlined, title: 'No items', subtitle: 'Add items in catalog first')
-          : GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 200, childAspectRatio: 1.1, crossAxisSpacing: 10, mainAxisSpacing: 10),
-              itemCount: items.length,
-              itemBuilder: (ctx, i) {
-                final item = items[i];
-                final inCart = _cart.any((c) => c.item.id == item.id);
-                return GlassCard(onTap: () => _addToCart(item), padding: const EdgeInsets.all(14),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Container(padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: inCart ? AppColors.success.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10)),
-                      child: Icon(inCart ? Icons.check_circle : Icons.inventory_2, size: 20,
-                        color: inCart ? AppColors.success : AppColors.primary)),
-                    const Spacer(),
-                    Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 4),
-                    Text(AppFormatters.currency(item.price),
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 14)),
-                  ]));
-              })),
+  // â”€â”€â”€ Helper widgets â”€â”€â”€
+
+  Widget _toggleChip(String label, bool sel, VoidCallback onTap, bool isDark) {
+    return GestureDetector(onTap: onTap, child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: sel ? AppColors.primary : Colors.transparent,
+        borderRadius: BorderRadius.circular(18)),
+      child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+        color: sel ? Colors.white : (isDark ? Colors.white60 : Colors.black54)))));
+  }
+
+  InputDecoration _fieldDeco(String label, IconData icon) {
+    return InputDecoration(labelText: label, prefixIcon: Icon(icon, size: 18),
+      isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)));
+  }
+
+  Widget _metaRow(String label, String value, {IconData? icon}) {
+    return Row(mainAxisAlignment: MainAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+      Text('$label  ', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+      Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+      if (icon != null) ...[const SizedBox(width: 6), Icon(icon, size: 14, color: AppColors.primary)],
     ]);
   }
 
-  Widget _buildCartPanel(BuildContext context, AppState appState) {
-    final displayName = _selectedCustomer?.name
-        ?? (_walkInNameCtrl.text.trim().isNotEmpty ? _walkInNameCtrl.text.trim() : 'Walk-in Customer');
-    final displayPhone = _selectedCustomer?.phone ?? (_walkInPhoneCtrl.text.trim().isNotEmpty ? _walkInPhoneCtrl.text.trim() : null);
+  Widget _thCell(String text, double width, {int flex = 0}) {
+    final child = Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5), textAlign: TextAlign.center);
+    if (flex > 0) return Expanded(flex: flex, child: child);
+    return SizedBox(width: width, child: child);
+  }
 
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.all(16),
-        child: InkWell(
-          onTap: () => _showCustomerPicker(context, appState),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark ? AppColors.darkCard : AppColors.lightCard,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3))),
-            child: Row(children: [
-              CircleAvatar(radius: 18, backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                child: Icon(_selectedCustomer != null ? Icons.person : Icons.person_add, size: 18, color: AppColors.primary)),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(displayName, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-                if (displayPhone != null)
-                  Text(displayPhone, style: TextStyle(fontSize: 11, color: Theme.of(context).textTheme.bodySmall?.color)),
-              ])),
-              const Icon(Icons.chevron_right, size: 20),
-            ]),
-          ),
-        ),
-      ),
-      Expanded(child: _cart.isEmpty
-          ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.shopping_cart_outlined, size: 48,
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.3)),
-              const SizedBox(height: 12),
-              Text('Cart is empty', style: Theme.of(context).textTheme.bodyMedium),
-            ]))
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _cart.length, itemBuilder: (ctx, i) => _buildCartItem(context, i))),
-      // Summary
-      Container(padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark ? AppColors.darkCard : AppColors.lightCard,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-        child: Column(children: [
-          // GST toggle
-          Row(children: [
-            Icon(Icons.receipt_long, size: 16,
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.black38),
-            const SizedBox(width: 6),
-            Text(_gstInclusive ? 'GST Inclusive' : 'GST Exclusive',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                color: _gstInclusive ? AppColors.success : AppColors.primary)),
-            const Spacer(),
-            SizedBox(height: 28, child: Switch(
-              value: _gstInclusive,
-              activeColor: AppColors.success,
-              onChanged: (v) async {
-                setState(() => _gstInclusive = v);
-                final appState = context.read<AppState>();
-                await appState.saveSetting('billing_gst_inclusive', v.toString());
-              },
-            )),
-          ]),
-          const SizedBox(height: 4),
-          _row('Subtotal', AppFormatters.currency(_subtotal)),
-          const SizedBox(height: 6),
-          _row('GST', AppFormatters.currency(_totalTax)),
-          const SizedBox(height: 6),
-          // Discount input
-          Row(children: [
-            const Text('Discount', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-            const Spacer(),
-            SizedBox(width: 100, height: 36,
-              child: TextField(
-                controller: _discountCtrl,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.error),
-                decoration: InputDecoration(
-                  prefixText: '- ₹',
-                  prefixStyle: const TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  isDense: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onChanged: (_) => setState(() {}),
-              )),
-          ]),
-          const Divider(height: 16),
-          _row('Total', AppFormatters.currency(_totalAmount), bold: true),
-          const SizedBox(height: 12),
-          Wrap(spacing: 8, runSpacing: 8,
-            children: [
-              ...PaymentMethod.values.map((pm) {
-                final sel = !_isPartial && _paymentMethod == pm;
-                return ChoiceChip(label: Text(AppFormatters.paymentMethod(pm.name)),
-                  selected: sel, selectedColor: AppColors.primary,
-                  labelStyle: TextStyle(color: sel ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w500),
-                  onSelected: (_) => setState(() { _paymentMethod = pm; _isPartial = false; }));
-              }),
-              ChoiceChip(
-                avatar: _isPartial ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
-                label: const Text('Partial'),
-                selected: _isPartial,
-                selectedColor: Colors.orangeAccent,
-                labelStyle: TextStyle(color: _isPartial ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w600),
-                onSelected: (_) => setState(() {
-                  _isPartial = true;
-                  _partialAmount1Ctrl.text = '';
-                })),
-            ]),
-          // ── Partial payment split UI ──
-          if (_isPartial) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.orangeAccent.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3))),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Row(children: [
-                  Icon(Icons.call_split, size: 16, color: Colors.orangeAccent),
-                  SizedBox(width: 6),
-                  Text('Split Payment', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.orangeAccent)),
-                ]),
-                const SizedBox(height: 12),
-                // Method 1
-                Row(children: [
-                  const Text('Method 1: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Wrap(spacing: 6, runSpacing: 6, children: [PaymentMethod.cash, PaymentMethod.upi, PaymentMethod.card, PaymentMethod.bank].map((pm) {
-                    final sel = _partialMethod1 == pm;
-                    return ChoiceChip(label: Text(AppFormatters.paymentMethod(pm.name), style: TextStyle(fontSize: 10, color: sel ? Colors.white : null)),
-                      selected: sel, selectedColor: AppColors.primary,
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (_) => setState(() => _partialMethod1 = pm));
-                  }).toList())),
-                ]),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _partialAmount1Ctrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Amount for ${AppFormatters.paymentMethod(_partialMethod1.name)}',
-                    prefixIcon: const Icon(Icons.currency_rupee, size: 18),
-                    isDense: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 12),
-                // Method 2
-                Row(children: [
-                  const Text('Method 2: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Wrap(spacing: 6, runSpacing: 6, children: [PaymentMethod.cash, PaymentMethod.upi, PaymentMethod.card, PaymentMethod.bank].map((pm) {
-                    final sel = _partialMethod2 == pm;
-                    return ChoiceChip(label: Text(AppFormatters.paymentMethod(pm.name), style: TextStyle(fontSize: 10, color: sel ? Colors.white : null)),
-                      selected: sel, selectedColor: AppColors.accent,
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (_) => setState(() => _partialMethod2 = pm));
-                  }).toList())),
-                ]),
-                const SizedBox(height: 8),
-                Builder(builder: (_) {
-                  final amt1 = double.tryParse(_partialAmount1Ctrl.text) ?? 0;
-                  final amt2 = _totalAmount - amt1;
-                  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.accent.withValues(alpha: 0.3))),
-                      child: Row(children: [
-                        const Icon(Icons.currency_rupee, size: 16, color: AppColors.accent),
-                        const SizedBox(width: 6),
-                        Text('${AppFormatters.paymentMethod(_partialMethod2.name)}: ',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                        Text(AppFormatters.currency(amt2 > 0 ? amt2 : 0),
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.accent)),
-                      ]),
-                    ),
-                    if (amt1 > _totalAmount)
-                      Padding(padding: const EdgeInsets.only(top: 6),
-                        child: Text('⚠ Amount exceeds total (${AppFormatters.currency(_totalAmount)})',
-                          style: const TextStyle(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.w600))),
-                  ]);
-                }),
-              ]),
-            ),
-          ],
-          const SizedBox(height: 12),
-          SizedBox(width: double.infinity, height: 50,
-            child: ElevatedButton(
-              onPressed: _cart.isEmpty ? null : () => _createBill(context, appState),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.success,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-              child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.check_circle, size: 22), SizedBox(width: 8),
-                Text('Create Bill', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-              ]))),
+  Widget _buildTableRow(BuildContext context, AppState appState, int index, _CartItem c, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade200))),
+      child: Row(children: [
+        // #
+        SizedBox(width: 30, child: Text('${index + 1}', style: TextStyle(fontSize: 12, color: isDark ? Colors.white38 : Colors.black38), textAlign: TextAlign.center)),
+        // ITEM name
+        Expanded(flex: 3, child: Text(c.item.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+        // QTY
+        SizedBox(width: 60, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          InkWell(onTap: () => setState(() { if (c.quantity > 1) c.updateQuantity(c.quantity - 1); else _cart.removeAt(index); }),
+            child: Icon(Icons.remove_circle_outline, size: 16, color: isDark ? Colors.white38 : Colors.black38)),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text('${c.quantity}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
+          InkWell(onTap: () => setState(() => c.updateQuantity(c.quantity + 1)),
+            child: const Icon(Icons.add_circle_outline, size: 16, color: AppColors.primary)),
         ])),
-    ]);
+        // UNIT
+        SizedBox(width: 60, child: Text(c.item.unit.toUpperCase(), style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black45), textAlign: TextAlign.center)),
+        // PRICE
+        SizedBox(width: 90, child: Text(AppFormatters.currency(c.item.price), style: const TextStyle(fontSize: 12), textAlign: TextAlign.right)),
+        // DISCOUNT
+        SizedBox(width: 80, child: SizedBox(height: 30, child: TextField(
+          keyboardType: TextInputType.number, textAlign: TextAlign.right,
+          style: const TextStyle(fontSize: 11), controller: TextEditingController(text: c.itemDiscount > 0 ? c.itemDiscount.toStringAsFixed(0) : ''),
+          decoration: InputDecoration(isDense: true, hintText: '0', contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
+          onChanged: (v) => setState(() => c.itemDiscount = double.tryParse(v) ?? 0)))),
+        // TAX %
+        SizedBox(width: 70, child: Text('${c.item.taxRate.toStringAsFixed(0)}%', style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.black54), textAlign: TextAlign.center)),
+        // TAX AMT
+        SizedBox(width: 80, child: Text(AppFormatters.currency(_itemTax(c)), style: const TextStyle(fontSize: 11), textAlign: TextAlign.right)),
+        // AMOUNT
+        SizedBox(width: 90, child: Text(AppFormatters.currency(_itemSubtotal(c) - c.itemDiscount + _itemTax(c)),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700), textAlign: TextAlign.right)),
+        // Delete
+        SizedBox(width: 36, child: IconButton(
+          onPressed: () => setState(() => _cart.removeAt(index)),
+          icon: Icon(Icons.close, size: 16, color: isDark ? Colors.white24 : Colors.black26),
+          padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 30, minHeight: 30))),
+      ]),
+    );
   }
 
-  Widget _buildCartItem(BuildContext context, int index) {
-    final c = _cart[index];
-    return Padding(key: ValueKey('cart_${c.item.id}'), padding: const EdgeInsets.only(bottom: 8),
-      child: Container(padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
-          borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(c.item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 2),
-              Text('${AppFormatters.currency(c.item.price)} \u00d7 ${c.quantity}', style: Theme.of(context).textTheme.bodySmall),
-            ])),
-            Container(decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      if (_cart[index].quantity > 1) {
-                        _cart[index].updateQuantity(_cart[index].quantity - 1);
-                      } else {
-                        _cart.removeAt(index);
-                      }
-                    });
-                  },
-                  icon: const Icon(Icons.remove, size: 20, color: AppColors.primary),
-                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                  padding: EdgeInsets.zero,
-                  splashRadius: 22,
-                ),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _cart[index].updateQuantity(_cart[index].quantity + 1);
-                    });
-                  },
-                  icon: const Icon(Icons.add, size: 20, color: AppColors.primary),
-                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                  padding: EdgeInsets.zero,
-                  splashRadius: 22,
-                ),
-              ])),
-            const SizedBox(width: 12),
-            SizedBox(width: 70, child: Text(AppFormatters.currency(c.subtotal),
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), textAlign: TextAlign.right)),
-          ]),
-          // Optional description field
-          if (_showDescription)
-            Padding(padding: const EdgeInsets.only(top: 6),
-              child: TextFormField(
-                key: ValueKey('desc_${c.item.id}'),
-                initialValue: c.description,
-                onChanged: (v) => c.description = v,
-                style: const TextStyle(fontSize: 12),
-                decoration: InputDecoration(
-                  hintText: 'Item description...',
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  prefixIcon: const Icon(Icons.description, size: 16)),
-              )),
-          // Optional serial number fields (one per quantity)
-          if (_showSerialNumber)
-            ...List.generate(c.quantity, (si) => Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: TextFormField(
-                key: ValueKey('serial_${c.item.id}_$si'),
-                initialValue: c.serialNumbers[si],
-                onChanged: (v) => c.serialNumbers[si] = v,
-                style: const TextStyle(fontSize: 12),
-                decoration: InputDecoration(
-                  hintText: c.quantity > 1 ? 'Serial #${si + 1} of ${c.quantity}...' : 'Serial number...',
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  prefixIcon: const Icon(Icons.qr_code, size: 16),
-                  suffixIcon: kIsWeb ? null : IconButton(
-                    icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
-                    tooltip: 'Scan barcode/QR',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _scanBarcode(context, (code) {
-                      setState(() => c.serialNumbers[si] = code);
-                    }),
-                  )),
-              ))),
-        ])));
+  Widget _buildPartialUI(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.orangeAccent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [Icon(Icons.call_split, size: 16, color: Colors.orangeAccent), SizedBox(width: 6),
+          Text('Split Payment', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.orangeAccent))]),
+        const SizedBox(height: 12),
+        Row(children: [
+          const Text('Method 1: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          ...([PaymentMethod.cash, PaymentMethod.upi, PaymentMethod.card, PaymentMethod.bank].map((pm) {
+            final sel = _partialMethod1 == pm;
+            return Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(
+              label: Text(AppFormatters.paymentMethod(pm.name), style: TextStyle(fontSize: 10, color: sel ? Colors.white : null)),
+              selected: sel, selectedColor: AppColors.primary, visualDensity: VisualDensity.compact,
+              onSelected: (_) => setState(() => _partialMethod1 = pm)));
+          })),
+          const SizedBox(width: 12),
+          SizedBox(width: 150, child: TextField(controller: _partialAmount1Ctrl, keyboardType: TextInputType.number,
+            style: const TextStyle(fontSize: 12),
+            decoration: InputDecoration(labelText: 'Amount', prefixText: 'â‚¹', isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+            onChanged: (_) => setState(() {}))),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          const Text('Method 2: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          ...([PaymentMethod.cash, PaymentMethod.upi, PaymentMethod.card, PaymentMethod.bank].map((pm) {
+            final sel = _partialMethod2 == pm;
+            return Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(
+              label: Text(AppFormatters.paymentMethod(pm.name), style: TextStyle(fontSize: 10, color: sel ? Colors.white : null)),
+              selected: sel, selectedColor: AppColors.accent, visualDensity: VisualDensity.compact,
+              onSelected: (_) => setState(() => _partialMethod2 = pm)));
+          })),
+          const SizedBox(width: 12),
+          Builder(builder: (_) {
+            final amt1 = double.tryParse(_partialAmount1Ctrl.text) ?? 0;
+            final amt2 = _totalAmount - amt1;
+            return Text('${AppFormatters.paymentMethod(_partialMethod2.name)}: ${AppFormatters.currency(amt2 > 0 ? amt2 : 0)}',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.accent));
+          }),
+        ]),
+      ]),
+    );
+  }
+
+  void _showAddItemDialog(BuildContext context, AppState appState) {
+    String search = '';
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, ss) {
+      final items = search.isEmpty ? appState.items
+        : appState.items.where((i) => i.name.toLowerCase().contains(search.toLowerCase())
+          || (i.barcode ?? '').contains(search) || (i.hsnCode ?? '').contains(search)).toList();
+      return AlertDialog(
+        title: const Text('Add Item'),
+        content: SizedBox(width: 500, height: 400, child: Column(children: [
+          TextField(onChanged: (v) => ss(() => search = v),
+            decoration: const InputDecoration(hintText: 'Search by name, barcode, HSN...', prefixIcon: Icon(Icons.search))),
+          const SizedBox(height: 12),
+          Expanded(child: ListView.builder(itemCount: items.length, itemBuilder: (_, i) {
+            final item = items[i];
+            final inCart = _cart.any((c) => c.item.id == item.id);
+            return ListTile(
+              dense: true,
+              leading: CircleAvatar(radius: 16, backgroundColor: inCart ? AppColors.success.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
+                child: Icon(inCart ? Icons.check : Icons.inventory_2, size: 14, color: inCart ? AppColors.success : AppColors.primary)),
+              title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              subtitle: Text('${AppFormatters.currency(item.price)} Â· ${item.unit} Â· GST ${item.taxRate}%', style: const TextStyle(fontSize: 11)),
+              trailing: inCart ? Text('In cart', style: TextStyle(fontSize: 10, color: AppColors.success)) : null,
+              onTap: () { _addToCart(item); Navigator.pop(ctx); },
+            );
+          })),
+        ])),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+      );
+    }));
   }
 
   Widget _row(String l, String v, {bool bold = false}) {
@@ -482,6 +499,7 @@ class _BillingScreenState extends State<BillingScreen> {
       Text(v, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600, fontSize: bold ? 18 : 14, color: bold ? AppColors.primary : null)),
     ]);
   }
+
 
   void _addToCart(Item item) {
     setState(() {
@@ -687,8 +705,9 @@ class _BillingScreenState extends State<BillingScreen> {
 
       if (mounted) {
         setState(() { _cart.clear(); _selectedCustomer = null; _paymentMethod = PaymentMethod.cash;
-          _isPartial = false; _partialAmount1Ctrl.text = '';
-          _discountCtrl.text = '0'; _walkInNameCtrl.clear(); _walkInPhoneCtrl.clear(); });
+          _isPartial = false; _partialAmount1Ctrl.text = ''; _roundOff = false;
+          _discountCtrl.text = '0'; _walkInNameCtrl.clear(); _walkInPhoneCtrl.clear(); _addressCtrl.clear(); });
+        _loadColumnSettings(); // reload next invoice number
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10), Text('Bill $billNumber created!')]),
           backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
