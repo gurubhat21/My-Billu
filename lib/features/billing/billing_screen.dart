@@ -229,9 +229,9 @@ class _BillingScreenState extends State<BillingScreen> {
                     color: isDark ? const Color(0xFF2A2A4A) : const Color(0xFFF1F3F8),
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
                   child: Row(children: [
-                    _thCell('#', 30), _thCell('ITEM', 0, flex: 3), _thCell('QTY', 60),
-                    _thCell('UNIT', 60), _thCell('PRICE/UNIT', 90), _thCell('DISCOUNT', 80),
-                    _thCell('TAX %', 70), _thCell('TAX AMT', 80), _thCell('AMOUNT', 90),
+                    _thCell('#', 30), _thCell('ITEM', 0, flex: 3), _thCell('QTY', 70),
+                    _thCell('UNIT', 80), _thCell('PRICE/UNIT', 90), _thCell('DISCOUNT', 80),
+                    _thCell('TAX %', 90), _thCell('TAX AMT', 80), _thCell('AMOUNT', 90),
                     const SizedBox(width: 36),
                   ]),
                 ),
@@ -375,28 +375,54 @@ class _BillingScreenState extends State<BillingScreen> {
         SizedBox(width: 30, child: Text('${index + 1}', style: TextStyle(fontSize: 12, color: isDark ? Colors.white38 : Colors.black38), textAlign: TextAlign.center)),
         // ITEM name
         Expanded(flex: 3, child: Text(c.item.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
-        // QTY
-        SizedBox(width: 60, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          InkWell(onTap: () => setState(() { if (c.quantity > 1) c.updateQuantity(c.quantity - 1); else _cart.removeAt(index); }),
-            child: Icon(Icons.remove_circle_outline, size: 16, color: isDark ? Colors.white38 : Colors.black38)),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text('${c.quantity}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-          InkWell(onTap: () => setState(() => c.updateQuantity(c.quantity + 1)),
-            child: const Icon(Icons.add_circle_outline, size: 16, color: AppColors.primary)),
-        ])),
-        // UNIT
-        SizedBox(width: 60, child: Text(c.item.unit.toUpperCase(), style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black45), textAlign: TextAlign.center)),
+        // QTY - typable
+        SizedBox(width: 70, child: SizedBox(height: 30, child: TextField(
+          key: ValueKey('qty_${c.item.id}'),
+          controller: TextEditingController(text: '${c.quantity}'),
+          keyboardType: TextInputType.number, textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
+          onChanged: (v) {
+            final newQty = int.tryParse(v) ?? 0;
+            if (newQty > 0) setState(() => c.updateQuantity(newQty));
+          },
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+        ))),
+        // UNIT dropdown
+        SizedBox(width: 80, child: SizedBox(height: 30, child: DropdownButtonFormField<String>(
+          value: c.item.unit,
+          isDense: true,
+          style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black87),
+          decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
+          items: ['pcs', 'kg', 'ltr', 'mtr', 'box', 'nos', 'set', 'pair'].map((u) =>
+            DropdownMenuItem(value: u, child: Text(u.toUpperCase(), style: const TextStyle(fontSize: 11)))).toList(),
+          onChanged: (v) { if (v != null) setState(() => c.item.unit = v); },
+        ))),
         // PRICE
         SizedBox(width: 90, child: Text(AppFormatters.currency(c.item.price), style: const TextStyle(fontSize: 12), textAlign: TextAlign.right)),
         // DISCOUNT
         SizedBox(width: 80, child: SizedBox(height: 30, child: TextField(
+          key: ValueKey('disc_${c.item.id}'),
           keyboardType: TextInputType.number, textAlign: TextAlign.right,
           style: const TextStyle(fontSize: 11), controller: TextEditingController(text: c.itemDiscount > 0 ? c.itemDiscount.toStringAsFixed(0) : ''),
           decoration: InputDecoration(isDense: true, hintText: '0', contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
-          onChanged: (v) => setState(() => c.itemDiscount = double.tryParse(v) ?? 0)))),
-        // TAX %
-        SizedBox(width: 70, child: Text('${c.item.taxRate.toStringAsFixed(0)}%', style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.black54), textAlign: TextAlign.center)),
+          onChanged: (v) => setState(() => c.itemDiscount = double.tryParse(v) ?? 0),
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+        ))),
+        // TAX % dropdown
+        SizedBox(width: 90, child: SizedBox(height: 30, child: DropdownButtonFormField<double>(
+          value: c.item.taxRate,
+          isDense: true,
+          style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black87),
+          decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300))),
+          items: [0, 5, 12, 18, 28].map((r) =>
+            DropdownMenuItem(value: r.toDouble(), child: Text(r == 0 ? 'NONE' : 'GST@$r%', style: const TextStyle(fontSize: 10)))).toList(),
+          onChanged: (v) { if (v != null) setState(() => c.item.taxRate = v); },
+        ))),
         // TAX AMT
         SizedBox(width: 80, child: Text(AppFormatters.currency(_itemTax(c)), style: const TextStyle(fontSize: 11), textAlign: TextAlign.right)),
         // AMOUNT
