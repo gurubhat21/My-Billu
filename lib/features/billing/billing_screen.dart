@@ -232,12 +232,18 @@ class _BillingScreenState extends State<BillingScreen> {
                     _thCell('#', 30), _thCell('ITEM', 0, flex: 3), _thCell('QTY', 70),
                     _thCell('UNIT', 80), _thCell('PRICE/UNIT', 90), _thCell('DISCOUNT', 80),
                     _thCell('TAX %', 90), _thCell('TAX AMT', 80), _thCell('AMOUNT', 90),
-                    const SizedBox(width: 36),
+                    SizedBox(width: 36, child: IconButton(
+                      onPressed: () => _showAddItemDialog(context, appState),
+                      icon: const Icon(Icons.add_circle, size: 18, color: AppColors.primary),
+                      padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                      tooltip: 'Add Item')),
                   ]),
                 ),
-                // Table rows
+                // Filled rows
                 ..._cart.asMap().entries.map((e) => _buildTableRow(context, appState, e.key, e.value, isDark)),
-                // Add Row button + totals
+                // Empty rows with inline autocomplete
+                ...List.generate(5, (emptyIdx) => _buildEmptyRow(context, appState, _cart.length + emptyIdx, isDark)),
+                // Footer: Add Row + totals
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(border: Border(top: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300))),
@@ -249,7 +255,9 @@ class _BillingScreenState extends State<BillingScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), visualDensity: VisualDensity.compact)),
                     const Spacer(),
                     Text('TOTAL', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: isDark ? Colors.white54 : Colors.black54)),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 70, child: Text('${_cart.fold(0, (s, c) => s + c.quantity)}', textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+                    const SizedBox(width: 170), // unit + price space
                     SizedBox(width: 80, child: Text(AppFormatters.currency(_totalItemDiscount), textAlign: TextAlign.right,
                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
                     const SizedBox(width: 16),
@@ -265,69 +273,124 @@ class _BillingScreenState extends State<BillingScreen> {
             ),
             const SizedBox(height: 12),
 
-            // === PARTIAL PAYMENT UI (if selected) ===
-            if (_isPartial) _buildPartialUI(isDark),
-
-            // === BOTTOM: Round off + Total + Buttons ===
+            // === PAYMENT SECTION ===
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkCard : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)]),
-              child: Row(children: [
-                // Description/notes area
-                if (_showDescription)
-                  Expanded(flex: 2, child: TextField(
-                    decoration: _fieldDeco('Add Description / Notes', Icons.description_outlined),
-                    maxLines: 2, style: const TextStyle(fontSize: 12))),
-                if (_showDescription) const SizedBox(width: 16),
-                const Spacer(),
-                // Round off
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  SizedBox(height: 20, width: 20, child: Checkbox(value: _roundOff, activeColor: AppColors.primary,
-                    onChanged: (v) => setState(() => _roundOff = v ?? false))),
-                  const SizedBox(width: 4),
-                  Text('Round Off', style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.black54)),
-                  if (_roundOff) ...[
-                    const SizedBox(width: 8),
-                    Text(_roundOffAmount >= 0 ? '+${_roundOffAmount.toStringAsFixed(2)}' : _roundOffAmount.toStringAsFixed(2),
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              child: Column(children: [
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  // Payment Type
+                  SizedBox(width: 160, child: DropdownButtonFormField<String>(
+                    value: _isPartial ? 'partial' : _paymentMethod.name,
+                    isDense: true,
+                    style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(labelText: 'Payment Type', isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                    items: const [
+                      DropdownMenuItem(value: 'cash', child: Text('Cash', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(value: 'upi', child: Text('UPI', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(value: 'card', child: Text('Card', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(value: 'bank', child: Text('Bank Transfer', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(value: 'credit', child: Text('Credit', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(value: 'partial', child: Text('Split/Partial', style: TextStyle(fontSize: 13))),
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() {
+                        if (v == 'partial') { _isPartial = true; _partialAmount1Ctrl.text = ''; }
+                        else { _isPartial = false; _paymentMethod = PaymentMethod.values.firstWhere((e) => e.name == v); }
+                      });
+                    },
+                  )),
+                  const SizedBox(width: 16),
+                  // Received section
+                  if (!_isPartial && _paymentMethod != PaymentMethod.credit) ...[
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      SizedBox(height: 20, width: 20, child: Checkbox(value: true, activeColor: AppColors.primary, onChanged: (_) {})),
+                      const SizedBox(width: 4),
+                      Text('Fully Received', style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black54)),
+                    ]),
+                    const SizedBox(width: 12),
+                    SizedBox(width: 120, child: TextField(
+                      controller: TextEditingController(text: _totalAmount.toStringAsFixed(2)),
+                      readOnly: true,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(isDense: true, prefixText: '₹',
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))))),
+                    const SizedBox(width: 12),
+                    Text('Balance: ${AppFormatters.currency(0)}', style: TextStyle(fontSize: 12, color: isDark ? Colors.white38 : Colors.black38)),
                   ],
+                  if (_paymentMethod == PaymentMethod.credit && !_isPartial)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.warning_amber, size: 16, color: AppColors.error),
+                        const SizedBox(width: 6),
+                        Text('Credit: ${AppFormatters.currency(_totalAmount)} unpaid',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.error)),
+                      ]),
+                    ),
+                  const Spacer(),
+                  // Round off
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    SizedBox(height: 20, width: 20, child: Checkbox(value: _roundOff, activeColor: AppColors.primary,
+                      onChanged: (v) => setState(() => _roundOff = v ?? false))),
+                    const SizedBox(width: 4),
+                    Text('Round Off', style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.black54)),
+                    if (_roundOff) ...[
+                      const SizedBox(width: 6),
+                      Text(_roundOffAmount >= 0 ? '+${_roundOffAmount.toStringAsFixed(2)}' : _roundOffAmount.toStringAsFixed(2),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ]),
+                  const SizedBox(width: 16),
+                  // Extra discount
+                  SizedBox(width: 100, child: TextField(controller: _discountCtrl, keyboardType: TextInputType.number,
+                    textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(labelText: 'Discount', prefixText: '₹', isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                    onChanged: (_) => setState(() {}))),
+                  const SizedBox(width: 16),
+                  // Total
+                  Text('Total', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black54)),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+                    child: Text(AppFormatters.currency(_totalAmount),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary))),
                 ]),
-                const SizedBox(width: 24),
-                // Extra discount
-                SizedBox(width: 100, child: TextField(controller: _discountCtrl, keyboardType: TextInputType.number,
-                  textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  decoration: InputDecoration(labelText: 'Discount', prefixText: 'â‚¹', isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
-                  onChanged: (_) => setState(() {}))),
-                const SizedBox(width: 16),
-                // Total
-                Text('Total', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black54)),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-                  child: Text(AppFormatters.currency(_totalAmount),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary))),
-                const SizedBox(width: 16),
-                // Buttons
-                OutlinedButton.icon(
-                  onPressed: _cart.isEmpty ? null : () => _createBill(context, appState),
-                  icon: const Icon(Icons.share, size: 18),
-                  label: const Text('Share'),
-                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12))),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  onPressed: _cart.isEmpty ? null : () => _createBill(context, appState),
-                  icon: const Icon(Icons.check_circle, size: 18),
-                  label: const Text('Save', style: TextStyle(fontWeight: FontWeight.w700)),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12))),
+                // Split payment UI
+                if (_isPartial) ...[
+                  const SizedBox(height: 12),
+                  _buildPartialUI(isDark),
+                ],
               ]),
             ),
+            const SizedBox(height: 12),
+
+            // === BOTTOM ACTIONS ===
+            Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              OutlinedButton.icon(
+                onPressed: _cart.isEmpty ? null : () => _createBill(context, appState),
+                icon: const Icon(Icons.receipt_long, size: 18),
+                label: const Text('Generate e-Invoice'),
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12))),
+              const SizedBox(width: 10),
+              ElevatedButton.icon(
+                onPressed: _cart.isEmpty ? null : () => _createBill(context, appState),
+                icon: const Icon(Icons.check_circle, size: 18),
+                label: const Text('Save', style: TextStyle(fontWeight: FontWeight.w700)),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12))),
+            ]),
           ]),
         ),
       );
@@ -482,6 +545,61 @@ class _BillingScreenState extends State<BillingScreen> {
             ],
           ]),
         ),
+      ]),
+    );
+  }
+
+  Widget _buildEmptyRow(BuildContext context, AppState appState, int index, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade100))),
+      child: Row(children: [
+        SizedBox(width: 30, child: Text('${index + 1}', style: TextStyle(fontSize: 12, color: isDark ? Colors.white12 : Colors.black12), textAlign: TextAlign.center)),
+        // Inline autocomplete for item
+        Expanded(flex: 3, child: SizedBox(height: 30, child: Autocomplete<Item>(
+          optionsBuilder: (tv) {
+            if (tv.text.isEmpty) return const [];
+            final q = tv.text.toLowerCase();
+            return appState.items.where((i) => i.name.toLowerCase().contains(q)
+              || (i.barcode ?? '').contains(q) || (i.hsnCode ?? '').contains(q));
+          },
+          displayStringForOption: (i) => i.name,
+          fieldViewBuilder: (ctx, ctrl, fn, onSubmit) => TextField(
+            controller: ctrl, focusNode: fn,
+            style: TextStyle(fontSize: 12, color: isDark ? Colors.white38 : Colors.black38),
+            decoration: InputDecoration(isDense: true, hintText: 'Type item name / barcode...',
+              hintStyle: TextStyle(fontSize: 11, color: isDark ? Colors.white12 : Colors.black12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade100))),
+            onSubmitted: (_) => onSubmit(),
+          ),
+          onSelected: (item) { _addToCart(item); },
+          optionsViewBuilder: (ctx, onSelected, options) => Align(
+            alignment: Alignment.topLeft,
+            child: Material(elevation: 8, borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(constraints: const BoxConstraints(maxHeight: 200, maxWidth: 400),
+                child: ListView.builder(shrinkWrap: true, padding: EdgeInsets.zero,
+                  itemCount: options.length, itemBuilder: (_, i) {
+                    final item = options.elementAt(i);
+                    return ListTile(dense: true, visualDensity: VisualDensity.compact,
+                      title: Text(item.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      subtitle: Text('${AppFormatters.currency(item.price)} · ${item.unit} · GST ${item.taxRate}%', style: const TextStyle(fontSize: 10)),
+                      trailing: Text('₹${item.price.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                      onTap: () => onSelected(item));
+                  })))),
+        ))),
+        // Empty placeholders
+        SizedBox(width: 70, child: SizedBox(height: 30, child: TextField(enabled: false,
+          decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade100)))))),
+        SizedBox(width: 80), // unit
+        SizedBox(width: 90), // price
+        SizedBox(width: 80), // discount
+        SizedBox(width: 90), // tax
+        SizedBox(width: 80), // tax amt
+        SizedBox(width: 90), // amount
+        const SizedBox(width: 36), // delete
       ]),
     );
   }

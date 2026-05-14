@@ -188,11 +188,17 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                     _thCell('#', 30), _thCell('ITEM', 0, flex: 3), _thCell('QTY', 70),
                     _thCell('UNIT', 80), _thCell('COST/UNIT', 90), _thCell('DISCOUNT', 80),
                     _thCell('TAX %', 90), _thCell('TAX AMT', 80), _thCell('AMOUNT', 90),
-                    const SizedBox(width: 36),
+                    SizedBox(width: 36, child: IconButton(
+                      onPressed: () => _showAddItemDialog(context, appState),
+                      icon: const Icon(Icons.add_circle, size: 18, color: AppColors.accent),
+                      padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                      tooltip: 'Add Item')),
                   ]),
                 ),
                 // Rows
                 ..._cart.asMap().entries.map((e) => _buildTableRow(context, appState, e.key, e.value, isDark)),
+                // Empty rows with inline autocomplete
+                ...List.generate(5, (emptyIdx) => _buildEmptyRow(context, appState, _cart.length + emptyIdx, isDark)),
                 // Footer
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -398,6 +404,64 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
             ],
           ]),
         ),
+      ]),
+    );
+  }
+
+  Widget _buildEmptyRow(BuildContext context, AppState appState, int index, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade100))),
+      child: Row(children: [
+        SizedBox(width: 30, child: Text('${index + 1}', style: TextStyle(fontSize: 12, color: isDark ? Colors.white12 : Colors.black12), textAlign: TextAlign.center)),
+        Expanded(flex: 3, child: SizedBox(height: 30, child: Autocomplete<Item>(
+          optionsBuilder: (tv) {
+            if (tv.text.isEmpty) return const [];
+            final q = tv.text.toLowerCase();
+            return appState.items.where((i) => i.name.toLowerCase().contains(q)
+              || (i.barcode ?? '').contains(q) || (i.hsnCode ?? '').contains(q));
+          },
+          displayStringForOption: (i) => i.name,
+          fieldViewBuilder: (ctx, ctrl, fn, onSubmit) => TextField(
+            controller: ctrl, focusNode: fn,
+            style: TextStyle(fontSize: 12, color: isDark ? Colors.white38 : Colors.black38),
+            decoration: InputDecoration(isDense: true, hintText: 'Type item name / barcode...',
+              hintStyle: TextStyle(fontSize: 11, color: isDark ? Colors.white12 : Colors.black12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade100))),
+            onSubmitted: (_) => onSubmit(),
+          ),
+          onSelected: (item) {
+            final lastCost = _getLastPurchaseCost(appState, item.id);
+            setState(() => _cart.add(_CartEntry(item: item, qty: 1, costPrice: lastCost ?? item.purchasePrice)));
+          },
+          optionsViewBuilder: (ctx, onSelected, options) => Align(
+            alignment: Alignment.topLeft,
+            child: Material(elevation: 8, borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(constraints: const BoxConstraints(maxHeight: 200, maxWidth: 400),
+                child: ListView.builder(shrinkWrap: true, padding: EdgeInsets.zero,
+                  itemCount: options.length, itemBuilder: (_, i) {
+                    final item = options.elementAt(i);
+                    final lastCost = _getLastPurchaseCost(appState, item.id);
+                    return ListTile(dense: true, visualDensity: VisualDensity.compact,
+                      title: Text(item.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      subtitle: Text('Sale: ${AppFormatters.currency(item.price)} · ${lastCost != null ? "Last: ${AppFormatters.currency(lastCost)}" : "No history"} · ${item.unit}',
+                        style: const TextStyle(fontSize: 10)),
+                      trailing: Text('₹${(lastCost ?? item.purchasePrice).toStringAsFixed(0)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.accent)),
+                      onTap: () => onSelected(item));
+                  })))),
+        ))),
+        SizedBox(width: 70, child: SizedBox(height: 30, child: TextField(enabled: false,
+          decoration: InputDecoration(isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade100)))))),
+        const SizedBox(width: 80),
+        const SizedBox(width: 90),
+        const SizedBox(width: 80),
+        const SizedBox(width: 90),
+        const SizedBox(width: 80),
+        const SizedBox(width: 90),
+        const SizedBox(width: 36),
       ]),
     );
   }
