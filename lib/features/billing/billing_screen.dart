@@ -47,6 +47,9 @@ class _BillingScreenState extends State<BillingScreen> {
   bool _showDescription = false;
   bool _showSerialNumber = false;
   bool _gstInclusive = false;
+  // Credit advance payment
+  double _creditPaidAmount = 0;
+  PaymentMethod _creditPaymentMethod = PaymentMethod.cash;
 
   @override
   void initState() {
@@ -270,7 +273,13 @@ class _BillingScreenState extends State<BillingScreen> {
                 return ChoiceChip(label: Text(AppFormatters.paymentMethod(pm.name)),
                   selected: sel, selectedColor: AppColors.primary,
                   labelStyle: TextStyle(color: sel ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w500),
-                  onSelected: (_) => setState(() { _paymentMethod = pm; _isPartial = false; }));
+                  onSelected: (_) {
+                    if (pm == PaymentMethod.credit) {
+                      _showCreditPaymentDialog(context);
+                    } else {
+                      setState(() { _paymentMethod = pm; _isPartial = false; });
+                    }
+                  });
               }),
               ChoiceChip(
                 avatar: _isPartial ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
@@ -279,10 +288,48 @@ class _BillingScreenState extends State<BillingScreen> {
                 selectedColor: Colors.orangeAccent,
                 labelStyle: TextStyle(color: _isPartial ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w600),
                 onSelected: (_) => setState(() {
-                  _isPartial = true;
-                  _partialAmount1Ctrl.text = '';
-                })),
-            ]),
+                    _isPartial = true;
+                    _partialAmount1Ctrl.text = '';
+                  })),
+            ],
+          ),
+          // Credit advance info display
+          if (!_isPartial && _paymentMethod == PaymentMethod.credit && _creditPaidAmount > 0) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orangeAccent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3))),
+              child: Column(children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Text('Advance Paid', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                  Text(AppFormatters.currency(_creditPaidAmount),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.success)),
+                ]),
+                const SizedBox(height: 4),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Text('Via', style: TextStyle(fontSize: 11)),
+                  Text(AppFormatters.paymentMethod(_creditPaymentMethod.name),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                ]),
+                const SizedBox(height: 4),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Text('Pending', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.error)),
+                  Text(AppFormatters.currency(_totalAmount - _creditPaidAmount),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.error)),
+                ]),
+                const SizedBox(height: 6),
+                SizedBox(width: double.infinity, height: 30,
+                  child: OutlinedButton(
+                    onPressed: () => _showCreditPaymentDialog(context),
+                    style: OutlinedButton.styleFrom(padding: EdgeInsets.zero,
+                      side: BorderSide(color: Colors.orangeAccent.withValues(alpha: 0.5))),
+                    child: const Text('Edit', style: TextStyle(fontSize: 11)),
+                  )),
+              ])),
+          ],
           // ── Partial payment split UI ──
           if (_isPartial) ...[
             const SizedBox(height: 12),
@@ -593,6 +640,107 @@ class _BillingScreenState extends State<BillingScreen> {
   }
 
 
+  void _showCreditPaymentDialog(BuildContext context) {
+    final amtCtrl = TextEditingController(text: _creditPaidAmount > 0 ? _creditPaidAmount.toStringAsFixed(2) : '');
+    PaymentMethod selectedMethod = _creditPaymentMethod;
+    final total = _totalAmount;
+
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDialogState) {
+        final paid = double.tryParse(amtCtrl.text) ?? 0;
+        final pending = total - paid;
+        return AlertDialog(
+          title: const Row(children: [
+            Icon(Icons.credit_card, color: Colors.orangeAccent, size: 22),
+            SizedBox(width: 10),
+            Text('Credit Payment', style: TextStyle(fontSize: 16)),
+          ]),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Total amount display
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10)),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('Bill Total', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text(AppFormatters.currency(total),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            // Paid amount
+            TextField(
+              controller: amtCtrl, autofocus: true,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Advance Paid Amount',
+                prefixText: '₹ ',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                helperText: 'Enter 0 for full credit (no advance)'),
+              onChanged: (_) => setDialogState(() {}),
+            ),
+            const SizedBox(height: 14),
+            // Payment method selection
+            const Align(alignment: Alignment.centerLeft,
+              child: Text('Payment Method', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+            const SizedBox(height: 8),
+            Row(children: [PaymentMethod.cash, PaymentMethod.upi].map((pm) {
+              final sel = selectedMethod == pm;
+              return Padding(padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(AppFormatters.paymentMethod(pm.name)),
+                  selected: sel, selectedColor: AppColors.primary,
+                  labelStyle: TextStyle(color: sel ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w600),
+                  onSelected: (_) => setDialogState(() => selectedMethod = pm),
+                ));
+            }).toList()),
+            const SizedBox(height: 14),
+            // Pending display
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (pending > 0 ? AppColors.error : AppColors.success).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: (pending > 0 ? AppColors.error : AppColors.success).withValues(alpha: 0.3))),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text(pending > 0 ? 'Pending Amount' : 'Fully Paid',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
+                    color: pending > 0 ? AppColors.error : AppColors.success)),
+                Text(AppFormatters.currency(pending > 0 ? pending : 0),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16,
+                    color: pending > 0 ? AppColors.error : AppColors.success)),
+              ]),
+            ),
+          ]),
+          actions: [
+            TextButton(
+              onPressed: () {
+                // No advance — full credit
+                setState(() {
+                  _paymentMethod = PaymentMethod.credit;
+                  _isPartial = false;
+                  _creditPaidAmount = 0;
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('No Advance')),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _paymentMethod = PaymentMethod.credit;
+                  _isPartial = false;
+                  _creditPaidAmount = paid;
+                  _creditPaymentMethod = selectedMethod;
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('Confirm')),
+          ],
+        );
+      },
+    ));
+  }
 
   Widget _row(String l, String v, {bool bold = false}) {
     return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -719,9 +867,9 @@ class _BillingScreenState extends State<BillingScreen> {
         items: billItems, subtotal: _subtotal,
         discount: _discount,
         totalTax: _totalTax, totalAmount: _totalAmount,
-        paidAmount: _isPartial ? _totalAmount : (_paymentMethod == PaymentMethod.credit ? 0 : _totalAmount),
-        paymentMethod: _isPartial ? _partialMethod1 : _paymentMethod,
-        status: _isPartial ? BillStatus.paid : (_paymentMethod == PaymentMethod.credit ? BillStatus.unpaid : BillStatus.paid));
+        paidAmount: _isPartial ? _totalAmount : (_paymentMethod == PaymentMethod.credit ? _creditPaidAmount : _totalAmount),
+        paymentMethod: _isPartial ? _partialMethod1 : (_paymentMethod == PaymentMethod.credit && _creditPaidAmount > 0 ? _creditPaymentMethod : _paymentMethod),
+        status: _isPartial ? BillStatus.paid : (_paymentMethod == PaymentMethod.credit ? (_creditPaidAmount >= _totalAmount ? BillStatus.paid : BillStatus.unpaid) : BillStatus.paid));
       await appState.createBill(bill);
 
       // Auto-add to Cash Book or Bank Book based on payment method
@@ -777,6 +925,31 @@ class _BillingScreenState extends State<BillingScreen> {
         } catch (e) {
           debugPrint('Partial Cash/Bank book entry error: $e');
         }
+      } else if (_paymentMethod == PaymentMethod.credit && _creditPaidAmount > 0) {
+        // Record credit advance payment
+        try {
+          if (_creditPaymentMethod == PaymentMethod.cash) {
+            await appState.addCashBookEntry(CashBookEntry(
+              type: TransactionType.cashIn,
+              amount: _creditPaidAmount,
+              description: 'Credit Advance (CASH) - $billNumber',
+              reference: billNumber,
+              category: 'Sales',
+            ));
+          } else {
+            final bankId = appState.bankAccounts.isNotEmpty ? appState.bankAccounts.first.id : null;
+            await appState.addCashBookEntry(CashBookEntry(
+              type: TransactionType.bankIn,
+              amount: _creditPaidAmount,
+              description: 'Credit Advance (${_creditPaymentMethod.name.toUpperCase()}) - $billNumber',
+              reference: billNumber,
+              bankAccountId: bankId,
+              category: 'Sales',
+            ));
+          }
+        } catch (e) {
+          debugPrint('Credit advance entry error: $e');
+        }
       } else if (_paymentMethod != PaymentMethod.credit && _totalAmount > 0) {
         try {
           if (_paymentMethod == PaymentMethod.cash) {
@@ -806,6 +979,7 @@ class _BillingScreenState extends State<BillingScreen> {
       if (mounted) {
         setState(() { _cart.clear(); _selectedCustomer = null; _paymentMethod = PaymentMethod.cash;
           _isPartial = false; _partialAmount1Ctrl.text = '';
+          _creditPaidAmount = 0; _creditPaymentMethod = PaymentMethod.cash;
           _discountCtrl.text = '0'; _walkInNameCtrl.clear(); _walkInPhoneCtrl.clear(); });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10), Text('Bill $billNumber created!')]),
