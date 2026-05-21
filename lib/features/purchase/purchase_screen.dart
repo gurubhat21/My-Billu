@@ -450,12 +450,39 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
               const SizedBox(height: 20),
 
               SizedBox(width: double.infinity, height: 52,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-                  onPressed: () => _savePurchase(context, appState),
-                  icon: const Icon(Icons.save, size: 22),
-                  label: const Text('Save Purchase & Update Stock', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                )),
+                child: Row(children: [
+                  Expanded(child: SizedBox(height: 52,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        showDialog(context: context, builder: (ctx) => AlertDialog(
+                          title: const Text('Clear Cart?'),
+                          content: Text('Remove all ${_cart.length} items?'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                setState(() => _cart.clear());
+                              },
+                              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+                              child: const Text('Clear All')),
+                          ],
+                        ));
+                      },
+                      icon: const Icon(Icons.delete_sweep, size: 20, color: AppColors.error),
+                      label: const Text('Clear', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.error)),
+                      style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.error),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                    ))),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 2, child: SizedBox(height: 52,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+                      onPressed: () => _savePurchase(context, appState),
+                      icon: const Icon(Icons.save, size: 22),
+                      label: const Text('Save Purchase & Update Stock', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                    ))),
+                ])),
             ],
           ]),
         );
