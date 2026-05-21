@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import 'bill.dart';
 
 class PurchaseItem {
   final String itemId;
@@ -63,6 +64,7 @@ class Purchase {
   final double totalAmount;
   double paidAmount;
   PurchaseStatus status;
+  PaymentMethod paymentMethod;
   String? notes;
   final DateTime createdAt;
 
@@ -79,6 +81,7 @@ class Purchase {
     required this.totalAmount,
     this.paidAmount = 0.0,
     this.status = PurchaseStatus.received,
+    this.paymentMethod = PaymentMethod.cash,
     this.notes,
     DateTime? createdAt,
   })  : id = id ?? const Uuid().v4(),
@@ -99,6 +102,7 @@ class Purchase {
     'totalAmount': totalAmount,
     'paidAmount': paidAmount,
     'status': status.name,
+    'paymentMethod': paymentMethod.name,
     'notes': notes,
     'createdAt': createdAt.toIso8601String(),
   };
@@ -120,6 +124,10 @@ class Purchase {
     status: PurchaseStatus.values.firstWhere(
       (e) => e.name == map['status'],
       orElse: () => PurchaseStatus.received,
+    ),
+    paymentMethod: PaymentMethod.values.firstWhere(
+      (e) => e.name == (map['paymentMethod'] as String? ?? 'cash'),
+      orElse: () => PaymentMethod.cash,
     ),
     notes: map['notes'] as String?,
     createdAt: DateTime.parse(map['createdAt'] as String),

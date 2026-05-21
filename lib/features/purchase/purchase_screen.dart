@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/models/item.dart';
 import '../../core/models/purchase.dart';
+import '../../core/models/bill.dart';
+import '../../core/models/cash_book.dart';
 import '../../core/models/supplier.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -69,6 +71,11 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
   final _costCtrl = TextEditingController();
   bool _showDescription = false;
   bool _showSerialNumber = false;
+  // Payment options
+  PaymentMethod _purchasePaymentMethod = PaymentMethod.cash;
+  bool _isPurchaseCredit = false;
+  double _creditPaidAmount = 0;
+  PaymentMethod _creditPaymentMethod = PaymentMethod.cash;
 
   @override
   void initState() {
@@ -473,6 +480,70 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
               ])),
               const SizedBox(height: 16),
 
+              // Payment Method Selection
+              GlassCard(padding: const EdgeInsets.all(16), child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Payment Method', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                  const SizedBox(height: 12),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    ...[PaymentMethod.cash, PaymentMethod.upi, PaymentMethod.card, PaymentMethod.bank].map((pm) {
+                      final sel = !_isPurchaseCredit && _purchasePaymentMethod == pm;
+                      return ChoiceChip(
+                        label: Text(AppFormatters.paymentMethod(pm.name)),
+                        selected: sel, selectedColor: AppColors.primary,
+                        labelStyle: TextStyle(color: sel ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w500),
+                        onSelected: (_) => setState(() { _purchasePaymentMethod = pm; _isPurchaseCredit = false; _creditPaidAmount = 0; }));
+                    }),
+                    ChoiceChip(
+                      label: const Text('Credit'),
+                      selected: _isPurchaseCredit,
+                      selectedColor: Colors.orangeAccent,
+                      labelStyle: TextStyle(color: _isPurchaseCredit ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w600),
+                      onSelected: (_) => _showPurchaseCreditDialog(context)),
+                  ]),
+                  // Credit advance info
+                  if (_isPurchaseCredit && _creditPaidAmount > 0) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.orangeAccent.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3))),
+                      child: Column(children: [
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          const Text('Advance Paid', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                          Text(AppFormatters.currency(_creditPaidAmount),
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.success)),
+                        ]),
+                        const SizedBox(height: 4),
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          const Text('Via', style: TextStyle(fontSize: 11)),
+                          Text(AppFormatters.paymentMethod(_creditPaymentMethod.name),
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                        ]),
+                        const SizedBox(height: 4),
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          const Text('Pending', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.error)),
+                          Text(AppFormatters.currency(_total - _creditPaidAmount),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.error)),
+                        ]),
+                        const SizedBox(height: 6),
+                        SizedBox(width: double.infinity, height: 30,
+                          child: OutlinedButton(
+                            onPressed: () => _showPurchaseCreditDialog(context),
+                            style: OutlinedButton.styleFrom(padding: EdgeInsets.zero,
+                              side: BorderSide(color: Colors.orangeAccent.withValues(alpha: 0.5))),
+                            child: const Text('Edit', style: TextStyle(fontSize: 11)),
+                          )),
+                      ])),
+                  ],
+                  if (_isPurchaseCredit && _creditPaidAmount == 0)
+                    Padding(padding: const EdgeInsets.only(top: 8),
+                      child: Text('Full credit — no advance payment', style: TextStyle(fontSize: 12, color: Colors.orangeAccent.withValues(alpha: 0.7)))),
+                ])),
+              const SizedBox(height: 16),
+
               TextField(controller: _notesCtrl, maxLines: 2,
                 decoration: const InputDecoration(labelText: 'Notes (optional)', prefixIcon: Icon(Icons.notes))),
               const SizedBox(height: 20),
@@ -526,6 +597,101 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
       ]));
   }
 
+  void _showPurchaseCreditDialog(BuildContext context) {
+    final amtCtrl = TextEditingController(text: _creditPaidAmount > 0 ? _creditPaidAmount.toStringAsFixed(2) : '');
+    PaymentMethod selectedMethod = _creditPaymentMethod;
+    final total = _total;
+
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDialogState) {
+        final paid = double.tryParse(amtCtrl.text) ?? 0;
+        final pending = total - paid;
+        return AlertDialog(
+          title: const Row(children: [
+            Icon(Icons.credit_card, color: Colors.orangeAccent, size: 22),
+            SizedBox(width: 10),
+            Text('Credit to Supplier', style: TextStyle(fontSize: 16)),
+          ]),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10)),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('Purchase Total', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text(AppFormatters.currency(total),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: amtCtrl, autofocus: true,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Advance Paid Amount',
+                prefixText: '₹ ',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                helperText: 'Enter 0 for full credit (no advance)'),
+              onChanged: (_) => setDialogState(() {}),
+            ),
+            const SizedBox(height: 14),
+            const Align(alignment: Alignment.centerLeft,
+              child: Text('Payment Method', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+            const SizedBox(height: 8),
+            Row(children: [PaymentMethod.cash, PaymentMethod.upi].map((pm) {
+              final sel = selectedMethod == pm;
+              return Padding(padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(AppFormatters.paymentMethod(pm.name)),
+                  selected: sel, selectedColor: AppColors.primary,
+                  labelStyle: TextStyle(color: sel ? Colors.white : null, fontSize: 12, fontWeight: FontWeight.w600),
+                  onSelected: (_) => setDialogState(() => selectedMethod = pm),
+                ));
+            }).toList()),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (pending > 0 ? AppColors.error : AppColors.success).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: (pending > 0 ? AppColors.error : AppColors.success).withValues(alpha: 0.3))),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text(pending > 0 ? 'Pending to Supplier' : 'Fully Paid',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
+                    color: pending > 0 ? AppColors.error : AppColors.success)),
+                Text(AppFormatters.currency(pending > 0 ? pending : 0),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16,
+                    color: pending > 0 ? AppColors.error : AppColors.success)),
+              ]),
+            ),
+          ]),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isPurchaseCredit = true;
+                  _creditPaidAmount = 0;
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('No Advance')),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _isPurchaseCredit = true;
+                  _creditPaidAmount = paid;
+                  _creditPaymentMethod = selectedMethod;
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('Confirm')),
+          ],
+        );
+      },
+    ));
+  }
+
   void _addToCart() {
     if (_selectedItem == null) return;
     final qty = int.tryParse(_qtyCtrl.text) ?? 0;
@@ -574,10 +740,41 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
         invoiceNumber: _invoiceCtrl.text.trim().isEmpty ? null : _invoiceCtrl.text.trim(),
         items: purchaseItems,
         subtotal: _subtotal, totalTax: _totalTax, totalAmount: _total,
-        paidAmount: _total, status: PurchaseStatus.received,
+        paidAmount: _isPurchaseCredit ? _creditPaidAmount : _total,
+        paymentMethod: _isPurchaseCredit ? (_creditPaidAmount > 0 ? _creditPaymentMethod : PaymentMethod.credit) : _purchasePaymentMethod,
+        status: _isPurchaseCredit ? (_creditPaidAmount >= _total ? PurchaseStatus.received : PurchaseStatus.pending) : PurchaseStatus.received,
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       );
       await appState.createPurchase(purchase);
+
+      // Auto-add to Cash/Bank Book
+      final payAmt = _isPurchaseCredit ? _creditPaidAmount : _total;
+      final payMethod = _isPurchaseCredit ? _creditPaymentMethod : _purchasePaymentMethod;
+      if (payAmt > 0) {
+        try {
+          if (payMethod == PaymentMethod.cash) {
+            await appState.addCashBookEntry(CashBookEntry(
+              type: TransactionType.cashOut,
+              amount: payAmt,
+              description: 'Purchase${_isPurchaseCredit ? " (Credit Advance)" : ""} - $poNumber',
+              reference: poNumber,
+              category: 'Purchase',
+            ));
+          } else {
+            final bankId = appState.bankAccounts.isNotEmpty ? appState.bankAccounts.first.id : null;
+            await appState.addCashBookEntry(CashBookEntry(
+              type: TransactionType.bankOut,
+              amount: payAmt,
+              description: 'Purchase (${payMethod.name.toUpperCase()})${_isPurchaseCredit ? " Credit Adv" : ""} - $poNumber',
+              reference: poNumber,
+              bankAccountId: bankId,
+              category: 'Purchase',
+            ));
+          }
+        } catch (e) {
+          debugPrint('Purchase cash/bank entry error: $e');
+        }
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Row(children: [
@@ -587,7 +784,8 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
           backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
-        setState(() { _cart.clear(); _supplierCtrl.clear(); _supplierPhoneCtrl.clear(); _invoiceCtrl.clear(); _notesCtrl.clear(); });
+        setState(() { _cart.clear(); _supplierCtrl.clear(); _supplierPhoneCtrl.clear(); _invoiceCtrl.clear(); _notesCtrl.clear();
+          _purchasePaymentMethod = PaymentMethod.cash; _isPurchaseCredit = false; _creditPaidAmount = 0; });
         widget.onSaved();
       }
     } catch (e) {
