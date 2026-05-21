@@ -410,30 +410,60 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                 prefixIcon: const Icon(Icons.description, size: 16)),
                             )),
-                        // Optional serial number fields (one per qty)
+                        // Dynamic serial number fields — Enter/scan adds next field
                         if (_showSerialNumber)
-                          ...List.generate(e.qty, (si) => Padding(
+                          ...List.generate(e.serialNumbers.length, (si) => Padding(
                             padding: const EdgeInsets.only(top: 6),
                             child: TextFormField(
-                              key: ValueKey('pserial_${e.item.id}_${si}_${e.serialNumbers[si]}'),
+                              key: ValueKey('pserial_${e.item.id}_${si}_${e.serialNumbers.length}'),
                               initialValue: e.serialNumbers[si],
                               onChanged: (v) => e.serialNumbers[si] = v,
+                              textInputAction: TextInputAction.next,
+                              onFieldSubmitted: (val) {
+                                if (val.trim().isNotEmpty) {
+                                  setState(() {
+                                    e.serialNumbers.add('');
+                                  });
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    FocusScope.of(context).nextFocus();
+                                  });
+                                }
+                              },
                               style: const TextStyle(fontSize: 12),
                               decoration: InputDecoration(
-                                hintText: e.qty > 1 ? 'Serial #${si + 1} of ${e.qty}...' : 'Serial number...',
+                                hintText: e.serialNumbers.length > 1
+                                    ? 'Serial #${si + 1}...'
+                                    : 'Serial number... (Enter to add next)',
                                 isDense: true,
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                 prefixIcon: const Icon(Icons.qr_code, size: 16),
-                                suffixIcon: kIsWeb ? null : IconButton(
-                                  icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
-                                  tooltip: 'Scan barcode/QR',
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: () => _scanBarcode(context, (code) {
-                                    setState(() => e.serialNumbers[si] = code);
-                                  }),
-                                )),
+                                suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
+                                  if (e.serialNumbers.length > 1)
+                                    IconButton(
+                                      icon: Icon(Icons.close, size: 16, color: Colors.white.withValues(alpha: 0.3)),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () => setState(() => e.serialNumbers.removeAt(si)),
+                                    ),
+                                  if (!kIsWeb)
+                                    IconButton(
+                                      icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
+                                      tooltip: 'Scan barcode/QR',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () => _scanBarcode(context, (code) {
+                                        setState(() {
+                                          e.serialNumbers[si] = code;
+                                          e.serialNumbers.add('');
+                                        });
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          FocusScope.of(context).nextFocus();
+                                        });
+                                      }),
+                                    ),
+                                ]),
+                              ),
                             ))),
                       ]),
                     ));
@@ -750,7 +780,7 @@ class _CartEntry {
   String description;
   List<String> serialNumbers;
   _CartEntry({required this.item, required this.qty, required this.costPrice, this.description = '', List<String>? serialNumbers})
-    : serialNumbers = serialNumbers ?? List.filled(qty, '');
+    : serialNumbers = serialNumbers ?? [''];
   double get subtotal => costPrice * qty;
   double get taxAmount => subtotal * item.taxRate / 100;
   double get total => subtotal + taxAmount;
