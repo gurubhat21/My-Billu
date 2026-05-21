@@ -414,58 +414,53 @@ class _BillingScreenState extends State<BillingScreen> {
   Widget _buildCartItem(BuildContext context, int index) {
     final c = _cart[index];
     return Padding(padding: const EdgeInsets.only(bottom: 8),
-      child: GestureDetector(
-        onTap: () => _showEditItemDialog(context, index),
-        child: Container(padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
-            borderRadius: BorderRadius.circular(12)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Expanded(child: Text(c.item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  Icon(Icons.edit, size: 14, color: Colors.white.withValues(alpha: 0.3)),
-                ]),
-                const SizedBox(height: 2),
-                Text('${AppFormatters.currency(c.item.price)} \u00d7 ${c.quantity}', style: Theme.of(context).textTheme.bodySmall),
+      child: Container(padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
+          borderRadius: BorderRadius.circular(12)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(c.item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 2),
+              Text('${AppFormatters.currency(c.item.price)} \u00d7 ${c.quantity}', style: Theme.of(context).textTheme.bodySmall),
+            ])),
+            Container(decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      if (_cart[index].quantity > 1) {
+                        _cart[index].updateQuantity(_cart[index].quantity - 1);
+                      } else {
+                        _cart.removeAt(index);
+                      }
+                    });
+                  },
+                  icon: const Icon(Icons.remove, size: 20, color: AppColors.primary),
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  padding: EdgeInsets.zero,
+                  splashRadius: 22,
+                ),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _cart[index].updateQuantity(_cart[index].quantity + 1);
+                    });
+                  },
+                  icon: const Icon(Icons.add, size: 20, color: AppColors.primary),
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  padding: EdgeInsets.zero,
+                  splashRadius: 22,
+                ),
               ])),
-              Container(decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  IconButton(
-                    onPressed: () {
-                      setState(() {
-                        if (_cart[index].quantity > 1) {
-                          _cart[index].updateQuantity(_cart[index].quantity - 1);
-                        } else {
-                          _cart.removeAt(index);
-                        }
-                      });
-                    },
-                    icon: const Icon(Icons.remove, size: 20, color: AppColors.primary),
-                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                    padding: EdgeInsets.zero,
-                    splashRadius: 22,
-                  ),
-                  Padding(padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
-                  IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _cart[index].updateQuantity(_cart[index].quantity + 1);
-                      });
-                    },
-                    icon: const Icon(Icons.add, size: 20, color: AppColors.primary),
-                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                    padding: EdgeInsets.zero,
-                    splashRadius: 22,
-                  ),
-                ])),
-              const SizedBox(width: 12),
-              SizedBox(width: 70, child: Text(AppFormatters.currency(c.subtotal),
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), textAlign: TextAlign.right)),
-            ]),
+            const SizedBox(width: 12),
+            SizedBox(width: 70, child: Text(AppFormatters.currency(c.subtotal),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), textAlign: TextAlign.right)),
+          ]),
           // Optional description field
           if (_showDescription)
             Padding(padding: const EdgeInsets.only(top: 6),
@@ -481,17 +476,27 @@ class _BillingScreenState extends State<BillingScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   prefixIcon: const Icon(Icons.description, size: 16)),
               )),
-          // Optional serial number fields (one per quantity)
+          // Single serial number field per item
           if (_showSerialNumber)
-            ...List.generate(c.quantity, (si) => Padding(
-              padding: const EdgeInsets.only(top: 6),
+            Padding(padding: const EdgeInsets.only(top: 6),
               child: TextFormField(
-                key: ValueKey('serial_${c.item.id}_$si'),
-                initialValue: c.serialNumbers[si],
-                onChanged: (v) => c.serialNumbers[si] = v,
+                key: ValueKey('serial_${c.item.id}'),
+                initialValue: c.serialNumbers.isNotEmpty ? c.serialNumbers.first : '',
+                onChanged: (v) {
+                  if (c.serialNumbers.isNotEmpty) {
+                    c.serialNumbers[0] = v;
+                  } else {
+                    c.serialNumbers.add(v);
+                  }
+                },
+                textInputAction: TextInputAction.next,
+                onFieldSubmitted: (_) {
+                  // Move focus to next cart item's serial field
+                  FocusScope.of(context).nextFocus();
+                },
                 style: const TextStyle(fontSize: 12),
                 decoration: InputDecoration(
-                  hintText: c.quantity > 1 ? 'Serial #${si + 1} of ${c.quantity}...' : 'Serial number...',
+                  hintText: 'Serial number...',
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -502,82 +507,22 @@ class _BillingScreenState extends State<BillingScreen> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => _scanBarcode(context, (code) {
-                      setState(() => c.serialNumbers[si] = code);
+                      setState(() {
+                        if (c.serialNumbers.isNotEmpty) {
+                          c.serialNumbers[0] = code;
+                        } else {
+                          c.serialNumbers.add(code);
+                        }
+                      });
+                      // After scan, move to next item's serial
+                      FocusScope.of(context).nextFocus();
                     }),
                   )),
-              ))),
-        ]))));
+              )),
+        ])));
   }
 
-  void _showEditItemDialog(BuildContext context, int index) {
-    final c = _cart[index];
-    final priceCtrl = TextEditingController(text: c.item.price.toStringAsFixed(2));
-    final qtyCtrl = TextEditingController(text: c.quantity.toString());
-    double taxRate = c.item.taxRate;
 
-    showDialog(context: context, builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setDialogState) => AlertDialog(
-        title: Row(children: [
-          const Icon(Icons.edit, color: AppColors.primary, size: 22),
-          const SizedBox(width: 10),
-          Expanded(child: Text('Edit: ${c.item.name}', overflow: TextOverflow.ellipsis)),
-        ]),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(
-            controller: priceCtrl,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: 'Unit Price (₹)',
-              prefixIcon: const Icon(Icons.currency_rupee),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: qtyCtrl,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: 'Quantity',
-              prefixIcon: const Icon(Icons.numbers),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<double>(
-            value: taxRate,
-            decoration: InputDecoration(
-              labelText: 'GST Rate',
-              prefixIcon: const Icon(Icons.percent),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-            items: [0, 5, 12, 18, 28].map((r) =>
-              DropdownMenuItem(value: r.toDouble(), child: Text(r == 0 ? 'No GST' : 'GST @ $r%'))).toList(),
-            onChanged: (v) { if (v != null) setDialogState(() => taxRate = v); },
-          ),
-        ]),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              setState(() => _cart.removeAt(index));
-            },
-            child: const Text('Remove', style: TextStyle(color: AppColors.error))),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              final price = double.tryParse(priceCtrl.text);
-              final qty = int.tryParse(qtyCtrl.text);
-              if (price != null && price > 0 && qty != null && qty > 0) {
-                setState(() {
-                  c.item.price = price;
-                  c.updateQuantity(qty);
-                  c.item.taxRate = taxRate;
-                });
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Save')),
-        ],
-      ),
-    ));
-  }
 
   Widget _row(String l, String v, {bool bold = false}) {
     return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
