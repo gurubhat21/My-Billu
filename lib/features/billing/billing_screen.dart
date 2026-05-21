@@ -18,15 +18,10 @@ class _CartItem {
   String description;
   List<String> serialNumbers;
   _CartItem({required this.item, required this.quantity, this.description = '', List<String>? serialNumbers})
-    : serialNumbers = serialNumbers ?? List.filled(quantity, '');
+    : serialNumbers = serialNumbers ?? [''];
   double get subtotal => item.price * quantity;
   double get taxAmount => subtotal * item.taxRate / 100;
   void updateQuantity(int newQty) {
-    if (newQty > quantity) {
-      serialNumbers.addAll(List.filled(newQty - quantity, ''));
-    } else if (newQty < quantity) {
-      serialNumbers = serialNumbers.sublist(0, newQty);
-    }
     quantity = newQty;
   }
 }
@@ -534,49 +529,66 @@ class _BillingScreenState extends State<BillingScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   prefixIcon: const Icon(Icons.description, size: 16)),
               )),
-          // Single serial number field per item
+          // Dynamic serial number fields — Enter/scan adds next field
           if (_showSerialNumber)
-            Padding(padding: const EdgeInsets.only(top: 6),
+            ...List.generate(c.serialNumbers.length, (si) => Padding(
+              padding: const EdgeInsets.only(top: 6),
               child: TextFormField(
-                key: ValueKey('serial_${c.item.id}'),
-                initialValue: c.serialNumbers.isNotEmpty ? c.serialNumbers.first : '',
-                onChanged: (v) {
-                  if (c.serialNumbers.isNotEmpty) {
-                    c.serialNumbers[0] = v;
-                  } else {
-                    c.serialNumbers.add(v);
-                  }
-                },
+                key: ValueKey('serial_${c.item.id}_${si}_${c.serialNumbers.length}'),
+                initialValue: c.serialNumbers[si],
+                onChanged: (v) => c.serialNumbers[si] = v,
                 textInputAction: TextInputAction.next,
-                onFieldSubmitted: (_) {
-                  // Move focus to next cart item's serial field
-                  FocusScope.of(context).nextFocus();
+                onFieldSubmitted: (val) {
+                  if (val.trim().isNotEmpty) {
+                    setState(() {
+                      // Add new empty serial field
+                      c.serialNumbers.add('');
+                    });
+                    // Focus will move to the new field via rebuild
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      FocusScope.of(context).nextFocus();
+                    });
+                  }
                 },
                 style: const TextStyle(fontSize: 12),
                 decoration: InputDecoration(
-                  hintText: 'Serial number...',
+                  hintText: c.serialNumbers.length > 1
+                      ? 'Serial #${si + 1}...'
+                      : 'Serial number... (Enter to add next)',
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   prefixIcon: const Icon(Icons.qr_code, size: 16),
-                  suffixIcon: kIsWeb ? null : IconButton(
-                    icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
-                    tooltip: 'Scan barcode/QR',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _scanBarcode(context, (code) {
-                      setState(() {
-                        if (c.serialNumbers.isNotEmpty) {
-                          c.serialNumbers[0] = code;
-                        } else {
-                          c.serialNumbers.add(code);
-                        }
-                      });
-                      // After scan, move to next item's serial
-                      FocusScope.of(context).nextFocus();
-                    }),
-                  )),
-              )),
+                  suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
+                    // Remove this serial field (if more than 1)
+                    if (c.serialNumbers.length > 1)
+                      IconButton(
+                        icon: Icon(Icons.close, size: 16, color: Colors.white.withValues(alpha: 0.3)),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => setState(() => c.serialNumbers.removeAt(si)),
+                      ),
+                    // Scan button
+                    if (!kIsWeb)
+                      IconButton(
+                        icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
+                        tooltip: 'Scan barcode/QR',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => _scanBarcode(context, (code) {
+                          setState(() {
+                            c.serialNumbers[si] = code;
+                            // Auto-add next field after scan
+                            c.serialNumbers.add('');
+                          });
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            FocusScope.of(context).nextFocus();
+                          });
+                        }),
+                      ),
+                  ]),
+                ),
+              ))),
         ])));
   }
 
