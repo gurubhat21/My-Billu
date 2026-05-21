@@ -212,7 +212,7 @@ class _BillingScreenState extends State<BillingScreen> {
               Text('Cart is empty', style: Theme.of(context).textTheme.bodyMedium),
             ]))
           : ListView.builder(
-              key: ValueKey(_cart.fold<int>(0, (s, c) => s + c.quantity)),
+              key: ValueKey(_cart.length),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: _cart.length, itemBuilder: (ctx, i) => _buildCartItem(context, i))),
       // Summary
