@@ -578,22 +578,20 @@ class _BillingScreenState extends State<BillingScreen> {
               )),
           // Dynamic serial number fields — Enter/scan adds next field
           if (_showSerialNumber)
-            ...List.generate(c.serialNumbers.length, (si) => Padding(
+            ...List.generate(c.serialNumbers.length, (si) {
+              final isLastEmpty = si == c.serialNumbers.length - 1 && c.serialNumbers[si].isEmpty && c.serialNumbers.length > 1;
+              return Padding(
               padding: const EdgeInsets.only(top: 6),
               child: TextFormField(
                 key: ValueKey('serial_${c.item.id}_${si}_${c.serialNumbers.length}'),
                 initialValue: c.serialNumbers[si],
+                autofocus: isLastEmpty,
                 onChanged: (v) => c.serialNumbers[si] = v,
                 textInputAction: TextInputAction.next,
                 onFieldSubmitted: (val) {
                   if (val.trim().isNotEmpty) {
                     setState(() {
-                      // Add new empty serial field
                       c.serialNumbers.add('');
-                    });
-                    // Focus will move to the new field via rebuild
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      FocusScope.of(context).nextFocus();
                     });
                   }
                 },
@@ -607,7 +605,6 @@ class _BillingScreenState extends State<BillingScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   prefixIcon: const Icon(Icons.qr_code, size: 16),
                   suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
-                    // Remove this serial field (if more than 1)
                     if (c.serialNumbers.length > 1)
                       IconButton(
                         icon: Icon(Icons.close, size: 16, color: Colors.white.withValues(alpha: 0.3)),
@@ -615,7 +612,6 @@ class _BillingScreenState extends State<BillingScreen> {
                         constraints: const BoxConstraints(),
                         onPressed: () => setState(() => c.serialNumbers.removeAt(si)),
                       ),
-                    // Scan button
                     if (!kIsWeb)
                       IconButton(
                         icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
@@ -625,17 +621,14 @@ class _BillingScreenState extends State<BillingScreen> {
                         onPressed: () => _scanBarcode(context, (code) {
                           setState(() {
                             c.serialNumbers[si] = code;
-                            // Auto-add next field after scan
                             c.serialNumbers.add('');
-                          });
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            FocusScope.of(context).nextFocus();
                           });
                         }),
                       ),
                   ]),
                 ),
-              ))),
+              ));
+            }),
         ])));
   }
 

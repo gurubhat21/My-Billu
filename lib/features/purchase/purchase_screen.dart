@@ -412,20 +412,20 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                             )),
                         // Dynamic serial number fields — Enter/scan adds next field
                         if (_showSerialNumber)
-                          ...List.generate(e.serialNumbers.length, (si) => Padding(
+                          ...List.generate(e.serialNumbers.length, (si) {
+                            final isLastEmpty = si == e.serialNumbers.length - 1 && e.serialNumbers[si].isEmpty && e.serialNumbers.length > 1;
+                            return Padding(
                             padding: const EdgeInsets.only(top: 6),
                             child: TextFormField(
                               key: ValueKey('pserial_${e.item.id}_${si}_${e.serialNumbers.length}'),
                               initialValue: e.serialNumbers[si],
+                              autofocus: isLastEmpty,
                               onChanged: (v) => e.serialNumbers[si] = v,
                               textInputAction: TextInputAction.next,
                               onFieldSubmitted: (val) {
                                 if (val.trim().isNotEmpty) {
                                   setState(() {
                                     e.serialNumbers.add('');
-                                  });
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    FocusScope.of(context).nextFocus();
                                   });
                                 }
                               },
@@ -457,14 +457,12 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                                           e.serialNumbers[si] = code;
                                           e.serialNumbers.add('');
                                         });
-                                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                                          FocusScope.of(context).nextFocus();
-                                        });
                                       }),
                                     ),
                                 ]),
                               ),
-                            ))),
+                            ));
+                          }),
                       ]),
                     ));
                 }),
