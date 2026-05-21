@@ -424,7 +424,38 @@ class _BillingScreenState extends State<BillingScreen> {
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(c.item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text('${AppFormatters.currency(c.item.price)} \u00d7 ${c.quantity}', style: Theme.of(context).textTheme.bodySmall),
+              // Tappable price
+              GestureDetector(
+                onTap: () {
+                  final ctrl = TextEditingController(text: c.item.price.toStringAsFixed(2));
+                  showDialog(context: context, builder: (ctx) => AlertDialog(
+                    title: const Text('Edit Price', style: TextStyle(fontSize: 16)),
+                    content: TextField(
+                      controller: ctrl, autofocus: true,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(prefixText: '₹ ', labelText: 'Unit Price'),
+                      onSubmitted: (_) {
+                        final p = double.tryParse(ctrl.text);
+                        if (p != null && p >= 0) setState(() => c.item.price = p);
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                      ElevatedButton(onPressed: () {
+                        final p = double.tryParse(ctrl.text);
+                        if (p != null && p >= 0) setState(() => c.item.price = p);
+                        Navigator.pop(ctx);
+                      }, child: const Text('Save')),
+                    ],
+                  ));
+                },
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text('${AppFormatters.currency(c.item.price)} \u00d7 ${c.quantity}', style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(width: 4),
+                  Icon(Icons.edit, size: 11, color: Colors.white.withValues(alpha: 0.25)),
+                ]),
+              ),
             ])),
             Container(decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -443,8 +474,35 @@ class _BillingScreenState extends State<BillingScreen> {
                   padding: EdgeInsets.zero,
                   splashRadius: 22,
                 ),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+                // Tappable quantity
+                GestureDetector(
+                  onTap: () {
+                    final ctrl = TextEditingController(text: c.quantity.toString());
+                    showDialog(context: context, builder: (ctx) => AlertDialog(
+                      title: const Text('Edit Quantity', style: TextStyle(fontSize: 16)),
+                      content: TextField(
+                        controller: ctrl, autofocus: true,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Quantity'),
+                        onSubmitted: (_) {
+                          final q = int.tryParse(ctrl.text);
+                          if (q != null && q > 0) setState(() => _cart[index].updateQuantity(q));
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                        ElevatedButton(onPressed: () {
+                          final q = int.tryParse(ctrl.text);
+                          if (q != null && q > 0) setState(() => _cart[index].updateQuantity(q));
+                          Navigator.pop(ctx);
+                        }, child: const Text('Save')),
+                      ],
+                    ));
+                  },
+                  child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, decoration: TextDecoration.underline, decorationStyle: TextDecorationStyle.dotted))),
+                ),
                 IconButton(
                   onPressed: () {
                     setState(() {
