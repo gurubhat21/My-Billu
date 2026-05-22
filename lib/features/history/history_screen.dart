@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/bill.dart';
 import '../../core/providers/app_state.dart';
@@ -176,6 +178,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
             icon: const Icon(Icons.payments, size: 18),
             label: const Text('Collect Payment'),
           ),
+        OutlinedButton.icon(
+          onPressed: () async {
+            Navigator.pop(ctx);
+            final s = await appState.getAllSettings();
+            final template = _parseTemplate(s['pdf_template']);
+            final paperSize = _parsePaperSize(selectedSize);
+            final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+            if (context.mounted) {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => _HistoryBillPreviewPage(
+                  bill: bill,
+                  businessName: s['businessName'] ?? 'My Billu',
+                  businessAddress: s['businessAddress'] ?? '',
+                  businessPhone: s['businessPhone'] ?? '',
+                  businessGstin: s['businessGstin'] ?? '',
+                  businessBankName: s['businessBankName'] ?? '',
+                  businessBankAccount: s['businessBankAccount'] ?? '',
+                  businessBankIfsc: s['businessBankIfsc'] ?? '',
+                  logoBytes: logoBytes,
+                  template: template,
+                  paperSize: paperSize,
+                ),
+              ));
+            }
+          },
+          icon: const Icon(Icons.visibility, size: 18),
+          label: const Text('Preview'),
+        ),
         OutlinedButton.icon(
           onPressed: () async {
             Navigator.pop(ctx);
@@ -553,4 +583,134 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 }
 
+// ========== BILL PREVIEW PAGE (History) ==========
 
+class _HistoryBillPreviewPage extends StatefulWidget {
+  final Bill bill;
+  final String businessName;
+  final String businessAddress;
+  final String businessPhone;
+  final String businessGstin;
+  final String businessBankName;
+  final String businessBankAccount;
+  final String businessBankIfsc;
+  final Uint8List? logoBytes;
+  final InvoiceTemplate template;
+  final PaperSize paperSize;
+
+  const _HistoryBillPreviewPage({
+    required this.bill,
+    required this.businessName,
+    required this.businessAddress,
+    required this.businessPhone,
+    required this.businessGstin,
+    required this.businessBankName,
+    required this.businessBankAccount,
+    required this.businessBankIfsc,
+    this.logoBytes,
+    required this.template,
+    required this.paperSize,
+  });
+
+  @override
+  State<_HistoryBillPreviewPage> createState() => _HistoryBillPreviewPageState();
+}
+
+class _HistoryBillPreviewPageState extends State<_HistoryBillPreviewPage> {
+  Uint8List? _pdfBytes;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _generatePdf();
+  }
+
+  Future<void> _generatePdf() async {
+    final bytes = await InvoiceGenerator.generatePdfBytes(
+      widget.bill,
+      businessName: widget.businessName,
+      businessAddress: widget.businessAddress,
+      businessPhone: widget.businessPhone,
+      businessGstin: widget.businessGstin,
+      businessBankName: widget.businessBankName,
+      businessBankAccount: widget.businessBankAccount,
+      businessBankIfsc: widget.businessBankIfsc,
+      logoBytes: widget.logoBytes,
+      template: widget.template,
+      paperSize: widget.paperSize,
+    );
+    if (mounted) setState(() { _pdfBytes = bytes; _loading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Invoice ${widget.bill.billNumber}'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: 'Share',
+            onPressed: _pdfBytes == null ? null : () async {
+              try {
+                await InvoiceGenerator.shareInvoice(
+                  widget.bill,
+                  businessName: widget.businessName,
+                  businessAddress: widget.businessAddress,
+                  businessPhone: widget.businessPhone,
+                  businessGstin: widget.businessGstin,
+                  businessBankName: widget.businessBankName,
+                  businessBankAccount: widget.businessBankAccount,
+                  businessBankIfsc: widget.businessBankIfsc,
+                  logoBytes: widget.logoBytes,
+                  template: widget.template,
+                  paperSize: widget.paperSize,
+                );
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Share error: $e'), backgroundColor: AppColors.error));
+                }
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: _pdfBytes == null ? null : () async {
+                await Printing.layoutPdf(onLayout: (_) async => _pdfBytes!);
+              },
+              icon: const Icon(Icons.print, size: 18),
+              label: const Text('Print'),
+            ),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generating preview...', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              ]))
+          : _pdfBytes != null
+              ? PdfPreview(
+                  build: (_) async => _pdfBytes!,
+                  allowSharing: true,
+                  allowPrinting: true,
+                  canChangePageFormat: false,
+                  canChangeOrientation: false,
+                  canDebug: false,
+                  pdfFileName: 'Invoice_${widget.bill.billNumber}.pdf',
+                )
+              : const Center(child: Text('Error generating preview')),
+    );
+  }
+}

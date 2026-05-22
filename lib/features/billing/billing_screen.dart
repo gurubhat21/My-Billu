@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:typed_data';
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/models/bill.dart';
@@ -1017,6 +1020,11 @@ class _BillingScreenState extends State<BillingScreen> {
             ]),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, 'skip'), child: const Text('Skip')),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pop(ctx, 'preview'),
+                icon: const Icon(Icons.visibility, size: 18),
+                label: const Text('Preview'),
+              ),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
                 onPressed: () => Navigator.pop(ctx, 'share'),
@@ -1037,7 +1045,24 @@ class _BillingScreenState extends State<BillingScreen> {
           final template = _parseTemplate(s['pdf_template']);
           final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
           final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
-          if (action == 'print') {
+          if (action == 'preview') {
+            if (!mounted) return;
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => _BillPreviewPage(
+                bill: bill,
+                businessName: s['businessName'] ?? 'My Billu',
+                businessAddress: s['businessAddress'] ?? '',
+                businessPhone: s['businessPhone'] ?? '',
+                businessGstin: s['businessGstin'] ?? '',
+                businessBankName: s['businessBankName'] ?? '',
+                businessBankAccount: s['businessBankAccount'] ?? '',
+                businessBankIfsc: s['businessBankIfsc'] ?? '',
+                logoBytes: logoBytes,
+                template: template,
+                paperSize: paperSize,
+              ),
+            ));
+          } else if (action == 'print') {
             await InvoiceGenerator.generateAndPrint(bill,
               businessName: s['businessName'] ?? 'My Billu',
               businessAddress: s['businessAddress'] ?? '',
@@ -1158,3 +1183,134 @@ class _BarcodeScannerPageState extends State<_BarcodeScannerPage> {
 }
 
 
+// ========== BILL PREVIEW PAGE ==========
+
+class _BillPreviewPage extends StatefulWidget {
+  final Bill bill;
+  final String businessName;
+  final String businessAddress;
+  final String businessPhone;
+  final String businessGstin;
+  final String businessBankName;
+  final String businessBankAccount;
+  final String businessBankIfsc;
+  final Uint8List? logoBytes;
+  final InvoiceTemplate template;
+  final PaperSize paperSize;
+
+  const _BillPreviewPage({
+    required this.bill,
+    required this.businessName,
+    required this.businessAddress,
+    required this.businessPhone,
+    required this.businessGstin,
+    required this.businessBankName,
+    required this.businessBankAccount,
+    required this.businessBankIfsc,
+    this.logoBytes,
+    required this.template,
+    required this.paperSize,
+  });
+
+  @override
+  State<_BillPreviewPage> createState() => _BillPreviewPageState();
+}
+
+class _BillPreviewPageState extends State<_BillPreviewPage> {
+  Uint8List? _pdfBytes;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _generatePdf();
+  }
+
+  Future<void> _generatePdf() async {
+    final bytes = await InvoiceGenerator.generatePdfBytes(
+      widget.bill,
+      businessName: widget.businessName,
+      businessAddress: widget.businessAddress,
+      businessPhone: widget.businessPhone,
+      businessGstin: widget.businessGstin,
+      businessBankName: widget.businessBankName,
+      businessBankAccount: widget.businessBankAccount,
+      businessBankIfsc: widget.businessBankIfsc,
+      logoBytes: widget.logoBytes,
+      template: widget.template,
+      paperSize: widget.paperSize,
+    );
+    if (mounted) setState(() { _pdfBytes = bytes; _loading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Invoice ${widget.bill.billNumber}'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: 'Share',
+            onPressed: _pdfBytes == null ? null : () async {
+              try {
+                await InvoiceGenerator.shareInvoice(
+                  widget.bill,
+                  businessName: widget.businessName,
+                  businessAddress: widget.businessAddress,
+                  businessPhone: widget.businessPhone,
+                  businessGstin: widget.businessGstin,
+                  businessBankName: widget.businessBankName,
+                  businessBankAccount: widget.businessBankAccount,
+                  businessBankIfsc: widget.businessBankIfsc,
+                  logoBytes: widget.logoBytes,
+                  template: widget.template,
+                  paperSize: widget.paperSize,
+                );
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Share error: $e'), backgroundColor: AppColors.error));
+                }
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: _pdfBytes == null ? null : () async {
+                await Printing.layoutPdf(onLayout: (_) async => _pdfBytes!);
+              },
+              icon: const Icon(Icons.print, size: 18),
+              label: const Text('Print'),
+            ),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generating preview...', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              ]))
+          : _pdfBytes != null
+              ? PdfPreview(
+                  build: (_) async => _pdfBytes!,
+                  allowSharing: true,
+                  allowPrinting: true,
+                  canChangePageFormat: false,
+                  canChangeOrientation: false,
+                  canDebug: false,
+                  pdfFileName: 'Invoice_${widget.bill.billNumber}.pdf',
+                )
+              : const Center(child: Text('Error generating preview')),
+    );
+  }
+}
