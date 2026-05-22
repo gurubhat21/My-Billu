@@ -202,6 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         children: [
           // Greeting emoji + text
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Business Logo
               if (_logoUrl.isNotEmpty) ...
@@ -213,73 +214,78 @@ class _DashboardScreenState extends State<DashboardScreen>
                     image: DecorationImage(image: NetworkImage(_logoUrl), fit: BoxFit.cover),
                   ),
                 ),
-                const SizedBox(width: 12),]
+                const SizedBox(width: 10),]
               else ...
                 [Text(_getEmoji(), style: const TextStyle(fontSize: 32)),
-                const SizedBox(width: 12),],
-              // Date chip
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.calendar_today, size: 14, color: Color(0xFF818CF8)),
-                    const SizedBox(width: 6),
-                    Text(
-                      AppFormatters.date(_currentTime),
-                      style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.w600, fontSize: 12),
+                const SizedBox(width: 10),],
+              // Date, Time, FY chips — wrap on small screens
+              Expanded(child: Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  // Date chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              // Time chip (live)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.access_time, size: 14, color: Color(0xFF00F5A0)),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${(_currentTime.hour % 12 == 0 ? 12 : _currentTime.hour % 12).toString().padLeft(2, '0')}:${_currentTime.minute.toString().padLeft(2, '0')}:${_currentTime.second.toString().padLeft(2, '0')} ${_currentTime.hour >= 12 ? 'PM' : 'AM'}',
-                      style: const TextStyle(color: Color(0xFF00F5A0), fontWeight: FontWeight.w700, fontSize: 12, fontFamily: 'monospace'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_today, size: 12, color: Color(0xFF818CF8)),
+                        const SizedBox(width: 4),
+                        Text(
+                          AppFormatters.date(_currentTime),
+                          style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.w600, fontSize: 11),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              // Financial Year chip
-              if (_financialYear.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.date_range, size: 14, color: Color(0xFFFBBF24)),
-                      const SizedBox(width: 6),
-                      Text(
-                        'FY $_financialYear',
-                        style: const TextStyle(color: Color(0xFFFBBF24), fontWeight: FontWeight.w700, fontSize: 12),
+                  // Time chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.access_time, size: 12, color: Color(0xFF00F5A0)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${(_currentTime.hour % 12 == 0 ? 12 : _currentTime.hour % 12).toString().padLeft(2, '0')}:${_currentTime.minute.toString().padLeft(2, '0')}:${_currentTime.second.toString().padLeft(2, '0')} ${_currentTime.hour >= 12 ? 'PM' : 'AM'}',
+                          style: const TextStyle(color: Color(0xFF00F5A0), fontWeight: FontWeight.w700, fontSize: 11, fontFamily: 'monospace'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Financial Year chip
+                  if (_financialYear.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                       ),
-                    ],
-                  ),
-                ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.date_range, size: 12, color: Color(0xFFFBBF24)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'FY $_financialYear',
+                            style: const TextStyle(color: Color(0xFFFBBF24), fontWeight: FontWeight.w700, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              )),
             ],
           ),
           // License expiry chip — top right
