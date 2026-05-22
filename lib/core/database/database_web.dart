@@ -238,6 +238,11 @@ Future<int> deletePurchase(WebDB db, String id) async {
   return 1;
 }
 
+Future<int> updatePurchase(WebDB db, Purchase purchase) async {
+  db.update('purchases', purchase.toMap(), purchase.id);
+  return 1;
+}
+
 Future<String> getNextPurchaseNumber(WebDB db) async {
   final count = db.getAll('purchases').length;
   final now = DateTime.now();

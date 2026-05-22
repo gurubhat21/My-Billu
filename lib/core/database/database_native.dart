@@ -254,6 +254,12 @@ Future<List<Purchase>> getAllPurchases(Database db) async {
 Future<int> deletePurchase(Database db, String id) async =>
     db.delete('purchases', where: 'id = ?', whereArgs: [id]);
 
+Future<int> updatePurchase(Database db, Purchase purchase) async {
+  final map = purchase.toMap();
+  map['items'] = jsonEncode(map['items']);
+  return db.update('purchases', map, where: 'id = ?', whereArgs: [purchase.id]);
+}
+
 Future<String> getNextPurchaseNumber(Database db) async {
   final result = await db.rawQuery('SELECT COUNT(*) as count FROM purchases');
   final count = Sqflite.firstIntValue(result) ?? 0;

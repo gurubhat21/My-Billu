@@ -32,6 +32,7 @@ import 'features/audit/audit_trail_screen.dart';
 import 'features/cash_book/cash_book_screen.dart';
 import 'features/settings/keyboard_shortcuts_screen.dart';
 import 'features/serial_tracker/serial_tracker_screen.dart';
+import 'features/supplier_payments/supplier_payment_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -310,6 +311,7 @@ class _MainShellState extends State<MainShell> {
     AuditTrailScreen(),         // 16
     CashBookScreen(),           // 17
     SerialTrackerScreen(),      // 18
+    SupplierPaymentScreen(),    // 19
   ];
 
   static const _bottomBarMapping = [0, 1, 2, 3];
@@ -328,6 +330,7 @@ class _MainShellState extends State<MainShell> {
     _DrawerItem(icon: Icons.warehouse, label: 'Stock', index: 5),
     _DrawerItem(icon: Icons.people, label: 'Customers', index: 6),
     _DrawerItem(icon: Icons.local_shipping, label: 'Suppliers', index: 13),
+    _DrawerItem(icon: Icons.payment, label: 'Supplier Payments', index: 19),
     _DrawerItem(icon: Icons.description, label: 'Quotations', index: 7),
     _DrawerItem(icon: Icons.money_off, label: 'Expenses', index: 8),
     _DrawerItem(icon: Icons.account_balance_wallet, label: 'Cash & Bank Book', index: 17),

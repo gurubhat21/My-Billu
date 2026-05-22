@@ -77,6 +77,7 @@ class DatabaseHelper {
   Future<int> insertPurchase(Purchase purchase) async => await platform_db.insertPurchase(await database, purchase);
   Future<List<Purchase>> getAllPurchases() async => await platform_db.getAllPurchases(await database);
   Future<int> deletePurchase(String id) async => await platform_db.deletePurchase(await database, id);
+  Future<int> updatePurchase(Purchase purchase) async => await platform_db.updatePurchase(await database, purchase);
   Future<String> getNextPurchaseNumber() async => await platform_db.getNextPurchaseNumber(await database);
 
   // ===== DASHBOARD STATS =====

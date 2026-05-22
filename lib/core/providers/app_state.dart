@@ -234,6 +234,13 @@ class AppState extends ChangeNotifier {
     await loadDashboardStats();
   }
 
+  Future<void> updatePurchase(Purchase purchase) async {
+    await _db.updatePurchase(purchase);
+    await logAudit(AuditAction.updated, AuditEntity.purchase, purchase.purchaseNumber, details: 'Paid: ₹${purchase.paidAmount.toStringAsFixed(2)} / ₹${purchase.totalAmount.toStringAsFixed(2)}');
+    await loadPurchases();
+    notifyListeners();
+  }
+
   // ===== BILLS =====
 
   Future<void> loadBills() async {
