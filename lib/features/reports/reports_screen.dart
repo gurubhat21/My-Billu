@@ -650,6 +650,270 @@ class _GSTReportTabState extends State<_GSTReportTab> {
               ])),
             const SizedBox(height: 20),
 
+            // ── B2B Invoice Table ──
+            Builder(builder: (context) {
+              // Build customer GSTIN lookup
+              final gstinMap = <String, String>{};
+              for (final c in appState.customers) {
+                if (c.gstin != null && c.gstin!.isNotEmpty) {
+                  gstinMap[c.id] = c.gstin!;
+                  gstinMap[c.name] = c.gstin!;
+                }
+              }
+              final b2bBills = <Bill>[];
+              final b2cBills = <Bill>[];
+              for (final b in bills) {
+                String? gstin;
+                if (b.customerId != null) gstin = gstinMap[b.customerId!];
+                gstin ??= gstinMap[b.customerName ?? ''];
+                if (gstin != null && gstin.isNotEmpty) {
+                  b2bBills.add(b);
+                } else {
+                  b2cBills.add(b);
+                }
+              }
+              String getGstin(Bill b) {
+                if (b.customerId != null && gstinMap.containsKey(b.customerId!)) return gstinMap[b.customerId!]!;
+                return gstinMap[b.customerName ?? ''] ?? '';
+              }
+
+              // B2C by rate
+              final b2cByRate = <double, List<double>>{};
+              for (final b in b2cBills) {
+                for (final item in b.items) {
+                  b2cByRate.putIfAbsent(item.taxRate, () => [0, 0, 0, 0]);
+                  b2cByRate[item.taxRate]![0] += item.subtotal;
+                  b2cByRate[item.taxRate]![1] += item.cgst;
+                  b2cByRate[item.taxRate]![2] += item.sgst;
+                  b2cByRate[item.taxRate]![3] += item.total;
+                }
+              }
+
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // B2B Section
+                GlassCard(padding: const EdgeInsets.all(20), child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4338CA)]),
+                          borderRadius: BorderRadius.circular(8)),
+                        child: const Text('B2B', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text('Business to Business Invoices', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                        child: Text('${b2bBills.length} invoices', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                      ),
+                    ]),
+                    const SizedBox(height: 4),
+                    Text('Invoices issued to registered dealers (with GSTIN)', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                    const SizedBox(height: 14),
+                    if (b2bBills.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        alignment: Alignment.center,
+                        child: Column(children: [
+                          Icon(Icons.info_outline, color: Colors.white.withValues(alpha: 0.3), size: 32),
+                          const SizedBox(height: 8),
+                          Text('No B2B invoices in this period', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+                        ]),
+                      )
+                    else
+                      SingleChildScrollView(scrollDirection: Axis.horizontal, child: DataTable(
+                        headingRowColor: WidgetStatePropertyAll(const Color(0xFF6366F1).withValues(alpha: 0.15)),
+                        columnSpacing: 16,
+                        columns: const [
+                          DataColumn(label: Text('GSTIN', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                          DataColumn(label: Text('Receiver', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                          DataColumn(label: Text('Invoice No', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                          DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                          DataColumn(label: Text('Taxable ₹', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)), numeric: true),
+                          DataColumn(label: Text('CGST ₹', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)), numeric: true),
+                          DataColumn(label: Text('SGST ₹', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)), numeric: true),
+                          DataColumn(label: Text('Total ₹', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)), numeric: true),
+                        ],
+                        rows: [
+                          ...b2bBills.map((b) => DataRow(cells: [
+                            DataCell(Text(getGstin(b), style: const TextStyle(fontSize: 10, fontFamily: 'monospace'))),
+                            DataCell(Text(b.customerName ?? 'N/A', style: const TextStyle(fontSize: 11))),
+                            DataCell(Text(b.billNumber, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+                            DataCell(Text(AppFormatters.shortDate(b.createdAt), style: const TextStyle(fontSize: 11))),
+                            DataCell(Text(AppFormatters.currency(b.subtotal), style: const TextStyle(fontSize: 11))),
+                            DataCell(Text(AppFormatters.currency(b.totalCgst), style: const TextStyle(fontSize: 11))),
+                            DataCell(Text(AppFormatters.currency(b.totalSgst), style: const TextStyle(fontSize: 11))),
+                            DataCell(Text(AppFormatters.currency(b.totalAmount), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
+                          ])),
+                          DataRow(
+                            color: WidgetStatePropertyAll(AppColors.success.withValues(alpha: 0.08)),
+                            cells: [
+                              const DataCell(Text('TOTAL', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11))),
+                              DataCell(Text('${b2bBills.length} bills', style: const TextStyle(fontSize: 11))),
+                              const DataCell(Text('')), const DataCell(Text('')),
+                              DataCell(Text(AppFormatters.currency(b2bBills.fold<double>(0, (s, b) => s + b.subtotal)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                              DataCell(Text(AppFormatters.currency(b2bBills.fold<double>(0, (s, b) => s + b.totalCgst)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                              DataCell(Text(AppFormatters.currency(b2bBills.fold<double>(0, (s, b) => s + b.totalSgst)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                              DataCell(Text(AppFormatters.currency(b2bBills.fold<double>(0, (s, b) => s + b.totalAmount)), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: AppColors.primary))),
+                            ],
+                          ),
+                        ],
+                      )),
+                  ])),
+                const SizedBox(height: 20),
+
+                // B2C Section
+                GlassCard(padding: const EdgeInsets.all(20), child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF047857)]),
+                          borderRadius: BorderRadius.circular(8)),
+                        child: const Text('B2C', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text('Business to Consumer Summary', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                        child: Text('${b2cBills.length} invoices', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.success)),
+                      ),
+                    ]),
+                    const SizedBox(height: 4),
+                    Text('Sales to unregistered consumers (without GSTIN) — grouped by GST rate', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                    const SizedBox(height: 14),
+                    if (b2cByRate.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        alignment: Alignment.center,
+                        child: Column(children: [
+                          Icon(Icons.info_outline, color: Colors.white.withValues(alpha: 0.3), size: 32),
+                          const SizedBox(height: 8),
+                          Text('No B2C invoices in this period', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+                        ]),
+                      )
+                    else
+                      SingleChildScrollView(scrollDirection: Axis.horizontal, child: DataTable(
+                        headingRowColor: WidgetStatePropertyAll(const Color(0xFF10B981).withValues(alpha: 0.15)),
+                        columnSpacing: 24,
+                        columns: const [
+                          DataColumn(label: Text('GST Rate', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                          DataColumn(label: Text('Taxable Value ₹', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)), numeric: true),
+                          DataColumn(label: Text('CGST ₹', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)), numeric: true),
+                          DataColumn(label: Text('SGST ₹', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)), numeric: true),
+                          DataColumn(label: Text('Total Tax ₹', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)), numeric: true),
+                          DataColumn(label: Text('Invoice Value ₹', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)), numeric: true),
+                        ],
+                        rows: [
+                          ...(b2cByRate.keys.toList()..sort()).map((rate) {
+                            final d = b2cByRate[rate]!;
+                            return DataRow(cells: [
+                              DataCell(Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
+                                child: Text('${rate.toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF10B981))))),
+                              DataCell(Text(AppFormatters.currency(d[0]), style: const TextStyle(fontSize: 11))),
+                              DataCell(Text(AppFormatters.currency(d[1]), style: const TextStyle(fontSize: 11))),
+                              DataCell(Text(AppFormatters.currency(d[2]), style: const TextStyle(fontSize: 11))),
+                              DataCell(Text(AppFormatters.currency(d[1] + d[2]), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+                              DataCell(Text(AppFormatters.currency(d[3]), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
+                            ]);
+                          }),
+                          DataRow(
+                            color: WidgetStatePropertyAll(AppColors.success.withValues(alpha: 0.08)),
+                            cells: [
+                              const DataCell(Text('TOTAL', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11))),
+                              DataCell(Text(AppFormatters.currency(b2cByRate.values.fold<double>(0, (s, d) => s + d[0])), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                              DataCell(Text(AppFormatters.currency(b2cByRate.values.fold<double>(0, (s, d) => s + d[1])), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                              DataCell(Text(AppFormatters.currency(b2cByRate.values.fold<double>(0, (s, d) => s + d[2])), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                              DataCell(Text(AppFormatters.currency(b2cByRate.values.fold<double>(0, (s, d) => s + d[1] + d[2])), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+                              DataCell(Text(AppFormatters.currency(b2cByRate.values.fold<double>(0, (s, d) => s + d[3])), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: AppColors.success))),
+                            ],
+                          ),
+                        ],
+                      )),
+                  ])),
+                const SizedBox(height: 20),
+
+                // Export Buttons Card
+                GlassCard(padding: const EdgeInsets.all(20), child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Row(children: [
+                      Icon(Icons.download, color: AppColors.accent, size: 20),
+                      SizedBox(width: 8),
+                      Text('Export GSTR-1 Report', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    ]),
+                    const SizedBox(height: 4),
+                    Text('Download B2B & B2C reports in Excel or PDF format', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                    const SizedBox(height: 16),
+                    Row(children: [
+                      Expanded(child: _exportBtn(
+                        icon: Icons.table_chart, label: 'GSTR-1 Excel',
+                        subtitle: 'B2B + B2C + Summary sheets',
+                        color: const Color(0xFF10B981),
+                        onTap: () async {
+                          final name = await _getBusinessName(appState);
+                          final addr = await appState.getSetting('businessAddress') ?? '';
+                          final bytes = await GSTR1Exporter.generateExcel(
+                            bills: bills, customers: appState.customers,
+                            businessName: name, businessAddress: addr, period: _period);
+                          await GSTR1Exporter.shareExcel(bytes, 'GSTR1_$_period.xlsx');
+                        },
+                      )),
+                      const SizedBox(width: 12),
+                      Expanded(child: _exportBtn(
+                        icon: Icons.picture_as_pdf, label: 'GSTR-1 PDF',
+                        subtitle: 'B2B + B2C + Summary pages',
+                        color: const Color(0xFFEF4444),
+                        onTap: () async {
+                          final name = await _getBusinessName(appState);
+                          final addr = await appState.getSetting('businessAddress') ?? '';
+                          final bytes = await GSTR1Exporter.generatePdf(
+                            bills: bills, customers: appState.customers,
+                            businessName: name, businessAddress: addr, period: _period);
+                          await GSTR1Exporter.sharePdf(bytes, 'GSTR1_$_period.pdf');
+                        },
+                      )),
+                    ]),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(child: _exportBtn(
+                        icon: Icons.print, label: 'Print GSTR-1',
+                        subtitle: 'Print B2B + B2C report',
+                        color: const Color(0xFF6366F1),
+                        onTap: () async {
+                          final name = await _getBusinessName(appState);
+                          final addr = await appState.getSetting('businessAddress') ?? '';
+                          final bytes = await GSTR1Exporter.generatePdf(
+                            bills: bills, customers: appState.customers,
+                            businessName: name, businessAddress: addr, period: _period);
+                          await GSTR1Exporter.printPdf(bytes);
+                        },
+                      )),
+                      const SizedBox(width: 12),
+                      Expanded(child: _exportBtn(
+                        icon: Icons.table_chart, label: 'Sales Register Excel',
+                        subtitle: 'Full sales with item details',
+                        color: const Color(0xFFF59E0B),
+                        onTap: () async {
+                          final name = await _getBusinessName(appState);
+                          final bytes = await GSTR1Exporter.generateSalesExcel(
+                            bills: bills, businessName: name, period: _period);
+                          await GSTR1Exporter.shareExcel(bytes, 'Sales_Register_$_period.xlsx');
+                        },
+                      )),
+                    ]),
+                  ])),
+              ]);
+            }),
+            const SizedBox(height: 20),
+
             // GST Rate Distribution
             if (sortedRates.isNotEmpty)
               GlassCard(padding: const EdgeInsets.all(20), child: Column(
@@ -733,6 +997,28 @@ class _GSTReportTabState extends State<_GSTReportTab> {
         )).toList()),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
     ));
+  }
+
+  Widget _exportBtn({required IconData icon, required String label, required String subtitle, required Color color, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2))),
+        child: Row(children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: color)),
+            Text(subtitle, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7))),
+          ])),
+        ]),
+      ),
+    );
   }
 
   Color _slabColor(double rate) {
