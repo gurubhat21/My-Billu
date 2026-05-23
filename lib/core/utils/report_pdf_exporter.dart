@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:typed_data';
+import 'dart:io' show File;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/bill.dart';
 import '../models/purchase.dart';
 import '../models/expense.dart';
@@ -429,8 +431,10 @@ class ReportPdfExporter {
     if (kIsWeb) {
       await Printing.sharePdf(bytes: bytes, filename: filename);
     } else {
-      final xFile = XFile.fromData(bytes, mimeType: 'application/pdf', name: filename);
-      await Share.shareXFiles([xFile]);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$filename');
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(file.path, mimeType: 'application/pdf')]);
     }
   }
 }
