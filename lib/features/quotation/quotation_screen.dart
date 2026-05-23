@@ -135,6 +135,8 @@ class _QuotationScreenState extends State<QuotationScreen> {
             _actionBtn(Icons.receipt, 'Convert to Bill', () => _convertToBill(context, appState, q)),
           _actionBtn(Icons.print, 'Print', () => _printQuotation(context, appState, q)),
           const SizedBox(width: 4),
+          _actionBtn(Icons.save, 'Save', () => _saveQuotationPdf(context, appState, q), color: const Color(0xFF8B5CF6)),
+          const SizedBox(width: 4),
           _actionBtn(Icons.share, 'Share', () => _shareQuotation(context, appState, q), color: const Color(0xFF25D366)),
           const Spacer(),
           if (q.status == QuotationStatus.draft || q.status == QuotationStatus.sent)
@@ -856,6 +858,46 @@ class _QuotationScreenState extends State<QuotationScreen> {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Save error: $e'), backgroundColor: AppColors.error));
         }
+      }
+    }
+  }
+
+  void _saveQuotationPdf(BuildContext context, AppState appState, Quotation q) async {
+    final s = await appState.getAllSettings();
+    final bill = _quotationAsBill(q);
+    final template = _parseTemplate(s['pdf_template']);
+    final paperSize = (s['pdf_paper_size'] ?? 'a4') == 'a5' ? PaperSize.a5 : PaperSize.a4;
+    final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+    try {
+      final savedPath = await InvoiceGenerator.savePdfToFile(bill,
+        businessName: s['businessName'] ?? 'My Billu',
+        businessAddress: s['businessAddress'] ?? '',
+        businessPhone: s['businessPhone'] ?? '',
+        businessGstin: s['businessGstin'] ?? '',
+        businessBankName: s['businessBankName'] ?? '',
+        businessBankAccount: s['businessBankAccount'] ?? '',
+        businessBankIfsc: s['businessBankIfsc'] ?? '',
+        logoBytes: logoBytes,
+        template: template, paperSize: paperSize,
+        documentTitle: 'SALES QUOTATION',
+        thankYouMessage: s['pdf_thank_you_message'],
+        termsConditions: s['pdf_terms_conditions'],
+        savePath: s['pdf_save_path'],
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Row(children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 18), const SizedBox(width: 8),
+            Expanded(child: Text('PDF saved: $savedPath', overflow: TextOverflow.ellipsis)),
+          ]),
+          backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Save error: $e'), backgroundColor: AppColors.error));
       }
     }
   }
