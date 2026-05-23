@@ -54,6 +54,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _bizBankAccountCtrl = TextEditingController();
   final _bizBankIfscCtrl = TextEditingController();
   final _barcodeCtrl = TextEditingController();
+  final _thankYouMsgCtrl = TextEditingController();
+  final _termsConditionsCtrl = TextEditingController();
   bool _loaded = false;
   bool _biometricEnabled = false;
   bool _biometricAvailable = false;
@@ -86,6 +88,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _biometricEnabled = settings['biometric_enabled'] == 'true';
       _showItemDescription = settings['billing_show_description'] == 'true';
       _showSerialNumber = settings['billing_show_serial_number'] == 'true';
+      _thankYouMsgCtrl.text = settings['pdf_thank_you_message'] ?? '';
+      _termsConditionsCtrl.text = settings['pdf_terms_conditions'] ?? '';
       _invPrefixCtrl.text = settings['invoice_prefix'] ?? 'INV';
       _invPatternCtrl.text = settings['invoice_pattern'] ?? '';
       _invStartCtrl.text = settings['invoice_start_number'] ?? '1';
@@ -1254,6 +1258,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
           contentPadding: EdgeInsets.zero,
           dense: true,
         ),
+        const Divider(height: 24),
+        // Thank You Message
+        Row(children: [
+          Icon(Icons.favorite, color: AppColors.primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Thank You Message', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            Text('Custom message shown at the bottom of invoices & quotations',
+              style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black38)),
+          ])),
+        ]),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _thankYouMsgCtrl,
+          decoration: InputDecoration(
+            hintText: 'e.g. Thank you for your business!',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            prefixIcon: const Icon(Icons.edit_note, size: 20),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+          onChanged: (v) async {
+            final appState = context.read<AppState>();
+            await appState.saveSetting('pdf_thank_you_message', v.trim());
+          },
+        ),
+        const Divider(height: 24),
+        // Terms & Conditions
+        Row(children: [
+          const Icon(Icons.gavel, color: Color(0xFFF59E0B), size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Terms & Conditions', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            Text('Printed on invoices & quotations PDF',
+              style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black38)),
+          ])),
+        ]),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _termsConditionsCtrl,
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: 'e.g. Goods once sold cannot be taken back.',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            prefixIcon: const Padding(padding: EdgeInsets.only(bottom: 36), child: Icon(Icons.article_outlined, size: 20)),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+          onChanged: (v) async {
+            final appState = context.read<AppState>();
+            await appState.saveSetting('pdf_terms_conditions', v.trim());
+          },
+        ),
       ]));
   }
 
@@ -1538,6 +1593,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _bizBankNameCtrl.dispose();
     _bizBankAccountCtrl.dispose();
     _bizBankIfscCtrl.dispose();
+    _thankYouMsgCtrl.dispose();
+    _termsConditionsCtrl.dispose();
     _lanIpCtrl.dispose();
     LanSyncService.stopServer();
     super.dispose();

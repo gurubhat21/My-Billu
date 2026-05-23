@@ -811,6 +811,8 @@ class _QuotationScreenState extends State<QuotationScreen> {
         logoBytes: logoBytes,
         template: template, paperSize: paperSize,
         documentTitle: 'SALES QUOTATION',
+        thankYouMessage: s['pdf_thank_you_message'],
+        termsConditions: s['pdf_terms_conditions'],
       );
     }
   }
@@ -881,6 +883,8 @@ class _QuotationScreenState extends State<QuotationScreen> {
           logoBytes: logoBytes,
           template: template, paperSize: paperSize,
           documentTitle: 'SALES QUOTATION',
+          thankYouMessage: s['pdf_thank_you_message'],
+          termsConditions: s['pdf_terms_conditions'],
         );
       } catch (e) {
         if (context.mounted) {

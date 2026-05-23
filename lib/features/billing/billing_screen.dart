@@ -1045,6 +1045,8 @@ class _BillingScreenState extends State<BillingScreen> {
           final template = _parseTemplate(s['pdf_template']);
           final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
           final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+          final tyMsg = s['pdf_thank_you_message'];
+          final tc = s['pdf_terms_conditions'];
           if (action == 'preview') {
             if (!mounted) return;
             Navigator.of(context).push(MaterialPageRoute(
@@ -1060,6 +1062,8 @@ class _BillingScreenState extends State<BillingScreen> {
                 logoBytes: logoBytes,
                 template: template,
                 paperSize: paperSize,
+                thankYouMessage: tyMsg,
+                termsConditions: tc,
               ),
             ));
           } else if (action == 'print') {
@@ -1073,6 +1077,7 @@ class _BillingScreenState extends State<BillingScreen> {
               businessBankIfsc: s['businessBankIfsc'] ?? '',
               logoBytes: logoBytes,
               template: template, paperSize: paperSize,
+              thankYouMessage: tyMsg, termsConditions: tc,
             );
           } else if (action == 'share') {
             await InvoiceGenerator.shareInvoice(bill,
@@ -1085,6 +1090,7 @@ class _BillingScreenState extends State<BillingScreen> {
               businessBankIfsc: s['businessBankIfsc'] ?? '',
               logoBytes: logoBytes,
               template: template, paperSize: paperSize,
+              thankYouMessage: tyMsg, termsConditions: tc,
             );
           }
         }
@@ -1197,6 +1203,8 @@ class _BillPreviewPage extends StatefulWidget {
   final Uint8List? logoBytes;
   final InvoiceTemplate template;
   final PaperSize paperSize;
+  final String? thankYouMessage;
+  final String? termsConditions;
 
   const _BillPreviewPage({
     required this.bill,
@@ -1210,6 +1218,8 @@ class _BillPreviewPage extends StatefulWidget {
     this.logoBytes,
     required this.template,
     required this.paperSize,
+    this.thankYouMessage,
+    this.termsConditions,
   });
 
   @override
@@ -1239,6 +1249,8 @@ class _BillPreviewPageState extends State<_BillPreviewPage> {
       logoBytes: widget.logoBytes,
       template: widget.template,
       paperSize: widget.paperSize,
+      thankYouMessage: widget.thankYouMessage,
+      termsConditions: widget.termsConditions,
     );
     if (mounted) setState(() { _pdfBytes = bytes; _loading = false; });
   }
@@ -1266,6 +1278,8 @@ class _BillPreviewPageState extends State<_BillPreviewPage> {
                   logoBytes: widget.logoBytes,
                   template: widget.template,
                   paperSize: widget.paperSize,
+                  thankYouMessage: widget.thankYouMessage,
+                  termsConditions: widget.termsConditions,
                 );
               } catch (e) {
                 if (context.mounted) {

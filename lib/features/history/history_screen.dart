@@ -199,6 +199,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   logoBytes: logoBytes,
                   template: template,
                   paperSize: paperSize,
+                  thankYouMessage: s['pdf_thank_you_message'],
+                  termsConditions: s['pdf_terms_conditions'],
                 ),
               ));
             }
@@ -223,6 +225,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
               businessBankIfsc: s['businessBankIfsc'] ?? '',
               logoBytes: logoBytes,
               template: template, paperSize: paperSize,
+              thankYouMessage: s['pdf_thank_you_message'],
+              termsConditions: s['pdf_terms_conditions'],
             );
           },
           icon: const Icon(Icons.print, size: 18),
@@ -247,6 +251,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 businessBankIfsc: s['businessBankIfsc'] ?? '',
                 logoBytes: logoBytes,
                 template: template, paperSize: paperSize,
+                thankYouMessage: s['pdf_thank_you_message'],
+                termsConditions: s['pdf_terms_conditions'],
               );
             } catch (e) {
               if (context.mounted) {
@@ -597,6 +603,8 @@ class _HistoryBillPreviewPage extends StatefulWidget {
   final Uint8List? logoBytes;
   final InvoiceTemplate template;
   final PaperSize paperSize;
+  final String? thankYouMessage;
+  final String? termsConditions;
 
   const _HistoryBillPreviewPage({
     required this.bill,
@@ -610,6 +618,8 @@ class _HistoryBillPreviewPage extends StatefulWidget {
     this.logoBytes,
     required this.template,
     required this.paperSize,
+    this.thankYouMessage,
+    this.termsConditions,
   });
 
   @override
@@ -639,6 +649,8 @@ class _HistoryBillPreviewPageState extends State<_HistoryBillPreviewPage> {
       logoBytes: widget.logoBytes,
       template: widget.template,
       paperSize: widget.paperSize,
+      thankYouMessage: widget.thankYouMessage,
+      termsConditions: widget.termsConditions,
     );
     if (mounted) setState(() { _pdfBytes = bytes; _loading = false; });
   }
@@ -666,6 +678,8 @@ class _HistoryBillPreviewPageState extends State<_HistoryBillPreviewPage> {
                   logoBytes: widget.logoBytes,
                   template: widget.template,
                   paperSize: widget.paperSize,
+                  thankYouMessage: widget.thankYouMessage,
+                  termsConditions: widget.termsConditions,
                 );
               } catch (e) {
                 if (context.mounted) {
