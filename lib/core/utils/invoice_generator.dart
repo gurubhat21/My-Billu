@@ -144,6 +144,60 @@ class InvoiceGenerator {
     }
   }
 
+  /// Save PDF to a specific folder (user-configured or Downloads)
+  static Future<String> savePdfToFile(
+    Bill bill, {
+    String businessName = 'My Billu',
+    String businessAddress = '',
+    String businessPhone = '',
+    String businessGstin = '',
+    String businessBankName = '',
+    String businessBankAccount = '',
+    String businessBankIfsc = '',
+    Uint8List? logoBytes,
+    InvoiceTemplate template = InvoiceTemplate.modern,
+    PaperSize paperSize = PaperSize.a4,
+    String? documentTitle,
+    String? thankYouMessage,
+    String? termsConditions,
+    String? savePath,
+  }) async {
+    final bytes = await generatePdfBytes(bill,
+      businessName: businessName, businessAddress: businessAddress,
+      businessPhone: businessPhone, businessGstin: businessGstin,
+      businessBankName: businessBankName, businessBankAccount: businessBankAccount,
+      businessBankIfsc: businessBankIfsc, logoBytes: logoBytes,
+      template: template, paperSize: paperSize, documentTitle: documentTitle,
+      thankYouMessage: thankYouMessage, termsConditions: termsConditions);
+
+    final fileLabel = documentTitle != null ? documentTitle.replaceAll(' ', '_') : 'Invoice';
+    final fileName = '${fileLabel}_${bill.billNumber}.pdf';
+
+    if (kIsWeb) {
+      await Printing.sharePdf(bytes: bytes, filename: fileName);
+      return fileName;
+    }
+
+    // Determine save directory
+    String dirPath;
+    if (savePath != null && savePath.isNotEmpty) {
+      dirPath = savePath;
+    } else {
+      final dir = await getApplicationDocumentsDirectory();
+      dirPath = dir.path;
+    }
+
+    // Ensure directory exists
+    final saveDir = Directory(dirPath);
+    if (!await saveDir.exists()) {
+      await saveDir.create(recursive: true);
+    }
+
+    final file = File('$dirPath/$fileName');
+    await file.writeAsBytes(bytes);
+    return file.path;
+  }
+
   static Future<void> emailInvoice(
     Bill bill, {
     String? recipientEmail,

@@ -56,6 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _barcodeCtrl = TextEditingController();
   final _thankYouMsgCtrl = TextEditingController();
   final _termsConditionsCtrl = TextEditingController();
+  final _pdfSavePathCtrl = TextEditingController();
   bool _loaded = false;
   bool _biometricEnabled = false;
   bool _biometricAvailable = false;
@@ -90,6 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _showSerialNumber = settings['billing_show_serial_number'] == 'true';
       _thankYouMsgCtrl.text = settings['pdf_thank_you_message'] ?? '';
       _termsConditionsCtrl.text = settings['pdf_terms_conditions'] ?? '';
+    _pdfSavePathCtrl.text = settings['pdf_save_path'] ?? '';
       _invPrefixCtrl.text = settings['invoice_prefix'] ?? 'INV';
       _invPatternCtrl.text = settings['invoice_pattern'] ?? '';
       _invStartCtrl.text = settings['invoice_start_number'] ?? '1';
@@ -1309,7 +1311,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
             await appState.saveSetting('pdf_terms_conditions', v.trim());
           },
         ),
+        const Divider(height: 24),
+        // PDF Save Path
+        Row(children: [
+          const Icon(Icons.folder_open, color: Color(0xFF8B5CF6), size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('PDF Save Folder', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            Text('Where invoices & quotation PDFs are saved',
+              style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black38)),
+          ])),
+        ]),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: TextField(
+            controller: _pdfSavePathCtrl,
+            readOnly: true,
+            decoration: InputDecoration(
+              hintText: 'Default: Documents folder',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              prefixIcon: const Icon(Icons.folder, size: 20),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+          )),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8B5CF6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => _pickPdfSavePath(context),
+            icon: const Icon(Icons.drive_file_move, size: 18),
+            label: const Text('Browse'),
+          ),
+          if (_pdfSavePathCtrl.text.isNotEmpty) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.clear, size: 18, color: AppColors.error),
+              tooltip: 'Reset to default',
+              onPressed: () async {
+                final appState = context.read<AppState>();
+                await appState.saveSetting('pdf_save_path', '');
+                setState(() => _pdfSavePathCtrl.text = '');
+              },
+            ),
+          ],
+        ]),
       ]));
+  }
+  // ===== PDF SAVE PATH PICKER =====
+  Future<void> _pickPdfSavePath(BuildContext context) async {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Folder selection not available on web. PDFs will download automatically.')));
+      return;
+    }
+    try {
+      final selectedDir = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Select PDF Save Folder',
+      );
+      if (selectedDir != null && context.mounted) {
+        final appState = context.read<AppState>();
+        await appState.saveSetting('pdf_save_path', selectedDir);
+        setState(() => _pdfSavePathCtrl.text = selectedDir);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Row(children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 18), const SizedBox(width: 8),
+              Expanded(child: Text('PDF save path: $selectedDir', overflow: TextOverflow.ellipsis)),
+            ]),
+            backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ));
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error picking folder: $e'), backgroundColor: AppColors.error));
+      }
+    }
   }
 
   // ===== BIOMETRIC AUTH =====
@@ -1595,6 +1677,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _bizBankIfscCtrl.dispose();
     _thankYouMsgCtrl.dispose();
     _termsConditionsCtrl.dispose();
+    _pdfSavePathCtrl.dispose();
     _lanIpCtrl.dispose();
     LanSyncService.stopServer();
     super.dispose();

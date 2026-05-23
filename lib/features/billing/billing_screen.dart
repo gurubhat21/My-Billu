@@ -1038,6 +1038,11 @@ class _BillingScreenState extends State<BillingScreen> {
                 icon: const Icon(Icons.visibility, size: 18),
                 label: const Text('Preview'),
               ),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pop(ctx, 'save'),
+                icon: const Icon(Icons.save, size: 18),
+                label: const Text('Save PDF'),
+              ),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
                 onPressed: () => Navigator.pop(ctx, 'share'),
@@ -1105,6 +1110,37 @@ class _BillingScreenState extends State<BillingScreen> {
               template: template, paperSize: paperSize,
               thankYouMessage: tyMsg, termsConditions: tc,
             );
+          } else if (action == 'save') {
+            try {
+              final savedPath = await InvoiceGenerator.savePdfToFile(bill,
+                businessName: s['businessName'] ?? 'My Billu',
+                businessAddress: s['businessAddress'] ?? '',
+                businessPhone: s['businessPhone'] ?? '',
+                businessGstin: s['businessGstin'] ?? '',
+                businessBankName: s['businessBankName'] ?? '',
+                businessBankAccount: s['businessBankAccount'] ?? '',
+                businessBankIfsc: s['businessBankIfsc'] ?? '',
+                logoBytes: logoBytes,
+                template: template, paperSize: paperSize,
+                thankYouMessage: tyMsg, termsConditions: tc,
+                savePath: s['pdf_save_path'],
+              );
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Row(children: [
+                    const Icon(Icons.check_circle, color: Colors.white, size: 18), const SizedBox(width: 8),
+                    Expanded(child: Text('PDF saved: $savedPath', overflow: TextOverflow.ellipsis)),
+                  ]),
+                  backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ));
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Save error: $e'), backgroundColor: AppColors.error));
+              }
+            }
           }
         }
       }

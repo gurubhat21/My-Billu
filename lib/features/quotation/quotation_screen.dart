@@ -785,6 +785,11 @@ class _QuotationScreenState extends State<QuotationScreen> {
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pop(ctx, 'save'),
+            icon: const Icon(Icons.save, size: 18),
+            label: const Text('Save PDF'),
+          ),
           ElevatedButton.icon(
             onPressed: () => Navigator.pop(ctx, 'print'),
             icon: const Icon(Icons.print, size: 18),
@@ -814,6 +819,44 @@ class _QuotationScreenState extends State<QuotationScreen> {
         thankYouMessage: s['pdf_thank_you_message'],
         termsConditions: s['pdf_terms_conditions'],
       );
+    } else if (action == 'save' && context.mounted) {
+      final s = await appState.getAllSettings();
+      final bill = _quotationAsBill(q);
+      final template = _parseTemplate(s['pdf_template']);
+      final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
+      final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+      try {
+        final savedPath = await InvoiceGenerator.savePdfToFile(bill,
+          businessName: s['businessName'] ?? 'My Billu',
+          businessAddress: s['businessAddress'] ?? '',
+          businessPhone: s['businessPhone'] ?? '',
+          businessGstin: s['businessGstin'] ?? '',
+          businessBankName: s['businessBankName'] ?? '',
+          businessBankAccount: s['businessBankAccount'] ?? '',
+          businessBankIfsc: s['businessBankIfsc'] ?? '',
+          logoBytes: logoBytes,
+          template: template, paperSize: paperSize,
+          documentTitle: 'SALES QUOTATION',
+          thankYouMessage: s['pdf_thank_you_message'],
+          termsConditions: s['pdf_terms_conditions'],
+          savePath: s['pdf_save_path'],
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Row(children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 18), const SizedBox(width: 8),
+              Expanded(child: Text('PDF saved: $savedPath', overflow: TextOverflow.ellipsis)),
+            ]),
+            backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ));
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Save error: $e'), backgroundColor: AppColors.error));
+        }
+      }
     }
   }
 
@@ -855,6 +898,11 @@ class _QuotationScreenState extends State<QuotationScreen> {
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pop(ctx, 'save'),
+            icon: const Icon(Icons.save, size: 18),
+            label: const Text('Save PDF'),
+          ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
             onPressed: () => Navigator.pop(ctx, 'share'),
@@ -890,6 +938,44 @@ class _QuotationScreenState extends State<QuotationScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Share error: $e'), backgroundColor: AppColors.error));
+        }
+      }
+    } else if (action == 'save' && context.mounted) {
+      final s = await appState.getAllSettings();
+      final bill = _quotationAsBill(q);
+      final template = _parseTemplate(s['pdf_template']);
+      final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
+      final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+      try {
+        final savedPath = await InvoiceGenerator.savePdfToFile(bill,
+          businessName: s['businessName'] ?? 'My Billu',
+          businessAddress: s['businessAddress'] ?? '',
+          businessPhone: s['businessPhone'] ?? '',
+          businessGstin: s['businessGstin'] ?? '',
+          businessBankName: s['businessBankName'] ?? '',
+          businessBankAccount: s['businessBankAccount'] ?? '',
+          businessBankIfsc: s['businessBankIfsc'] ?? '',
+          logoBytes: logoBytes,
+          template: template, paperSize: paperSize,
+          documentTitle: 'SALES QUOTATION',
+          thankYouMessage: s['pdf_thank_you_message'],
+          termsConditions: s['pdf_terms_conditions'],
+          savePath: s['pdf_save_path'],
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Row(children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 18), const SizedBox(width: 8),
+              Expanded(child: Text('PDF saved: $savedPath', overflow: TextOverflow.ellipsis)),
+            ]),
+            backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ));
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Save error: $e'), backgroundColor: AppColors.error));
         }
       }
     }
