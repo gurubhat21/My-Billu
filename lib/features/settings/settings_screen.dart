@@ -63,6 +63,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _showItemDescription = false;
   bool _showSerialNumber = false;
   bool _featuresExpanded = false;
+  bool _businessProfileExpanded = false;
+  bool _templateExpanded = false;
   final _invPrefixCtrl = TextEditingController(text: 'INV');
   final _invPatternCtrl = TextEditingController();
   final _invStartCtrl = TextEditingController(text: '1');
@@ -333,135 +335,136 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildLanSyncCard(context),
           const SizedBox(height: 16),
 
-          GlassCard(padding: const EdgeInsets.all(20), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.business, size: 22, color: AppColors.primary)),
-                const SizedBox(width: 12),
-                Text('Business Profile', style: Theme.of(context).textTheme.titleLarge),
-              ]),
-              const SizedBox(height: 20),
-              if (!_loaded) const Center(child: CircularProgressIndicator())
-              else ...[
-                TextField(controller: _bizNameCtrl,
-                  decoration: const InputDecoration(labelText: 'Business Name', prefixIcon: Icon(Icons.store))),
-                const SizedBox(height: 14),
-                TextField(controller: _bizAddressCtrl, maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Address', prefixIcon: Icon(Icons.location_on_outlined))),
-                const SizedBox(height: 14),
-                TextField(controller: _bizPhoneCtrl, keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone_outlined))),
-                const SizedBox(height: 14),
-                TextField(controller: _bizGstinCtrl,
-                  decoration: const InputDecoration(labelText: 'GSTIN', prefixIcon: Icon(Icons.badge_outlined))),
-                const SizedBox(height: 20),
+          _buildCollapsibleSection(
+            context,
+            icon: Icons.storefront,
+            title: 'Business Profile',
+            color: AppColors.primary,
+            isExpanded: _businessProfileExpanded,
+            onToggle: () => setState(() => _businessProfileExpanded = !_businessProfileExpanded),
+            children: [
+              GlassCard(padding: const EdgeInsets.all(20), child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  if (!_loaded) const Center(child: CircularProgressIndicator())
+                  else ...[
+                    TextField(controller: _bizNameCtrl,
+                      decoration: const InputDecoration(labelText: 'Business Name', prefixIcon: Icon(Icons.store))),
+                    const SizedBox(height: 14),
+                    TextField(controller: _bizAddressCtrl, maxLines: 2,
+                      decoration: const InputDecoration(labelText: 'Address', prefixIcon: Icon(Icons.location_on_outlined))),
+                    const SizedBox(height: 14),
+                    TextField(controller: _bizPhoneCtrl, keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone_outlined))),
+                    const SizedBox(height: 14),
+                    TextField(controller: _bizGstinCtrl,
+                      decoration: const InputDecoration(labelText: 'GSTIN', prefixIcon: Icon(Icons.badge_outlined))),
+                    const SizedBox(height: 20),
 
-                // Bank Details section
-                Row(children: [
-                  Container(padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.account_balance, size: 22, color: Color(0xFF10B981))),
-                  const SizedBox(width: 12),
-                  Text('Bank Details (for invoices)', style: Theme.of(context).textTheme.titleMedium),
-                ]),
-                const SizedBox(height: 12),
-                TextField(controller: _bizBankNameCtrl,
-                  decoration: const InputDecoration(labelText: 'Bank Name', prefixIcon: Icon(Icons.account_balance_outlined),
-                    hintText: 'e.g. AXIS BANK, Branch: YELLAPUR')),
-                const SizedBox(height: 14),
-                TextField(controller: _bizBankAccountCtrl, keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Account Number', prefixIcon: Icon(Icons.credit_card_outlined),
-                    hintText: 'e.g. 925020007361962')),
-                const SizedBox(height: 14),
-                TextField(controller: _bizBankIfscCtrl, textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(labelText: 'IFSC Code', prefixIcon: Icon(Icons.pin_outlined),
-                    hintText: 'e.g. UTIB0006083')),
-                const SizedBox(height: 20),
+                    // Bank Details section
+                    Row(children: [
+                      Container(padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.account_balance, size: 22, color: Color(0xFF10B981))),
+                      const SizedBox(width: 12),
+                      Text('Bank Details (for invoices)', style: Theme.of(context).textTheme.titleMedium),
+                    ]),
+                    const SizedBox(height: 12),
+                    TextField(controller: _bizBankNameCtrl,
+                      decoration: const InputDecoration(labelText: 'Bank Name', prefixIcon: Icon(Icons.account_balance_outlined),
+                        hintText: 'e.g. AXIS BANK, Branch: YELLAPUR')),
+                    const SizedBox(height: 14),
+                    TextField(controller: _bizBankAccountCtrl, keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Account Number', prefixIcon: Icon(Icons.credit_card_outlined),
+                        hintText: 'e.g. 925020007361962')),
+                    const SizedBox(height: 14),
+                    TextField(controller: _bizBankIfscCtrl, textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(labelText: 'IFSC Code', prefixIcon: Icon(Icons.pin_outlined),
+                        hintText: 'e.g. UTIB0006083')),
+                    const SizedBox(height: 20),
 
-                // Logo section
-                Row(children: [
-                  Container(padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.image, size: 22, color: AppColors.accent)),
-                  const SizedBox(width: 12),
-                  Text('Business Logo', style: Theme.of(context).textTheme.titleMedium),
-                ]),
-                const SizedBox(height: 12),
-                // Show current logo
-                FutureBuilder<String?>(
-                  future: context.read<AppState>().getSetting('businessLogoData'),
-                  builder: (ctx, snap) {
-                    final logoData = snap.data;
-                    final logoUrl = _bizLogoCtrl.text;
-                    return Column(children: [
-                      if (logoData != null && logoData.isNotEmpty)
-                        Center(child: Container(
-                          width: 80, height: 80, margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2)),
-                          child: ClipRRect(borderRadius: BorderRadius.circular(12),
-                            child: Image.memory(
-                              Uri.parse(logoData).data!.contentAsBytes(),
-                              fit: BoxFit.cover)),
-                        ))
-                      else if (logoUrl.isNotEmpty)
-                        Center(child: Container(
-                          width: 80, height: 80, margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2),
-                            image: DecorationImage(image: NetworkImage(logoUrl), fit: BoxFit.cover)),
-                        )),
-                      Row(children: [
-                        Expanded(child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final dataUrl = await web_helper.triggerImageUpload();
-                            if (dataUrl != null) {
-                              final appState = context.read<AppState>();
-                              await appState.saveSetting('businessLogoData', dataUrl);
-                              setState(() {});
-                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                content: const Row(children: [
-                                  Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
-                                  Text('Logo uploaded successfully!')]),
-                                backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
-                            }
-                          },
-                          icon: const Icon(Icons.upload_file, size: 20),
-                          label: const Text('Upload Logo (PNG/JPEG)'),
-                        )),
-                        if (logoData != null && logoData.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          IconButton(
-                            tooltip: 'Remove Logo',
-                            icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
-                            onPressed: () async {
-                              await context.read<AppState>().saveSetting('businessLogoData', '');
-                              setState(() {});
-                            }),
-                        ],
-                      ]),
-                    ]);
-                  }),
-                const SizedBox(height: 8),
-                TextField(controller: _bizLogoCtrl,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'Or paste Logo URL',
-                    prefixIcon: Icon(Icons.link),
-                    hintText: 'https://example.com/logo.png',
-                  )),
-                const SizedBox(height: 20),
+                    // Logo section
+                    Row(children: [
+                      Container(padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.image, size: 22, color: AppColors.accent)),
+                      const SizedBox(width: 12),
+                      Text('Business Logo', style: Theme.of(context).textTheme.titleMedium),
+                    ]),
+                    const SizedBox(height: 12),
+                    FutureBuilder<String?>(
+                      future: context.read<AppState>().getSetting('businessLogoData'),
+                      builder: (ctx, snap) {
+                        final logoData = snap.data;
+                        final logoUrl = _bizLogoCtrl.text;
+                        return Column(children: [
+                          if (logoData != null && logoData.isNotEmpty)
+                            Center(child: Container(
+                              width: 80, height: 80, margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2)),
+                              child: ClipRRect(borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(
+                                  Uri.parse(logoData).data!.contentAsBytes(),
+                                  fit: BoxFit.cover)),
+                            ))
+                          else if (logoUrl.isNotEmpty)
+                            Center(child: Container(
+                              width: 80, height: 80, margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2),
+                                image: DecorationImage(image: NetworkImage(logoUrl), fit: BoxFit.cover)),
+                            )),
+                          Row(children: [
+                            Expanded(child: OutlinedButton.icon(
+                              onPressed: () async {
+                                final dataUrl = await web_helper.triggerImageUpload();
+                                if (dataUrl != null) {
+                                  final appState = context.read<AppState>();
+                                  await appState.saveSetting('businessLogoData', dataUrl);
+                                  setState(() {});
+                                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    content: const Row(children: [
+                                      Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+                                      Text('Logo uploaded successfully!')]),
+                                    backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+                                }
+                              },
+                              icon: const Icon(Icons.upload_file, size: 20),
+                              label: const Text('Upload Logo (PNG/JPEG)'),
+                            )),
+                            if (logoData != null && logoData.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              IconButton(
+                                tooltip: 'Remove Logo',
+                                icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                                onPressed: () async {
+                                  await context.read<AppState>().saveSetting('businessLogoData', '');
+                                  setState(() {});
+                                }),
+                            ],
+                          ]),
+                        ]);
+                      }),
+                    const SizedBox(height: 8),
+                    TextField(controller: _bizLogoCtrl,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(
+                        labelText: 'Or paste Logo URL',
+                        prefixIcon: Icon(Icons.link),
+                        hintText: 'https://example.com/logo.png',
+                      )),
+                    const SizedBox(height: 20),
 
-                SizedBox(width: double.infinity,
-                  child: ElevatedButton.icon(onPressed: _save,
-                    icon: const Icon(Icons.save, size: 20), label: const Text('Save Settings'))),
-              ],
-            ])),
+                    SizedBox(width: double.infinity,
+                      child: ElevatedButton.icon(onPressed: _save,
+                        icon: const Icon(Icons.save, size: 20), label: const Text('Save Settings'))),
+                  ],
+                ])),
+            ],
+          ),
           const SizedBox(height: 20),
 
           // Financial Year
@@ -469,7 +472,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 20),
 
           // PDF Template & Paper Size
-          _buildPdfTemplateCard(context),
+          _buildCollapsibleSection(
+            context,
+            icon: Icons.palette,
+            title: 'Template Style',
+            color: const Color(0xFF6366F1),
+            isExpanded: _templateExpanded,
+            onToggle: () => setState(() => _templateExpanded = !_templateExpanded),
+            children: [
+              _buildPdfTemplateCard(context),
+            ],
+          ),
           const SizedBox(height: 20),
 
           // Biometric Authentication Toggle (Android/iOS only)
