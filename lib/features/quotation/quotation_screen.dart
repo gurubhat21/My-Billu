@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/bill.dart';
 import '../../core/models/item.dart';
@@ -810,6 +810,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
         businessBankIfsc: s['businessBankIfsc'] ?? '',
         logoBytes: logoBytes,
         template: template, paperSize: paperSize,
+        documentTitle: 'SALES QUOTATION',
       );
     }
   }
@@ -879,6 +880,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
           businessBankIfsc: s['businessBankIfsc'] ?? '',
           logoBytes: logoBytes,
           template: template, paperSize: paperSize,
+          documentTitle: 'SALES QUOTATION',
         );
       } catch (e) {
         if (context.mounted) {
