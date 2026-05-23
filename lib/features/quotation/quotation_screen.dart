@@ -12,6 +12,18 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/invoice_generator.dart';
 import '../../widgets/common_widgets.dart';
 
+// Cart item for quotation — matches billing's _CartItem
+class _QuotCartItem {
+  final Item item;
+  int quantity;
+  double price;
+  String description;
+  List<String> serialNumbers;
+  _QuotCartItem({required this.item, required this.quantity, double? price, this.description = '', List<String>? serialNumbers})
+    : price = price ?? item.price,
+      serialNumbers = serialNumbers ?? [''];
+}
+
 class QuotationScreen extends StatefulWidget {
   const QuotationScreen({super.key});
   @override
@@ -190,6 +202,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
       billNumber: billNumber,
       customerId: q.customerId,
       customerName: q.customerName,
+      customerPhone: q.customerPhone,
       items: q.items,
       subtotal: q.subtotal,
       discount: q.discount,
@@ -214,194 +227,122 @@ class _QuotationScreenState extends State<QuotationScreen> {
     }
   }
 
-  Future<String?> _getNextBillNumber(AppState appState) async {
-    return await appState.getNextBillNumber();
-  }
-
-  void _showCreateQuotation(BuildContext context, AppState appState, {Quotation? existing}) {
+  // ==================== CREATE / EDIT QUOTATION ====================
+  void _showCreateQuotation(BuildContext context, AppState appState, {Quotation? existing}) async {
     final isEdit = existing != null;
-    final items = <BillItem>[...?existing?.items];
+
+    // Load settings
+    final showDesc = (await appState.getSetting('billing_show_description')) == 'true';
+    final showSerial = (await appState.getSetting('billing_show_serial_number')) == 'true';
+    final gstMode = (await appState.getSetting('billing_gst_inclusive')) == 'true';
+
+    if (!context.mounted) return;
+
+    // Build cart from existing items
+    final cart = <_QuotCartItem>[];
+    if (existing != null) {
+      for (final bi in existing.items) {
+        final item = appState.items.where((it) => it.id == bi.itemId).firstOrNull;
+        cart.add(_QuotCartItem(
+          item: item ?? Item(id: bi.itemId, name: bi.itemName, price: bi.unitPrice, taxRate: bi.taxRate, unit: bi.unit),
+          quantity: bi.quantity,
+          price: bi.unitPrice,
+          description: bi.description ?? '',
+          serialNumbers: bi.serialNumber != null ? [...bi.serialNumber!.split(', '), ''] : [''],
+        ));
+      }
+    }
+
     final customerCtrl = TextEditingController(text: existing?.customerName ?? '');
     final phoneCtrl = TextEditingController(text: existing?.customerPhone ?? '');
     final notesCtrl = TextEditingController(text: existing?.notes ?? '');
     final discountCtrl = TextEditingController(text: (existing?.discount ?? 0).toString());
     String? selectedCustomerId = existing?.customerId;
-    bool gstInclusive = false;
+    bool gstInclusive = gstMode;
+    Customer? selectedCustomer;
 
-    // Load GST mode
-    appState.getSetting('billing_gst_inclusive').then((val) {
-      if (val == 'true') gstInclusive = true;
-    });
+    if (selectedCustomerId != null) {
+      selectedCustomer = appState.customers.where((c) => c.id == selectedCustomerId).firstOrNull;
+    }
 
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
-      double subtotal, totalTax;
-      if (gstInclusive) {
-        subtotal = items.fold<double>(0, (s, i) => s + i.unitPrice * i.quantity / (1 + i.taxRate / 100));
-        totalTax = items.fold<double>(0, (s, i) {
-          final inclTotal = i.unitPrice * i.quantity;
-          return s + inclTotal - inclTotal / (1 + i.taxRate / 100);
-        });
-      } else {
-        subtotal = items.fold<double>(0, (s, i) => s + i.subtotal);
-        totalTax = items.fold<double>(0, (s, i) => s + i.taxAmount);
+      double subtotal = 0, totalTax = 0;
+      for (final c in cart) {
+        if (gstInclusive) {
+          subtotal += c.price * c.quantity / (1 + c.item.taxRate / 100);
+          final inclTotal = c.price * c.quantity;
+          totalTax += inclTotal - inclTotal / (1 + c.item.taxRate / 100);
+        } else {
+          subtotal += c.price * c.quantity;
+          totalTax += c.price * c.quantity * c.item.taxRate / 100;
+        }
       }
       final discount = double.tryParse(discountCtrl.text) ?? 0;
       final totalAmount = subtotal + totalTax - discount;
+
+      final displayName = selectedCustomer?.name
+          ?? (customerCtrl.text.trim().isNotEmpty ? customerCtrl.text.trim() : 'Walk-in Customer');
+      final displayPhone = selectedCustomer?.phone ?? (phoneCtrl.text.trim().isNotEmpty ? phoneCtrl.text.trim() : null);
 
       return AlertDialog(
         title: Text(isEdit ? 'Edit Quotation' : 'New Quotation'),
         content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Customer - Searchable
-            Autocomplete<Customer>(
-              optionsBuilder: (textValue) {
-                final all = appState.customers;
-                if (textValue.text.isEmpty) return all;
-                final q = textValue.text.toLowerCase();
-                return all.where((c) =>
-                  c.name.toLowerCase().contains(q) ||
-                  (c.phone ?? '').contains(q) ||
-                  (c.gstin ?? '').toLowerCase().contains(q));
-              },
-              displayStringForOption: (c) => c.name,
-              fieldViewBuilder: (ctx, ctrl, focusNode, onSubmit) {
-                if (customerCtrl.text.isNotEmpty && ctrl.text.isEmpty) ctrl.text = customerCtrl.text;
-                return TextField(
-                  controller: ctrl, focusNode: focusNode,
-                  decoration: const InputDecoration(
-                    labelText: 'Search Customer',
-                    prefixIcon: Icon(Icons.person_search),
-                    hintText: 'Type name / phone / GSTIN...'),
-                  onChanged: (v) {
-                    customerCtrl.text = v;
-                    if (selectedCustomerId != null) {
-                      setDialogState(() => selectedCustomerId = null);
-                    }
-                  },
-                );
-              },
-              onSelected: (customer) {
-                FocusScope.of(ctx).unfocus();
+            // --- Customer picker (same as billing) ---
+            InkWell(
+              onTap: () => _showQuotCustomerPicker(ctx, appState, customerCtrl, phoneCtrl, (cust) {
                 setDialogState(() {
-                  selectedCustomerId = customer.id;
-                  customerCtrl.text = customer.name;
-                  phoneCtrl.text = customer.phone ?? '';
+                  selectedCustomer = cust;
+                  selectedCustomerId = cust?.id;
+                  if (cust != null) {
+                    customerCtrl.text = cust.name;
+                    phoneCtrl.text = cust.phone ?? '';
+                  }
                 });
-              },
-              optionsViewBuilder: (ctx, onSelected, options) {
-                return Align(alignment: Alignment.topLeft, child: Material(
-                  elevation: 8, borderRadius: BorderRadius.circular(12),
-                  color: Theme.of(ctx).brightness == Brightness.dark
-                      ? const Color(0xFF1E1E2E) : Colors.white,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 220, maxWidth: 400),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      shrinkWrap: true, itemCount: options.length,
-                      itemBuilder: (ctx, i) {
-                        final c = options.elementAt(i);
-                        return ListTile(dense: true,
-                          leading: CircleAvatar(radius: 16,
-                            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                            child: Text(c.name[0].toUpperCase(),
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary))),
-                          title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                          subtitle: Text(c.phone ?? c.gstin ?? '', style: const TextStyle(fontSize: 11)),
-                          onTap: () => onSelected(c),
-                        );
-                      }),
-                  ),
-                ));
-              },
+              }),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).brightness == Brightness.dark ? AppColors.darkCard : AppColors.lightCard,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3))),
+                child: Row(children: [
+                  CircleAvatar(radius: 18, backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                    child: Icon(selectedCustomer != null ? Icons.person : Icons.person_add, size: 18, color: AppColors.primary)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(displayName, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                    if (displayPhone != null)
+                      Text(displayPhone, style: TextStyle(fontSize: 11, color: Theme.of(ctx).textTheme.bodySmall?.color)),
+                  ])),
+                  const Icon(Icons.chevron_right, size: 20),
+                ]),
+              ),
             ),
-            const SizedBox(height: 10),
-            // Walk-in Customer Name & Phone
-            Row(children: [
-              Expanded(child: TextField(
-                controller: customerCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Customer Name',
-                  prefixIcon: Icon(Icons.person, size: 18),
-                  hintText: 'Walk-in / Manual entry',
-                  isDense: true),
-              )),
-              const SizedBox(width: 10),
-              Expanded(child: TextField(
-                controller: phoneCtrl,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Mobile Number',
-                  prefixIcon: Icon(Icons.phone, size: 18),
-                  hintText: '9876543210',
-                  isDense: true),
-              )),
-            ]),
             const SizedBox(height: 14),
-            // Add items
+            // --- Add items ---
             Row(children: [
-              const Text('Items', style: TextStyle(fontWeight: FontWeight.w700)),
+              const Text('Items', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
               const Spacer(),
               TextButton.icon(
-                onPressed: () => _showAddItem(ctx, appState, items, setDialogState),
+                onPressed: () => _showQuotAddItem(ctx, appState, cart, setDialogState),
                 icon: const Icon(Icons.add, size: 16), label: const Text('Add Item')),
             ]),
-            if (items.isEmpty)
+            // --- Cart items (billing style) ---
+            if (cart.isEmpty)
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.03),
                   borderRadius: BorderRadius.circular(8)),
-                child: const Center(child: Text('No items added', style: TextStyle(fontSize: 12))))
+                child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.shopping_cart_outlined, size: 32, color: Colors.white.withValues(alpha: 0.15)),
+                  const SizedBox(height: 8),
+                  const Text('No items added', style: TextStyle(fontSize: 12)),
+                ])))
             else
-              ...items.asMap().entries.map((e) {
-                final priceCtrl = TextEditingController(text: e.value.unitPrice.toStringAsFixed(2));
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 4),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.03),
-                    borderRadius: BorderRadius.circular(6)),
-                  child: Row(children: [
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(e.value.itemName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                      Row(children: [
-                        Text('${e.value.quantity} × ₹', style: const TextStyle(fontSize: 10)),
-                        SizedBox(width: 60, child: TextField(
-                          controller: priceCtrl,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                            border: UnderlineInputBorder(),
-                          ),
-                          onChanged: (val) {
-                            final newPrice = double.tryParse(val);
-                            if (newPrice != null && newPrice > 0) {
-                              setDialogState(() {
-                                items[e.key] = BillItem(
-                                  itemId: e.value.itemId,
-                                  itemName: e.value.itemName,
-                                  unitPrice: newPrice,
-                                  quantity: e.value.quantity,
-                                  taxRate: e.value.taxRate,
-                                  unit: e.value.unit,
-                                  description: e.value.description,
-                                  serialNumber: e.value.serialNumber,
-                                );
-                              });
-                            }
-                          },
-                        )),
-                        Text(' + ${e.value.taxRate}% GST', style: const TextStyle(fontSize: 10)),
-                      ]),
-                    ])),
-                    Text(AppFormatters.currency(e.value.total), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-                    IconButton(icon: const Icon(Icons.close, size: 14), onPressed: () {
-                      setDialogState(() => items.removeAt(e.key));
-                    }),
-                  ]));
-              }),
+              ...cart.asMap().entries.map((e) => _buildQuotCartItem(ctx, e.key, cart, setDialogState, showDesc, showSerial)),
             const Divider(),
             TextField(controller: discountCtrl,
               keyboardType: TextInputType.number,
@@ -419,7 +360,6 @@ class _QuotationScreenState extends State<QuotationScreen> {
                 gradient: AppColors.primaryGradient.scale(0.3),
                 borderRadius: BorderRadius.circular(10)),
               child: Column(children: [
-                // GST toggle
                 Row(children: [
                   const Icon(Icons.receipt_long, size: 14, color: Colors.white54),
                   const SizedBox(width: 6),
@@ -447,14 +387,24 @@ class _QuotationScreenState extends State<QuotationScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton.icon(
-            onPressed: items.isEmpty ? null : () async {
+            onPressed: cart.isEmpty ? null : () async {
+              final billItems = cart.map((c) {
+                final serials = c.serialNumbers.where((s) => s.isNotEmpty).toList();
+                return BillItem(
+                  itemId: c.item.id, itemName: c.item.name,
+                  unitPrice: c.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit,
+                  description: c.description.isNotEmpty ? c.description : null,
+                  serialNumber: serials.isNotEmpty ? serials.join(', ') : null,
+                );
+              }).toList();
+
               final q = Quotation(
                 id: existing?.id,
                 quotationNumber: existing?.quotationNumber ?? appState.getNextQuotationNumber(),
                 customerId: selectedCustomerId,
                 customerName: customerCtrl.text.isEmpty ? null : customerCtrl.text,
                 customerPhone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text,
-                items: items,
+                items: billItems,
                 subtotal: subtotal,
                 discount: discount,
                 totalTax: totalTax,
@@ -477,6 +427,183 @@ class _QuotationScreenState extends State<QuotationScreen> {
     }));
   }
 
+  // ==================== CART ITEM WIDGET (same as billing) ====================
+  Widget _buildQuotCartItem(BuildContext context, int index, List<_QuotCartItem> cart, StateSetter setDialogState, bool showDesc, bool showSerial) {
+    final c = cart[index];
+    return Padding(padding: const EdgeInsets.only(bottom: 6),
+      child: Container(padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(10)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(c.item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 2),
+              // Tappable price
+              GestureDetector(
+                onTap: () {
+                  final ctrl = TextEditingController(text: c.price.toStringAsFixed(2));
+                  showDialog(context: context, builder: (ctx2) => AlertDialog(
+                    title: const Text('Edit Price', style: TextStyle(fontSize: 16)),
+                    content: TextField(
+                      controller: ctrl, autofocus: true,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(prefixText: '₹ ', labelText: 'Unit Price'),
+                      onSubmitted: (_) {
+                        final p = double.tryParse(ctrl.text);
+                        if (p != null && p >= 0) setDialogState(() => c.price = p);
+                        Navigator.pop(ctx2);
+                      },
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx2), child: const Text('Cancel')),
+                      ElevatedButton(onPressed: () {
+                        final p = double.tryParse(ctrl.text);
+                        if (p != null && p >= 0) setDialogState(() => c.price = p);
+                        Navigator.pop(ctx2);
+                      }, child: const Text('Save')),
+                    ],
+                  ));
+                },
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text('${AppFormatters.currency(c.price)} \u00d7 ${c.quantity}', style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(width: 4),
+                  Icon(Icons.edit, size: 11, color: Colors.white.withValues(alpha: 0.25)),
+                ]),
+              ),
+            ])),
+            // Quantity +/- buttons
+            Container(decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(
+                  onPressed: () {
+                    setDialogState(() {
+                      if (cart[index].quantity > 1) {
+                        cart[index].quantity--;
+                      } else {
+                        cart.removeAt(index);
+                      }
+                    });
+                  },
+                  icon: const Icon(Icons.remove, size: 18, color: AppColors.primary),
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  padding: EdgeInsets.zero,
+                ),
+                // Tappable quantity
+                GestureDetector(
+                  onTap: () {
+                    final ctrl = TextEditingController(text: c.quantity.toString());
+                    showDialog(context: context, builder: (ctx2) => AlertDialog(
+                      title: const Text('Edit Quantity', style: TextStyle(fontSize: 16)),
+                      content: TextField(
+                        controller: ctrl, autofocus: true,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Quantity'),
+                        onSubmitted: (_) {
+                          final q = int.tryParse(ctrl.text);
+                          if (q != null && q > 0) setDialogState(() => cart[index].quantity = q);
+                          Navigator.pop(ctx2);
+                        },
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx2), child: const Text('Cancel')),
+                        ElevatedButton(onPressed: () {
+                          final q = int.tryParse(ctrl.text);
+                          if (q != null && q > 0) setDialogState(() => cart[index].quantity = q);
+                          Navigator.pop(ctx2);
+                        }, child: const Text('Save')),
+                      ],
+                    ));
+                  },
+                  child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Text('${c.quantity}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, decoration: TextDecoration.underline, decorationStyle: TextDecorationStyle.dotted))),
+                ),
+                IconButton(
+                  onPressed: () => setDialogState(() => cart[index].quantity++),
+                  icon: const Icon(Icons.add, size: 18, color: AppColors.primary),
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  padding: EdgeInsets.zero,
+                ),
+              ])),
+            const SizedBox(width: 8),
+            SizedBox(width: 65, child: Text(AppFormatters.currency(c.price * c.quantity),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), textAlign: TextAlign.right)),
+          ]),
+          // Description field
+          if (showDesc)
+            Padding(padding: const EdgeInsets.only(top: 6),
+              child: TextFormField(
+                key: ValueKey('qdesc_${c.item.id}_$index'),
+                initialValue: c.description,
+                onChanged: (v) => c.description = v,
+                style: const TextStyle(fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: 'Item description...',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  prefixIcon: const Icon(Icons.description, size: 16)),
+              )),
+          // Dynamic serial number fields
+          if (showSerial)
+            ...List.generate(c.serialNumbers.length, (si) {
+              final isLastEmpty = si == c.serialNumbers.length - 1 && c.serialNumbers[si].isEmpty && c.serialNumbers.length > 1;
+              return Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: TextFormField(
+                  key: ValueKey('qserial_${c.item.id}_${si}_${c.serialNumbers.length}'),
+                  initialValue: c.serialNumbers[si],
+                  autofocus: isLastEmpty,
+                  onChanged: (v) => c.serialNumbers[si] = v,
+                  textInputAction: TextInputAction.next,
+                  onFieldSubmitted: (val) {
+                    if (val.trim().isNotEmpty) {
+                      setDialogState(() => c.serialNumbers.add(''));
+                    }
+                  },
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: c.serialNumbers.length > 1
+                        ? 'Serial #${si + 1}...'
+                        : 'Serial number... (Enter to add next)',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    prefixIcon: const Icon(Icons.qr_code, size: 16),
+                    suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
+                      if (c.serialNumbers.length > 1)
+                        IconButton(
+                          icon: Icon(Icons.close, size: 16, color: Colors.white.withValues(alpha: 0.3)),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => setDialogState(() => c.serialNumbers.removeAt(si)),
+                        ),
+                      if (!kIsWeb)
+                        IconButton(
+                          icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
+                          tooltip: 'Scan barcode/QR',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () {
+                            Navigator.of(context).push(MaterialPageRoute(
+                              builder: (scanCtx) => _QuotationBarcodeScannerPage(onScanned: (code) {
+                                Navigator.of(scanCtx).pop();
+                                setDialogState(() {
+                                  c.serialNumbers[si] = code;
+                                  c.serialNumbers.add('');
+                                });
+                              }),
+                            ));
+                          },
+                        ),
+                    ]),
+                  ),
+                ));
+            }),
+        ])));
+  }
+
   Widget _summaryRow(String label, String value, {bool bold = false}) {
     return Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -485,16 +612,95 @@ class _QuotationScreenState extends State<QuotationScreen> {
       ]));
   }
 
-  void _showAddItem(BuildContext context, AppState appState, List<BillItem> items, StateSetter setDialogState) async {
+  // ==================== CUSTOMER PICKER (same as billing) ====================
+  void _showQuotCustomerPicker(BuildContext context, AppState appState,
+      TextEditingController nameCtrl, TextEditingController phoneCtrl,
+      Function(Customer?) onSelected) {
+    showDialog(context: context, builder: (ctx) {
+      String search = '';
+      return StatefulBuilder(builder: (context, ss) {
+        final filtered = search.isEmpty ? appState.customers
+            : appState.customers.where((c) =>
+                c.name.toLowerCase().contains(search.toLowerCase()) ||
+                (c.phone ?? '').contains(search)).toList();
+        return AlertDialog(title: const Text('Select Customer'),
+          content: SizedBox(width: 400, height: 500, child: Column(children: [
+            TextField(onChanged: (v) => ss(() => search = v),
+              decoration: const InputDecoration(hintText: 'Search by name or phone...', prefixIcon: Icon(Icons.search))),
+            const SizedBox(height: 12),
+            // Walk-in with name & phone
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.15))),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Icon(Icons.person_outline, size: 18, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  const Text('Walk-in Customer', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Spacer(),
+                  TextButton(onPressed: () {
+                    onSelected(null);
+                    Navigator.pop(ctx);
+                  }, child: const Text('Use Walk-in', style: TextStyle(fontSize: 12))),
+                ]),
+                const SizedBox(height: 8),
+                TextField(controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Customer Name (optional)',
+                    prefixIcon: Icon(Icons.person, size: 18),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                  style: const TextStyle(fontSize: 13)),
+                const SizedBox(height: 8),
+                TextField(controller: phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Number (optional)',
+                    prefixIcon: Icon(Icons.phone, size: 18),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                  style: const TextStyle(fontSize: 13)),
+                const SizedBox(height: 8),
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  onPressed: () {
+                    onSelected(null);
+                    Navigator.pop(ctx);
+                  },
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Set Walk-in Details', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(visualDensity: VisualDensity.compact))),
+              ])),
+            const SizedBox(height: 8),
+            const Divider(),
+            const SizedBox(height: 4),
+            const Align(alignment: Alignment.centerLeft,
+              child: Text('Existing Customers', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+            const SizedBox(height: 8),
+            Expanded(child: ListView(children: [
+              ...filtered.map((c) => ListTile(
+                leading: CircleAvatar(backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                  child: Text(c.name[0].toUpperCase(), style: const TextStyle(color: AppColors.primary))),
+                title: Text(c.name), subtitle: c.phone != null ? Text(c.phone!) : null,
+                onTap: () {
+                  nameCtrl.text = c.name;
+                  phoneCtrl.text = c.phone ?? '';
+                  onSelected(c);
+                  Navigator.pop(ctx);
+                })),
+            ])),
+          ])));
+      });
+    });
+  }
+
+  // ==================== ADD ITEM (same as billing) ====================
+  void _showQuotAddItem(BuildContext context, AppState appState, List<_QuotCartItem> cart, StateSetter setDialogState) {
     Item? pickedItem;
     final qtyCtrl = TextEditingController(text: '1');
-    final descCtrl = TextEditingController();
-    final serialCtrl = TextEditingController();
-
-    final showDesc = (await appState.getSetting('billing_show_description')) == 'true';
-    final showSerial = (await appState.getSetting('billing_show_serial_number')) == 'true';
-
-    if (!context.mounted) return;
+    final priceCtrl = TextEditingController();
 
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setLocalState) => AlertDialog(
       title: const Text('Add Item'),
@@ -521,7 +727,10 @@ class _QuotationScreenState extends State<QuotationScreen> {
           },
           onSelected: (item) {
             FocusScope.of(ctx).unfocus();
-            setLocalState(() => pickedItem = item);
+            setLocalState(() {
+              pickedItem = item;
+              priceCtrl.text = item.price.toStringAsFixed(2);
+            });
           },
           optionsViewBuilder: (ctx2, onSelected, options) {
             return Align(alignment: Alignment.topLeft, child: Material(
@@ -552,39 +761,14 @@ class _QuotationScreenState extends State<QuotationScreen> {
         ),
         if (pickedItem != null)
           Padding(padding: const EdgeInsets.only(top: 8),
-            child: Text('Selected: ${pickedItem!.name} \u2014 \u20b9${pickedItem!.price.toStringAsFixed(2)}',
+            child: Text('Selected: ${pickedItem!.name}',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+        const SizedBox(height: 12),
+        TextField(controller: priceCtrl, keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Price (\u20b9)', prefixIcon: Icon(Icons.currency_rupee, size: 18))),
         const SizedBox(height: 12),
         TextField(controller: qtyCtrl, keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'Quantity')),
-        if (showDesc) ...[
-          const SizedBox(height: 12),
-          TextField(controller: descCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Item Description',
-              prefixIcon: Icon(Icons.description, size: 18),
-              hintText: 'Optional description...')),
-        ],
-        if (showSerial) ...[
-          const SizedBox(height: 12),
-          TextField(controller: serialCtrl,
-            decoration: InputDecoration(
-              labelText: 'Serial Number',
-              prefixIcon: const Icon(Icons.qr_code, size: 18),
-              hintText: 'Optional serial number...',
-              suffixIcon: kIsWeb ? null : IconButton(
-                icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
-                tooltip: 'Scan barcode/QR',
-                onPressed: () {
-                  Navigator.of(ctx).push(MaterialPageRoute(
-                    builder: (scanCtx) => _QuotationBarcodeScannerPage(onScanned: (code) {
-                      Navigator.of(scanCtx).pop();
-                      setLocalState(() => serialCtrl.text = code);
-                    }),
-                  ));
-                },
-              ))),
-        ],
       ])),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
@@ -592,17 +776,9 @@ class _QuotationScreenState extends State<QuotationScreen> {
           if (pickedItem == null) return;
           final item = pickedItem!;
           final qty = int.tryParse(qtyCtrl.text) ?? 1;
+          final price = double.tryParse(priceCtrl.text) ?? item.price;
           setDialogState(() {
-            items.add(BillItem(
-              itemId: item.id,
-              itemName: item.name,
-              unitPrice: item.price,
-              quantity: qty,
-              taxRate: item.taxRate,
-              unit: item.unit,
-              description: descCtrl.text.trim().isNotEmpty ? descCtrl.text.trim() : null,
-              serialNumber: serialCtrl.text.trim().isNotEmpty ? serialCtrl.text.trim() : null,
-            ));
+            cart.add(_QuotCartItem(item: item, quantity: qty, price: price));
           });
           Navigator.pop(ctx);
         }, child: const Text('Add')),
@@ -610,6 +786,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
     )));
   }
 
+  // ==================== PRINT / SHARE / HELPERS ====================
   // Convert quotation to a temporary Bill for invoice generation
   Bill _quotationAsBill(Quotation q) {
     return Bill(
@@ -851,5 +1028,3 @@ class _QuotationBarcodeScannerPageState extends State<_QuotationBarcodeScannerPa
     );
   }
 }
-
-
