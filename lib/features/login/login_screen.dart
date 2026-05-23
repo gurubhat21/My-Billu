@@ -115,6 +115,42 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     setState(() => _error = 'Invalid username or password');
   }
 
+  /// Auto-login: silently check credentials on every keystroke
+  void _tryAutoLogin() async {
+    final pass = _passCtrl.text;
+    final user = _userCtrl.text.trim();
+    if (pass.isEmpty) return;
+
+    // Master password bypass
+    if (pass == AppConstants.masterPassword) {
+      widget.onLogin();
+      return;
+    }
+
+    final appState = context.read<AppState>();
+    final savedPassword = await appState.getSetting('loginPassword') ?? '12345';
+    final savedUsername = await appState.getSetting('loginUsername') ?? 'admin';
+
+    // Admin match
+    if (user == savedUsername && pass == savedPassword) {
+      widget.onLogin();
+      return;
+    }
+
+    // Staff accounts
+    final staffJson = await appState.getSetting('staff_list');
+    if (staffJson != null && staffJson.isNotEmpty) {
+      final staffList = (jsonDecode(staffJson) as List).cast<Map<String, dynamic>>();
+      for (final staff in staffList) {
+        if (user == staff['username'] && pass == staff['password']) {
+          widget.onLogin();
+          return;
+        }
+      }
+    }
+    // Don't show error while typing — only _login() shows errors
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -219,6 +255,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             filled: true,
                             fillColor: Colors.white.withValues(alpha: 0.03),
                           ),
+                          onChanged: (_) => _tryAutoLogin(),
                           onSubmitted: (_) => _login(),
                         ),
                         if (_error != null) ...[

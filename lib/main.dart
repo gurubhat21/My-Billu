@@ -155,7 +155,7 @@ class _AuthGateState extends State<AuthGate> {
     if (!_loggedIn) {
       return LoginScreen(onLogin: () => setState(() => _loggedIn = true));
     }
-    return const MainShell();
+    return MainShell(onLogout: () => setState(() => _loggedIn = false));
   }
 }
 
@@ -279,7 +279,8 @@ class ExpiredScreen extends StatelessWidget {
 }
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+  final VoidCallback onLogout;
+  const MainShell({super.key, required this.onLogout});
   @override
   State<MainShell> createState() => _MainShellState();
 }
@@ -346,6 +347,30 @@ class _MainShellState extends State<MainShell> {
 
   void _goTo(int index) {
     setState(() => _currentIndex = index);
+  }
+
+  void _confirmLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.logout, color: AppColors.error), SizedBox(width: 10),
+          Text('Logout')]),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Logout')),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      widget.onLogout();
+    }
   }
 
   @override
@@ -532,8 +557,21 @@ class _MainShellState extends State<MainShell> {
                     }).toList()),
                   ),
                 ),
-                // Footer
-                Padding(padding: const EdgeInsets.all(12),
+                // Footer with Logout
+                Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                  child: SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                    onPressed: () => _confirmLogout(context),
+                    icon: const Icon(Icons.logout, size: 16),
+                    label: const Text('Logout', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: BorderSide(color: AppColors.error.withValues(alpha: 0.3)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  )),
+                ),
+                Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                   child: Text('Sumukha Tech Solutions', style: TextStyle(
                     fontSize: 10, color: isDark ? Colors.white.withValues(alpha: 0.25) : Colors.black26, fontWeight: FontWeight.w500)),
                 ),
@@ -793,8 +831,24 @@ class _MainShellState extends State<MainShell> {
           }),
         ])),
 
-        // Footer
-        Padding(padding: const EdgeInsets.all(16),
+        // Footer with Logout
+        Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: SizedBox(width: double.infinity, child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _confirmLogout(context);
+            },
+            icon: const Icon(Icons.logout, size: 18),
+            label: const Text('Logout'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.error,
+              side: BorderSide(color: AppColors.error.withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          )),
+        ),
+        Padding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
           child: Text('Sumukha Tech Solutions', style: TextStyle(
             fontSize: 11, color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black38, fontWeight: FontWeight.w500)),
         ),
