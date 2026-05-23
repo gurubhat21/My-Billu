@@ -306,36 +306,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           icon: const Icon(Icons.share, size: 18),
           label: const Text('Share'),
         ),
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2)),
-          onPressed: () async {
-            Navigator.pop(ctx);
-            final s = await appState.getAllSettings();
-            final template = _parseTemplate(s['pdf_template']);
-            final paperSize = _parsePaperSize(selectedSize);
-            final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
-            try {
-              await InvoiceGenerator.emailInvoice(bill,
-                businessName: s['businessName'] ?? 'My Billu',
-                businessAddress: s['businessAddress'] ?? '',
-                businessPhone: s['businessPhone'] ?? '',
-                businessGstin: s['businessGstin'] ?? '',
-                businessBankName: s['businessBankName'] ?? '',
-                businessBankAccount: s['businessBankAccount'] ?? '',
-                businessBankIfsc: s['businessBankIfsc'] ?? '',
-                logoBytes: logoBytes,
-                template: template, paperSize: paperSize,
-              );
-            } catch (e) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('Email error: $e'), backgroundColor: AppColors.error));
-              }
-            }
-          },
-          icon: const Icon(Icons.email, size: 18),
-          label: const Text('Email'),
-        ),
         ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
       ],
     )));
