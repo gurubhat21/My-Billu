@@ -49,6 +49,7 @@ class _BillingScreenState extends State<BillingScreen> {
   final _walkInPhoneCtrl = TextEditingController();
   bool _showDescription = false;
   bool _showSerialNumber = false;
+  final Map<String, FocusNode> _snFocusNodes = {};
   bool _gstInclusive = false;
   // Credit advance payment
   double _creditPaidAmount = 0;
@@ -582,19 +583,26 @@ class _BillingScreenState extends State<BillingScreen> {
           // Dynamic serial number fields — Enter/scan adds next field
           if (_showSerialNumber)
             ...List.generate(c.serialNumbers.length, (si) {
-              final isLastEmpty = si == c.serialNumbers.length - 1 && c.serialNumbers[si].isEmpty && c.serialNumbers.length > 1;
+              final focusKey = 'sn_${c.item.id}_$si';
+              _snFocusNodes.putIfAbsent(focusKey, () => FocusNode());
               return Padding(
               padding: const EdgeInsets.only(top: 6),
               child: TextFormField(
                 key: ValueKey('serial_${c.item.id}_${si}_${c.serialNumbers.length}'),
                 initialValue: c.serialNumbers[si],
-                autofocus: isLastEmpty,
+                focusNode: _snFocusNodes[focusKey],
                 onChanged: (v) => c.serialNumbers[si] = v,
                 textInputAction: TextInputAction.next,
                 onFieldSubmitted: (val) {
                   if (val.trim().isNotEmpty) {
                     setState(() {
                       c.serialNumbers.add('');
+                    });
+                    // Focus the new field after build
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      final nextKey = 'sn_${c.item.id}_${si + 1}';
+                      _snFocusNodes.putIfAbsent(nextKey, () => FocusNode());
+                      _snFocusNodes[nextKey]!.requestFocus();
                     });
                   }
                 },
@@ -625,6 +633,11 @@ class _BillingScreenState extends State<BillingScreen> {
                           setState(() {
                             c.serialNumbers[si] = code;
                             c.serialNumbers.add('');
+                          });
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            final nextKey = 'sn_${c.item.id}_${si + 1}';
+                            _snFocusNodes.putIfAbsent(nextKey, () => FocusNode());
+                            _snFocusNodes[nextKey]!.requestFocus();
                           });
                         }),
                       ),
