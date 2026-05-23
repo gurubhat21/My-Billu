@@ -8,6 +8,7 @@ class Quotation {
   final String quotationNumber;
   String? customerId;
   String? customerName;
+  String? customerPhone;
   final List<BillItem> items;
   final double subtotal;
   final double discount;
@@ -23,6 +24,7 @@ class Quotation {
     required this.quotationNumber,
     this.customerId,
     this.customerName,
+    this.customerPhone,
     required this.items,
     required this.subtotal,
     this.discount = 0.0,
@@ -44,6 +46,7 @@ class Quotation {
       'quotationNumber': quotationNumber,
       'customerId': customerId,
       'customerName': customerName,
+      'customerPhone': customerPhone,
       'items': items.map((e) => e.toMap()).toList(),
       'subtotal': subtotal,
       'discount': discount,
@@ -62,6 +65,7 @@ class Quotation {
       quotationNumber: map['quotationNumber'] as String,
       customerId: map['customerId'] as String?,
       customerName: map['customerName'] as String?,
+      customerPhone: map['customerPhone'] as String?,
       items: (map['items'] as List)
           .map((e) => BillItem.fromMap(e as Map<String, dynamic>))
           .toList(),

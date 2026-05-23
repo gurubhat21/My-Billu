@@ -88,7 +88,9 @@ class _QuotationScreenState extends State<QuotationScreen> {
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(q.quotationNumber, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            Text(q.customerName ?? 'No customer', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+            Text(q.customerName ?? 'Walk-in Customer', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+            if (q.customerPhone != null && q.customerPhone!.isNotEmpty)
+              Text('📱 ${q.customerPhone}', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.4))),
           ])),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -220,6 +222,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
     final isEdit = existing != null;
     final items = <BillItem>[...?existing?.items];
     final customerCtrl = TextEditingController(text: existing?.customerName ?? '');
+    final phoneCtrl = TextEditingController(text: existing?.customerPhone ?? '');
     final notesCtrl = TextEditingController(text: existing?.notes ?? '');
     final discountCtrl = TextEditingController(text: (existing?.discount ?? 0).toString());
     String? selectedCustomerId = existing?.customerId;
@@ -269,6 +272,12 @@ class _QuotationScreenState extends State<QuotationScreen> {
                     labelText: 'Search Customer',
                     prefixIcon: Icon(Icons.person_search),
                     hintText: 'Type name / phone / GSTIN...'),
+                  onChanged: (v) {
+                    customerCtrl.text = v;
+                    if (selectedCustomerId != null) {
+                      setDialogState(() => selectedCustomerId = null);
+                    }
+                  },
                 );
               },
               onSelected: (customer) {
@@ -276,6 +285,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
                 setDialogState(() {
                   selectedCustomerId = customer.id;
                   customerCtrl.text = customer.name;
+                  phoneCtrl.text = customer.phone ?? '';
                 });
               },
               optionsViewBuilder: (ctx, onSelected, options) {
@@ -304,7 +314,29 @@ class _QuotationScreenState extends State<QuotationScreen> {
                 ));
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            // Walk-in Customer Name & Phone
+            Row(children: [
+              Expanded(child: TextField(
+                controller: customerCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Customer Name',
+                  prefixIcon: Icon(Icons.person, size: 18),
+                  hintText: 'Walk-in / Manual entry',
+                  isDense: true),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: TextField(
+                controller: phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Mobile Number',
+                  prefixIcon: Icon(Icons.phone, size: 18),
+                  hintText: '9876543210',
+                  isDense: true),
+              )),
+            ]),
+            const SizedBox(height: 14),
             // Add items
             Row(children: [
               const Text('Items', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -321,23 +353,55 @@ class _QuotationScreenState extends State<QuotationScreen> {
                   borderRadius: BorderRadius.circular(8)),
                 child: const Center(child: Text('No items added', style: TextStyle(fontSize: 12))))
             else
-              ...items.asMap().entries.map((e) => Container(
-                margin: const EdgeInsets.only(bottom: 4),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.03),
-                  borderRadius: BorderRadius.circular(6)),
-                child: Row(children: [
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(e.value.itemName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                    Text('${e.value.quantity} × ${AppFormatters.currency(e.value.unitPrice)} + ${e.value.taxRate}% GST',
-                      style: const TextStyle(fontSize: 10)),
-                  ])),
-                  Text(AppFormatters.currency(e.value.total), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-                  IconButton(icon: const Icon(Icons.close, size: 14), onPressed: () {
-                    setDialogState(() => items.removeAt(e.key));
-                  }),
-                ]))),
+              ...items.asMap().entries.map((e) {
+                final priceCtrl = TextEditingController(text: e.value.unitPrice.toStringAsFixed(2));
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 4),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.03),
+                    borderRadius: BorderRadius.circular(6)),
+                  child: Row(children: [
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(e.value.itemName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                      Row(children: [
+                        Text('${e.value.quantity} × ₹', style: const TextStyle(fontSize: 10)),
+                        SizedBox(width: 60, child: TextField(
+                          controller: priceCtrl,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            border: UnderlineInputBorder(),
+                          ),
+                          onChanged: (val) {
+                            final newPrice = double.tryParse(val);
+                            if (newPrice != null && newPrice > 0) {
+                              setDialogState(() {
+                                items[e.key] = BillItem(
+                                  itemId: e.value.itemId,
+                                  itemName: e.value.itemName,
+                                  unitPrice: newPrice,
+                                  quantity: e.value.quantity,
+                                  taxRate: e.value.taxRate,
+                                  unit: e.value.unit,
+                                  description: e.value.description,
+                                  serialNumber: e.value.serialNumber,
+                                );
+                              });
+                            }
+                          },
+                        )),
+                        Text(' + ${e.value.taxRate}% GST', style: const TextStyle(fontSize: 10)),
+                      ]),
+                    ])),
+                    Text(AppFormatters.currency(e.value.total), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                    IconButton(icon: const Icon(Icons.close, size: 14), onPressed: () {
+                      setDialogState(() => items.removeAt(e.key));
+                    }),
+                  ]));
+              }),
             const Divider(),
             TextField(controller: discountCtrl,
               keyboardType: TextInputType.number,
@@ -389,6 +453,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
                 quotationNumber: existing?.quotationNumber ?? appState.getNextQuotationNumber(),
                 customerId: selectedCustomerId,
                 customerName: customerCtrl.text.isEmpty ? null : customerCtrl.text,
+                customerPhone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text,
                 items: items,
                 subtotal: subtotal,
                 discount: discount,
@@ -551,6 +616,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
       id: q.id,
       billNumber: q.quotationNumber,
       customerName: q.customerName,
+      customerPhone: q.customerPhone,
       items: q.items,
       subtotal: q.subtotal,
       discount: q.discount,
