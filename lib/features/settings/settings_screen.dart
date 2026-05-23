@@ -500,71 +500,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: const Text('Edit Keyboard Shortcuts'),
               )),
             ])),
-          const SizedBox(height: 20),
-          GlassCard(padding: const EdgeInsets.all(20), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.info_outline, size: 22, color: AppColors.accent)),
-                const SizedBox(width: 12),
-                Text('About', style: Theme.of(context).textTheme.titleLarge),
-              ]),
-              const SizedBox(height: 16),
-              _aboutRow('App Name', 'My Billu'),
-              _aboutRow('Version', '1.0.0'),
-              _aboutRow('Tax System', 'GST (India)'),
-              _aboutRow('Currency', '₹ INR'),
-              // Expiry Date (Windows/Android only)
-              if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.android))
-                FutureBuilder<String?>(
-                  future: context.read<AppState>().getSetting('app_expiry_date'),
-                  builder: (ctx, snap) {
-                    final expiryStr = snap.data ?? 'Not set';
-                    final expiryDate = DateTime.tryParse(expiryStr);
-                    final isNearExpiry = expiryDate != null &&
-                        expiryDate.difference(DateTime.now()).inDays < 30;
-                    final isExpired = expiryDate != null &&
-                        DateTime.now().isAfter(expiryDate);
-                    return InkWell(
-                      onTap: () => _showExpiryChangeDialog(context),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                          Row(children: [
-                            Icon(Icons.schedule,
-                              size: 16,
-                              color: isExpired ? AppColors.error : isNearExpiry ? AppColors.warning : AppColors.primary),
-                            const SizedBox(width: 8),
-                            const Text('License Expiry', style: TextStyle(fontWeight: FontWeight.w500)),
-                          ]),
-                          Row(children: [
-                            Text(expiryStr,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: isExpired ? AppColors.error : isNearExpiry ? AppColors.warning : AppColors.success)),
-                            const SizedBox(width: 4),
-                            Icon(Icons.edit, size: 14,
-                              color: Colors.white.withValues(alpha: 0.3)),
-                          ]),
-                        ]),
-                      ),
-                    );
-                  }),
-              const Divider(height: 24),
-              Center(child: Container(
-                width: 80, height: 80,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
-                child: ClipRRect(borderRadius: BorderRadius.circular(16),
-                  child: Image.asset('assets/ganesh_logo.png', fit: BoxFit.contain)),
-              )),
-              _aboutRow('Created By', 'Sumukha Tech Solutions'),
-              _aboutRow('Mobile', '9449831316'),
-              _aboutRow('Email', 'sumukhatech21@gmail.com'),
-            ])),
-          const SizedBox(height: 20),
+
           // Account (Username & Password)
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -637,6 +573,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 8),
               Text('Backup saves all items, customers, bills & purchases as a JSON file.',
                 style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+            ])),
+          const SizedBox(height: 20),
+          // About
+          GlassCard(padding: const EdgeInsets.all(20), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.info_outline, size: 22, color: AppColors.accent)),
+                const SizedBox(width: 12),
+                Text('About', style: Theme.of(context).textTheme.titleLarge),
+              ]),
+              const SizedBox(height: 16),
+              _aboutRow('App Name', 'My Billu'),
+              _aboutRow('Version', '1.0.0'),
+              _aboutRow('Tax System', 'GST (India)'),
+              _aboutRow('Currency', '\u20b9 INR'),
+              if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.android))
+                FutureBuilder<String?>(
+                  future: context.read<AppState>().getSetting('app_expiry_date'),
+                  builder: (ctx, snap) {
+                    final expiryStr = snap.data ?? 'Not set';
+                    final expiryDate = DateTime.tryParse(expiryStr);
+                    final isNearExpiry = expiryDate != null &&
+                        expiryDate.difference(DateTime.now()).inDays < 30;
+                    final isExpired = expiryDate != null &&
+                        DateTime.now().isAfter(expiryDate);
+                    return InkWell(
+                      onTap: () => _showExpiryChangeDialog(context),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          Row(children: [
+                            Icon(Icons.schedule,
+                              size: 16,
+                              color: isExpired ? AppColors.error : isNearExpiry ? AppColors.warning : AppColors.primary),
+                            const SizedBox(width: 8),
+                            const Text('License Expiry', style: TextStyle(fontWeight: FontWeight.w500)),
+                          ]),
+                          Row(children: [
+                            Text(expiryStr,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: isExpired ? AppColors.error : isNearExpiry ? AppColors.warning : AppColors.success)),
+                            const SizedBox(width: 4),
+                            Icon(Icons.edit, size: 14,
+                              color: Colors.white.withValues(alpha: 0.3)),
+                          ]),
+                        ]),
+                      ),
+                    );
+                  }),
+              const Divider(height: 24),
+              Center(child: Container(
+                width: 80, height: 80,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+                child: ClipRRect(borderRadius: BorderRadius.circular(16),
+                  child: Image.asset('assets/ganesh_logo.png', fit: BoxFit.contain)),
+              )),
+              _aboutRow('Created By', 'Sumukha Tech Solutions'),
+              _aboutRow('Mobile', '9449831316'),
+              _aboutRow('Email', 'sumukhatech21@gmail.com'),
             ])),
         ]),
       );
