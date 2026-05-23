@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/models/bill.dart';
 import '../../core/models/item.dart';
 import '../../core/models/customer.dart';
@@ -12,7 +10,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/invoice_generator.dart';
 import '../../widgets/common_widgets.dart';
 
-// Cart item for quotation — matches billing's _CartItem
+// Cart item for quotation â€” matches billing's _CartItem
 class _QuotCartItem {
   final Item item;
   int quantity;
@@ -102,7 +100,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
             Text(q.quotationNumber, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
             Text(q.customerName ?? 'Walk-in Customer', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
             if (q.customerPhone != null && q.customerPhone!.isNotEmpty)
-              Text('📱 ${q.customerPhone}', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.4))),
+              Text('ðŸ“± ${q.customerPhone}', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.4))),
           ])),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -233,7 +231,6 @@ class _QuotationScreenState extends State<QuotationScreen> {
 
     // Load settings
     final showDesc = (await appState.getSetting('billing_show_description')) == 'true';
-    final showSerial = (await appState.getSetting('billing_show_serial_number')) == 'true';
     final gstMode = (await appState.getSetting('billing_gst_inclusive')) == 'true';
 
     if (!context.mounted) return;
@@ -342,11 +339,11 @@ class _QuotationScreenState extends State<QuotationScreen> {
                   const Text('No items added', style: TextStyle(fontSize: 12)),
                 ])))
             else
-              ...cart.asMap().entries.map((e) => _buildQuotCartItem(ctx, e.key, cart, setDialogState, showDesc, showSerial)),
+              ...cart.asMap().entries.map((e) => _buildQuotCartItem(ctx, e.key, cart, setDialogState, showDesc)),
             const Divider(),
             TextField(controller: discountCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Discount ₹', prefixIcon: Icon(Icons.local_offer)),
+              decoration: const InputDecoration(labelText: 'Discount â‚¹', prefixIcon: Icon(Icons.local_offer)),
               onChanged: (_) => setDialogState(() {})),
             const SizedBox(height: 8),
             TextField(controller: notesCtrl,
@@ -428,7 +425,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
   }
 
   // ==================== CART ITEM WIDGET (same as billing) ====================
-  Widget _buildQuotCartItem(BuildContext context, int index, List<_QuotCartItem> cart, StateSetter setDialogState, bool showDesc, bool showSerial) {
+  Widget _buildQuotCartItem(BuildContext context, int index, List<_QuotCartItem> cart, StateSetter setDialogState, bool showDesc) {
     final c = cart[index];
     return Padding(padding: const EdgeInsets.only(bottom: 6),
       child: Container(padding: const EdgeInsets.all(10),
@@ -449,7 +446,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
                     content: TextField(
                       controller: ctrl, autofocus: true,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(prefixText: '₹ ', labelText: 'Unit Price'),
+                      decoration: const InputDecoration(prefixText: 'â‚¹ ', labelText: 'Unit Price'),
                       onSubmitted: (_) {
                         final p = double.tryParse(ctrl.text);
                         if (p != null && p >= 0) setDialogState(() => c.price = p);
@@ -545,62 +542,6 @@ class _QuotationScreenState extends State<QuotationScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   prefixIcon: const Icon(Icons.description, size: 16)),
               )),
-          // Dynamic serial number fields
-          if (showSerial)
-            ...List.generate(c.serialNumbers.length, (si) {
-              final isLastEmpty = si == c.serialNumbers.length - 1 && c.serialNumbers[si].isEmpty && c.serialNumbers.length > 1;
-              return Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: TextFormField(
-                  key: ValueKey('qserial_${c.item.id}_${si}_${c.serialNumbers.length}'),
-                  initialValue: c.serialNumbers[si],
-                  autofocus: isLastEmpty,
-                  onChanged: (v) => c.serialNumbers[si] = v,
-                  textInputAction: TextInputAction.next,
-                  onFieldSubmitted: (val) {
-                    if (val.trim().isNotEmpty) {
-                      setDialogState(() => c.serialNumbers.add(''));
-                    }
-                  },
-                  style: const TextStyle(fontSize: 12),
-                  decoration: InputDecoration(
-                    hintText: c.serialNumbers.length > 1
-                        ? 'Serial #${si + 1}...'
-                        : 'Serial number... (Enter to add next)',
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    prefixIcon: const Icon(Icons.qr_code, size: 16),
-                    suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
-                      if (c.serialNumbers.length > 1)
-                        IconButton(
-                          icon: Icon(Icons.close, size: 16, color: Colors.white.withValues(alpha: 0.3)),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () => setDialogState(() => c.serialNumbers.removeAt(si)),
-                        ),
-                      if (!kIsWeb)
-                        IconButton(
-                          icon: const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
-                          tooltip: 'Scan barcode/QR',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () {
-                            Navigator.of(context).push(MaterialPageRoute(
-                              builder: (scanCtx) => _QuotationBarcodeScannerPage(onScanned: (code) {
-                                Navigator.of(scanCtx).pop();
-                                setDialogState(() {
-                                  c.serialNumbers[si] = code;
-                                  c.serialNumbers.add('');
-                                });
-                              }),
-                            ));
-                          },
-                        ),
-                    ]),
-                  ),
-                ));
-            }),
         ])));
   }
 
@@ -971,60 +912,5 @@ class _QuotationScreenState extends State<QuotationScreen> {
       case 'gstInvoice': return InvoiceTemplate.gstInvoice;
       default: return InvoiceTemplate.modern;
     }
-  }
-}
-
-// ===== Barcode Scanner Page (Android/iOS only) =====
-class _QuotationBarcodeScannerPage extends StatefulWidget {
-  final void Function(String code) onScanned;
-  const _QuotationBarcodeScannerPage({required this.onScanned});
-  @override
-  State<_QuotationBarcodeScannerPage> createState() => _QuotationBarcodeScannerPageState();
-}
-
-class _QuotationBarcodeScannerPageState extends State<_QuotationBarcodeScannerPage> {
-  bool _scanned = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('Scan Barcode / QR Code'),
-        elevation: 0,
-      ),
-      body: Stack(children: [
-        MobileScanner(
-          onDetect: (capture) {
-            if (_scanned) return;
-            final barcodes = capture.barcodes;
-            if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
-              _scanned = true;
-              widget.onScanned(barcodes.first.rawValue!);
-            }
-          },
-        ),
-        Center(child: Container(
-          width: 280, height: 280,
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.primary, width: 3),
-            borderRadius: BorderRadius.circular(20),
-          ),
-        )),
-        Positioned(
-          bottom: 80, left: 0, right: 0,
-          child: Center(child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(30)),
-            child: const Text('Point camera at barcode or QR code',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
-          )),
-        ),
-      ]),
-    );
   }
 }
