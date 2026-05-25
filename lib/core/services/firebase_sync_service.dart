@@ -23,24 +23,33 @@ class FirebaseSyncService {
 
   Future<User?> signInWithGoogle() async {
     try {
-      final googleUser = await GoogleSignIn(scopes: ['email']).signIn();
-      if (googleUser == null) return null;
-      final googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-      final userCredential = await _auth.signInWithCredential(credential);
-      return userCredential.user;
+      if (kIsWeb) {
+        // On web, use Firebase Auth popup directly
+        final provider = GoogleAuthProvider();
+        provider.addScope('email');
+        final result = await _auth.signInWithPopup(provider);
+        return result.user;
+      } else {
+        // On Android/Windows, use google_sign_in package
+        final googleUser = await GoogleSignIn(scopes: ['email']).signIn();
+        if (googleUser == null) return null;
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        final userCredential = await _auth.signInWithCredential(credential);
+        return userCredential.user;
+      }
     } catch (e) {
       debugPrint('Google Sign-In error: $e');
-      return null;
+      rethrow;
     }
   }
 
   Future<void> signOut() async {
     stopAutoSync();
-    await GoogleSignIn().signOut();
+    try { await GoogleSignIn().signOut(); } catch (_) {}
     await _auth.signOut();
   }
 

@@ -693,17 +693,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 14)),
                 onPressed: _syncing ? null : () async {
                   setState(() => _syncing = true);
-                  final user = await _syncService.signInWithGoogle();
-                  setState(() => _syncing = false);
-                  if (user != null && mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Row(children: [
-                        const Icon(Icons.check_circle, color: Colors.white, size: 18), const SizedBox(width: 8),
-                        Text('Signed in as ${user.email}'),
-                      ]),
-                      backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ));
+                  try {
+                    final user = await _syncService.signInWithGoogle();
+                    setState(() => _syncing = false);
+                    if (user != null && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Row(children: [
+                          const Icon(Icons.check_circle, color: Colors.white, size: 18), const SizedBox(width: 8),
+                          Text('Signed in as ${user.email}'),
+                        ]),
+                        backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ));
+                    }
+                  } catch (e) {
+                    setState(() => _syncing = false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Sign-in error: $e'), backgroundColor: AppColors.error,
+                        duration: const Duration(seconds: 5)));
+                    }
                   }
                 },
                 icon: _syncing
