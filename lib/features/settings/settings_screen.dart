@@ -37,6 +37,7 @@ import 'keyboard_shortcuts_screen.dart';
 import 'import_export_screen.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../core/services/firebase_sync_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -657,128 +658,178 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   bool _syncing = false;
+  bool _autoSyncEnabled = false;
+  final _syncService = FirebaseSyncService();
 
   Widget _buildCloudSyncCard(BuildContext context) {
-    return GlassCard(padding: const EdgeInsets.all(20), child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF4285F4), Color(0xFF34A853)]),
-              borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.sync, size: 22, color: Colors.white)),
-          const SizedBox(width: 12),
-          Text('Sync Across Devices', style: Theme.of(context).textTheme.titleLarge),
-        ]),
-        const SizedBox(height: 12),
-        Text('Transfer your data between Android, Windows & Web',
-          style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
-        const SizedBox(height: 16),
+    return StreamBuilder(
+      stream: _syncService.authStateChanges,
+      builder: (context, snapshot) {
+        final user = _syncService.currentUser;
+        final isSignedIn = user != null;
 
-        // Step 1: Share Backup
-        Container(padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.success.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.success.withValues(alpha: 0.15))),
-          child: Row(children: [
-            Container(padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-              child: const Text('1', style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.success))),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Share Backup', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-              Text('Send via WhatsApp, Email, Bluetooth, Drive', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.35))),
-            ])),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-              onPressed: _syncing ? null : () => _shareBackup(context),
-              icon: _syncing
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.share, size: 16),
-              label: const Text('Share', style: TextStyle(fontSize: 12)),
-            ),
-          ])),
+        return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF4285F4), Color(0xFF34A853)]),
+                  borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.cloud_sync, size: 22, color: Colors.white)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Firebase Cloud Sync', style: Theme.of(context).textTheme.titleLarge),
+                Text('Sync data across all your devices via Google',
+                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+              ])),
+            ]),
+            const SizedBox(height: 16),
 
-        const SizedBox(height: 10),
+            if (!isSignedIn) ...[
+              // Sign-in button
+              SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4285F4),
+                  padding: const EdgeInsets.symmetric(vertical: 14)),
+                onPressed: _syncing ? null : () async {
+                  setState(() => _syncing = true);
+                  final user = await _syncService.signInWithGoogle();
+                  setState(() => _syncing = false);
+                  if (user != null && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Row(children: [
+                        const Icon(Icons.check_circle, color: Colors.white, size: 18), const SizedBox(width: 8),
+                        Text('Signed in as ${user.email}'),
+                      ]),
+                      backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ));
+                  }
+                },
+                icon: _syncing
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.login, size: 20),
+                label: Text(_syncing ? 'Signing in...' : 'Sign in with Google'),
+              )),
+              const SizedBox(height: 8),
+              Text('Sign in to sync your data across devices',
+                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.35))),
+            ] else ...[
+              // Signed-in user info
+              Container(padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.success.withValues(alpha: 0.2))),
+                child: Row(children: [
+                  CircleAvatar(radius: 18,
+                    backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+                    child: user.photoURL == null ? Text(
+                      (user.displayName ?? user.email ?? '?')[0].toUpperCase(),
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary)) : null),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(user.displayName ?? 'User', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    Text(user.email ?? '', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                  ])),
+                  IconButton(
+                    tooltip: 'Sign Out',
+                    icon: const Icon(Icons.logout, size: 20, color: AppColors.error),
+                    onPressed: () async {
+                      await _syncService.signOut();
+                      setState(() => _autoSyncEnabled = false);
+                    }),
+                ])),
+              const SizedBox(height: 14),
 
-        // Step 2: Import Backup
-        Container(padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.15))),
-          child: Row(children: [
-            Container(padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-              child: const Text('2', style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary))),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Import Backup', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-              Text('Open received backup file on other device', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.35))),
-            ])),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-              onPressed: _syncing ? null : () => _restoreData(context),
-              icon: const Icon(Icons.file_open, size: 16),
-              label: const Text('Import', style: TextStyle(fontSize: 12)),
-            ),
-          ])),
+              // Last sync time
+              FutureBuilder<DateTime?>(
+                future: _syncService.getLastSyncTime(),
+                builder: (ctx, snap) {
+                  final lastSync = snap.data;
+                  return Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(8)),
+                    child: Row(children: [
+                      Icon(Icons.schedule, size: 16, color: Colors.white.withValues(alpha: 0.4)),
+                      const SizedBox(width: 8),
+                      Text('Last sync: ', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+                      Text(lastSync != null
+                          ? DateFormat('dd MMM yyyy, hh:mm a').format(lastSync.toLocal())
+                          : 'Never',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                          color: lastSync != null ? AppColors.success : Colors.white.withValues(alpha: 0.4))),
+                    ]));
+                }),
+              const SizedBox(height: 14),
 
-        const SizedBox(height: 14),
-        Container(padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.03), borderRadius: BorderRadius.circular(8)),
-          child: Row(children: [
-            Icon(Icons.info_outline, size: 16, color: Colors.white.withValues(alpha: 0.3)),
-            const SizedBox(width: 8),
-            Expanded(child: Text(
-              'Share backup from Device A → Open the file on Device B → All data synced!',
-              style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.35)))),
-          ])),
-      ]));
+              // Sync Now button + Auto-sync toggle
+              Row(children: [
+                Expanded(child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4285F4),
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: _syncing ? null : () => _firebaseSyncNow(context),
+                  icon: _syncing
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.sync, size: 20),
+                  label: Text(_syncing ? 'Syncing...' : 'Sync Now'),
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF34A853),
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: _syncing ? null : () => _firebaseDownload(context),
+                  icon: const Icon(Icons.cloud_download, size: 20),
+                  label: const Text('Download'),
+                )),
+              ]),
+              const SizedBox(height: 12),
+
+              // Auto-sync toggle
+              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(10)),
+                child: Row(children: [
+                  Icon(Icons.autorenew, size: 18, color: _autoSyncEnabled ? AppColors.success : Colors.white.withValues(alpha: 0.4)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Auto-Sync', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text('Upload every 5 minutes', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.35))),
+                  ])),
+                  Switch(
+                    value: _autoSyncEnabled,
+                    activeColor: AppColors.success,
+                    onChanged: (v) {
+                      setState(() => _autoSyncEnabled = v);
+                      final appState = context.read<AppState>();
+                      if (v) {
+                        _syncService.startAutoSync(appState);
+                      } else {
+                        _syncService.stopAutoSync();
+                      }
+                    }),
+                ])),
+            ],
+          ]));
+      });
   }
 
-  Future<void> _shareBackup(BuildContext context) async {
+  Future<void> _firebaseSyncNow(BuildContext context) async {
     setState(() => _syncing = true);
     try {
       final appState = context.read<AppState>();
-      final settings = await appState.getAllSettings();
-      final backup = {
-        'version': '2.0.0',
-        'timestamp': DateTime.now().toIso8601String(),
-        'app': 'My Billu - Full Backup',
-        'items': appState.items.map((i) => i.toMap()).toList(),
-        'customers': appState.customers.map((c) => c.toMap()).toList(),
-        'bills': appState.bills.map((b) => b.toMap()).toList(),
-        'purchases': appState.purchases.map((p) => p.toMap()).toList(),
-        'quotations': appState.quotations.map((q) => q.toMap()).toList(),
-        'expenses': appState.expenses.map((e) => e.toMap()).toList(),
-        'creditNotes': appState.creditNotes.map((c) => c.toMap()).toList(),
-        'purchaseReturns': appState.purchaseReturns.map((p) => p.toMap()).toList(),
-        'suppliers': appState.suppliers.map((s) => s.toMap()).toList(),
-        'recurringBills': appState.recurringBills.map((r) => r.toMap()).toList(),
-        'cashBookEntries': appState.cashBookEntries.map((e) => e.toMap()).toList(),
-        'bankAccounts': appState.bankAccounts.map((a) => a.toMap()).toList(),
-        'settings': settings,
-      };
-      final jsonStr = const JsonEncoder.withIndent('  ').convert(backup);
-      final bytes = utf8.encode(jsonStr);
-
-      final xFile = XFile.fromData(
-        Uint8List.fromList(bytes),
-        name: 'My_Billu_Sync_${DateTime.now().day.toString().padLeft(2, '0')}_${DateTime.now().month.toString().padLeft(2, '0')}_${DateTime.now().year}.json',
-        mimeType: 'application/json',
-      );
-      await Share.shareXFiles([xFile],
-        subject: 'My Billu Backup',
-        text: 'My Billu data backup - Open this file in My Billu app to sync.');
-
+      await _syncService.uploadData(appState);
       setState(() => _syncing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: const Row(children: [
-            Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
-            Text('Backup shared successfully!')]),
+            Icon(Icons.cloud_done, color: Colors.white, size: 18), SizedBox(width: 8),
+            Text('Data uploaded to cloud successfully!')]),
           backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
       }
@@ -786,7 +837,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _syncing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Share error: $e'), backgroundColor: AppColors.error));
+          content: Text('Sync error: $e'), backgroundColor: AppColors.error));
+      }
+    }
+  }
+
+  Future<void> _firebaseDownload(BuildContext context) async {
+    setState(() => _syncing = true);
+    try {
+      final data = await _syncService.downloadData();
+      setState(() => _syncing = false);
+      if (data == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('No cloud data found. Upload first!'), backgroundColor: AppColors.warning));
+        }
+        return;
+      }
+
+      if (!mounted) return;
+      final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+        title: const Row(children: [Icon(Icons.cloud_download, color: AppColors.primary), SizedBox(width: 10), Text('Download Cloud Data?')]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('This will ADD cloud data to your local data.', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text('Items: ${(data['items'] as List?)?.length ?? 0}'),
+          Text('Customers: ${(data['customers'] as List?)?.length ?? 0}'),
+          Text('Bills: ${(data['bills'] as List?)?.length ?? 0}'),
+          Text('Purchases: ${(data['purchases'] as List?)?.length ?? 0}'),
+          Text('Quotations: ${(data['quotations'] as List?)?.length ?? 0}'),
+          Text('Expenses: ${(data['expenses'] as List?)?.length ?? 0}'),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Download & Restore')),
+        ],
+      ));
+
+      if (confirm != true || !mounted) return;
+
+      final appState = context.read<AppState>();
+      // Reuse the same restore logic
+      if (data['items'] != null) { for (final m in data['items']) { try { await appState.addItem(Item.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      if (data['customers'] != null) { for (final m in data['customers']) { try { await appState.addCustomer(Customer.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      if (data['bills'] != null) { for (final m in data['bills']) { try { await appState.createBill(Bill.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      if (data['purchases'] != null) { for (final m in data['purchases']) { try { await appState.createPurchase(Purchase.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      if (data['quotations'] != null) { for (final m in data['quotations']) { try { await appState.addQuotation(Quotation.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      if (data['expenses'] != null) { for (final m in data['expenses']) { try { await appState.addExpense(Expense.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      if (data['creditNotes'] != null) { for (final m in data['creditNotes']) { try { await appState.addCreditNote(CreditNote.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      if (data['purchaseReturns'] != null) { for (final m in data['purchaseReturns']) { try { await appState.addPurchaseReturn(PurchaseReturn.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      if (data['suppliers'] != null) { for (final m in data['suppliers']) { try { await appState.addSupplier(Supplier.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      if (data['cashBookEntries'] != null) { for (final m in data['cashBookEntries']) { try { await appState.addCashBookEntry(CashBookEntry.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      if (data['bankAccounts'] != null) { for (final m in data['bankAccounts']) { try { await appState.addBankAccount(BankAccount.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      if (data['settings'] != null) {
+        final settings = (data['settings'] as Map<String, dynamic>);
+        for (final entry in settings.entries) { await appState.saveSetting(entry.key, entry.value.toString()); }
+      }
+      await appState.loadAll();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Row(children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 18), SizedBox(width: 8),
+            Text('Cloud data restored successfully!')]),
+          backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+      }
+    } catch (e) {
+      setState(() => _syncing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Download error: $e'), backgroundColor: AppColors.error));
       }
     }
   }
