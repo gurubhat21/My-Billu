@@ -29,8 +29,16 @@ class FirebaseSyncService {
         provider.addScope('email');
         final result = await _auth.signInWithPopup(provider);
         return result.user;
+      } else if (defaultTargetPlatform == TargetPlatform.windows ||
+                 defaultTargetPlatform == TargetPlatform.linux ||
+                 defaultTargetPlatform == TargetPlatform.macOS) {
+        // On desktop, use signInWithProvider (opens system browser)
+        final provider = GoogleAuthProvider();
+        provider.addScope('email');
+        final result = await _auth.signInWithProvider(provider);
+        return result.user;
       } else {
-        // On Android/Windows, use google_sign_in package
+        // On Android/iOS, use google_sign_in package
         final googleUser = await GoogleSignIn(scopes: ['email']).signIn();
         if (googleUser == null) return null;
         final googleAuth = await googleUser.authentication;
