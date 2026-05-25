@@ -11,14 +11,33 @@ class FirebaseSyncService {
   factory FirebaseSyncService() => _instance;
   FirebaseSyncService._();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseAuth? _authInstance;
+  FirebaseFirestore? _firestoreInstance;
   Timer? _autoSyncTimer;
   bool _isSyncing = false;
 
-  User? get currentUser => _auth.currentUser;
+  FirebaseAuth get _auth {
+    _authInstance ??= FirebaseAuth.instance;
+    return _authInstance!;
+  }
+
+  FirebaseFirestore get _firestore {
+    _firestoreInstance ??= FirebaseFirestore.instance;
+    return _firestoreInstance!;
+  }
+
+  bool get _isFirebaseReady {
+    try {
+      _auth;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  User? get currentUser => _isFirebaseReady ? _auth.currentUser : null;
   bool get isSignedIn => currentUser != null;
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get authStateChanges => _isFirebaseReady ? _auth.authStateChanges() : Stream.value(null);
   bool get isAutoSyncActive => _autoSyncTimer != null;
   bool get isSyncing => _isSyncing;
 
@@ -99,63 +118,66 @@ class FirebaseSyncService {
         'displayName': currentUser!.displayName,
         'lastSyncAt': FieldValue.serverTimestamp(),
         'deviceName': defaultTargetPlatform.name,
-        'version': '2.0.0',
+        'version': '6.0.0',
       });
 
-      // Store each collection as JSON chunks (max ~900KB per doc to stay under 1MB limit)
-      final collections = ['items', 'customers', 'bills', 'purchases', 'quotations',
+      // Upload all collections + settings using chunked writes
+      final allKeys = ['items', 'customers', 'bills', 'purchases', 'quotations',
         'expenses', 'creditNotes', 'purchaseReturns', 'suppliers', 'recurringBills',
-        'cashBookEntries', 'bankAccounts'];
+        'cashBookEntries', 'bankAccounts', 'settings'];
 
-      const maxChunkSize = 900000; // 900KB per chunk
-
-      for (final key in collections) {
-        final list = backup[key] as List?;
-        if (list == null || list.isEmpty) continue;
-
-        final fullJson = jsonEncode(list);
-
-        if (fullJson.length <= maxChunkSize) {
-          // Small enough for single doc
-          await userDoc.collection('data').doc(key).set({
-            'json': fullJson,
-            'count': list.length,
-            'chunks': 1,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-        } else {
-          // Split into chunks
-          final chunks = <String>[];
-          for (var i = 0; i < fullJson.length; i += maxChunkSize) {
-            chunks.add(fullJson.substring(i, i + maxChunkSize > fullJson.length ? fullJson.length : i + maxChunkSize));
-          }
-
-          // Write meta doc
-          await userDoc.collection('data').doc(key).set({
-            'count': list.length,
-            'chunks': chunks.length,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-
-          // Write chunk docs
-          for (var i = 0; i < chunks.length; i++) {
-            await userDoc.collection('data').doc('${key}_$i').set({
-              'json': chunks[i],
-              'index': i,
-            });
-          }
-        }
-      }
-
-      if (backup['settings'] != null) {
-        await userDoc.collection('data').doc('settings').set({
-          'json': jsonEncode(backup['settings']),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+      for (final key in allKeys) {
+        final data = backup[key];
+        if (data == null) continue;
+        await _writeChunked(userDoc, key, jsonEncode(data));
       }
     } finally {
       _isSyncing = false;
     }
+  }
+
+  static const _maxChunkBytes = 900000;
+
+  Future<void> _writeChunked(DocumentReference userDoc, String key, String fullJson) async {
+    if (fullJson.length <= _maxChunkBytes) {
+      await userDoc.collection('data').doc(key).set({
+        'json': fullJson,
+        'chunks': 1,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } else {
+      final chunks = <String>[];
+      for (var i = 0; i < fullJson.length; i += _maxChunkBytes) {
+        final end = (i + _maxChunkBytes > fullJson.length) ? fullJson.length : i + _maxChunkBytes;
+        chunks.add(fullJson.substring(i, end));
+      }
+      await userDoc.collection('data').doc(key).set({
+        'chunks': chunks.length,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      for (var i = 0; i < chunks.length; i++) {
+        await userDoc.collection('data').doc('${key}_$i').set({'json': chunks[i], 'index': i});
+      }
+    }
+  }
+
+  Future<String?> _readChunked(DocumentReference userDoc, String key) async {
+    final snap = await userDoc.collection('data').doc(key).get();
+    if (!snap.exists) return null;
+    final numChunks = snap.data()?['chunks'] as int? ?? 1;
+    if (numChunks <= 1 && snap.data()?['json'] != null) {
+      return snap.data()!['json'] as String;
+    } else if (numChunks > 1) {
+      final parts = <String>[];
+      for (var i = 0; i < numChunks; i++) {
+        final chunkSnap = await userDoc.collection('data').doc('${key}_$i').get();
+        if (chunkSnap.exists && chunkSnap.data()?['json'] != null) {
+          parts.add(chunkSnap.data()!['json'] as String);
+        }
+      }
+      return parts.join();
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>?> downloadData() async {
@@ -166,7 +188,7 @@ class FirebaseSyncService {
       if (!metaSnap.exists) return null;
 
       final backup = <String, dynamic>{
-        'version': '2.0.0',
+        'version': '6.0.0',
         'timestamp': metaSnap.data()?['lastSyncAt']?.toString() ?? DateTime.now().toIso8601String(),
       };
 
@@ -175,45 +197,16 @@ class FirebaseSyncService {
         'cashBookEntries', 'bankAccounts'];
 
       for (final key in collections) {
-        final snap = await userDoc.collection('data').doc(key).get();
-        if (!snap.exists) continue;
-
-        final numChunks = snap.data()?['chunks'] as int? ?? 1;
-
-        String fullJson;
-        if (numChunks <= 1 && snap.data()?['json'] != null) {
-          // Single doc
-          fullJson = snap.data()!['json'] as String;
-        } else if (numChunks > 1) {
-          // Reassemble chunks
-          final parts = <String>[];
-          for (var i = 0; i < numChunks; i++) {
-            final chunkSnap = await userDoc.collection('data').doc('${key}_$i').get();
-            if (chunkSnap.exists && chunkSnap.data()?['json'] != null) {
-              parts.add(chunkSnap.data()!['json'] as String);
-            }
-          }
-          fullJson = parts.join();
-        } else if (snap.data()?['data'] != null) {
-          // Legacy format
+        final json = await _readChunked(userDoc, key);
+        if (json != null) {
           backup[key] = List<Map<String, dynamic>>.from(
-            (snap.data()!['data'] as List).map((e) => Map<String, dynamic>.from(e)));
-          continue;
-        } else {
-          continue;
+            (jsonDecode(json) as List).map((e) => Map<String, dynamic>.from(e)));
         }
-
-        backup[key] = List<Map<String, dynamic>>.from(
-          (jsonDecode(fullJson) as List).map((e) => Map<String, dynamic>.from(e)));
       }
 
-      final settingsSnap = await userDoc.collection('data').doc('settings').get();
-      if (settingsSnap.exists) {
-        if (settingsSnap.data()?['json'] != null) {
-          backup['settings'] = Map<String, dynamic>.from(jsonDecode(settingsSnap.data()!['json']));
-        } else if (settingsSnap.data()?['data'] != null) {
-          backup['settings'] = Map<String, dynamic>.from(settingsSnap.data()!['data']);
-        }
+      final settingsJson = await _readChunked(userDoc, 'settings');
+      if (settingsJson != null) {
+        backup['settings'] = Map<String, dynamic>.from(jsonDecode(settingsJson));
       }
 
       return backup;

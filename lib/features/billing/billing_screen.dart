@@ -67,11 +67,13 @@ class _BillingScreenState extends State<BillingScreen> {
     final desc = await appState.getSetting('billing_show_description');
     final serial = await appState.getSetting('billing_show_serial_number');
     final gstMode = await appState.getSetting('billing_gst_inclusive');
+    final viewPref = await appState.getSetting('billing_grid_view');
     if (mounted) {
       setState(() {
         _showDescription = desc == 'true';
         _showSerialNumber = serial == 'true';
         _gstInclusive = gstMode == 'true';
+        if (viewPref != null) _isGridView = viewPref == 'true';
       });
     }
   }
@@ -168,7 +170,10 @@ class _BillingScreenState extends State<BillingScreen> {
     final active = _isGridView == isGrid;
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => setState(() => _isGridView = isGrid),
+      onTap: () {
+        setState(() => _isGridView = isGrid);
+        context.read<AppState>().saveSetting('billing_grid_view', isGrid.toString());
+      },
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -187,15 +192,26 @@ class _BillingScreenState extends State<BillingScreen> {
       itemCount: items.length,
       itemBuilder: (ctx, i) {
         final item = items[i];
-        final inCart = _cart.any((c) => c.item.id == item.id);
+        final cartItem = _cart.where((c) => c.item.id == item.id).firstOrNull;
+        final inCart = cartItem != null;
         return GlassCard(onTap: () => _addToCart(item), padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: inCart ? AppColors.success.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10)),
-              child: Icon(inCart ? Icons.check_circle : Icons.inventory_2, size: 20,
-                color: inCart ? AppColors.success : AppColors.primary)),
+            Row(children: [
+              Container(padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: inCart ? AppColors.success.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10)),
+                child: Icon(inCart ? Icons.check_circle : Icons.inventory_2, size: 20,
+                  color: inCart ? AppColors.success : AppColors.primary)),
+              if (inCart) ...[
+                const SizedBox(width: 6),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.success, borderRadius: BorderRadius.circular(12)),
+                  child: Text('×${cartItem.quantity}',
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
+              ],
+            ]),
             const Spacer(),
             Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -212,7 +228,8 @@ class _BillingScreenState extends State<BillingScreen> {
       itemCount: items.length,
       itemBuilder: (ctx, i) {
         final item = items[i];
-        final inCart = _cart.any((c) => c.item.id == item.id);
+        final cartItem = _cart.where((c) => c.item.id == item.id).firstOrNull;
+        final inCart = cartItem != null;
         return Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: GlassCard(
@@ -233,6 +250,14 @@ class _BillingScreenState extends State<BillingScreen> {
                 Text('${item.hsnCode != null && item.hsnCode!.isNotEmpty ? "HSN: ${item.hsnCode} • " : ""}Qty: ${item.stockQuantity}',
                   style: TextStyle(fontSize: 11, color: Theme.of(context).textTheme.bodySmall?.color)),
               ])),
+              if (inCart)
+                Container(
+                  margin: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.success, borderRadius: BorderRadius.circular(12)),
+                  child: Text('×${cartItem.quantity}',
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
               Text(AppFormatters.currency(item.price),
                 style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 14)),
             ]),
