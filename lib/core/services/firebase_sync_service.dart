@@ -94,8 +94,8 @@ class FirebaseSyncService {
     if (!isSignedIn || _isSyncing) return;
     _isSyncing = true;
     try {
-      final settings = await appState.getAllSettings();
-      final backup = {
+      final localSettings = await appState.getAllSettings();
+      final Map<String, dynamic> backup = {
         'items': appState.items.map((i) => i.toMap()).toList(),
         'customers': appState.customers.map((c) => c.toMap()).toList(),
         'bills': appState.bills.map((b) => b.toMap()).toList(),
@@ -108,10 +108,25 @@ class FirebaseSyncService {
         'recurringBills': appState.recurringBills.map((r) => r.toMap()).toList(),
         'cashBookEntries': appState.cashBookEntries.map((e) => e.toMap()).toList(),
         'bankAccounts': appState.bankAccounts.map((a) => a.toMap()).toList(),
-        'settings': settings,
       };
 
       final userDoc = _firestore.collection('users').doc(currentUser!.uid);
+
+      // Merge settings: download existing cloud settings first, then overlay local
+      // This ensures password, expiry, and other device settings aren't lost
+      Map<String, String> mergedSettings = {};
+      try {
+        final cloudJson = await _readChunked(userDoc, 'settings');
+        if (cloudJson != null) {
+          final cloudMap = Map<String, dynamic>.from(jsonDecode(cloudJson));
+          for (final e in cloudMap.entries) {
+            mergedSettings[e.key] = e.value.toString();
+          }
+        }
+      } catch (_) {}
+      // Local settings override cloud (local is fresher for this device)
+      mergedSettings.addAll(localSettings);
+      backup['settings'] = mergedSettings;
 
       await userDoc.set({
         'email': currentUser!.email,

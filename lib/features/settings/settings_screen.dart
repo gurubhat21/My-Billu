@@ -980,7 +980,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (data['bankAccounts'] != null) { for (final m in data['bankAccounts']) { try { await appState.addBankAccount(BankAccount.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
       if (data['settings'] != null) {
         final settings = (data['settings'] as Map<String, dynamic>);
-        for (final entry in settings.entries) { await appState.saveSetting(entry.key, entry.value.toString()); }
+        for (final entry in settings.entries) {
+          try {
+            await appState.saveSetting(entry.key, entry.value.toString());
+          } catch (e) {
+            debugPrint('Failed to restore setting ${entry.key}: $e');
+          }
+        }
+        debugPrint('Restored ${settings.length} settings including: ${settings.keys.where((k) => k == "loginPassword" || k == "app_expiry_date" || k == "loginUsername").join(", ")}');
       }
       await appState.loadAll();
 
