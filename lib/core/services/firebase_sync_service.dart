@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -53,12 +54,10 @@ class FirebaseSyncService {
 
   Future<User?> signInWithEmail(String email, String password) async {
     try {
-      // Try sign in first
       final result = await _auth.signInWithEmailAndPassword(email: email, password: password);
       return result.user;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {
-        // Create new account
         final result = await _auth.createUserWithEmailAndPassword(email: email, password: password);
         return result.user;
       }
@@ -78,9 +77,6 @@ class FirebaseSyncService {
     try {
       final settings = await appState.getAllSettings();
       final backup = {
-        'version': '2.0.0',
-        'timestamp': DateTime.now().toIso8601String(),
-        'deviceName': defaultTargetPlatform.name,
         'items': appState.items.map((i) => i.toMap()).toList(),
         'customers': appState.customers.map((c) => c.toMap()).toList(),
         'bills': appState.bills.map((b) => b.toMap()).toList(),
@@ -106,6 +102,7 @@ class FirebaseSyncService {
         'version': '2.0.0',
       });
 
+      // Store each collection as JSON string to avoid Firestore nested entity limits
       final collections = ['items', 'customers', 'bills', 'purchases', 'quotations',
         'expenses', 'creditNotes', 'purchaseReturns', 'suppliers', 'recurringBills',
         'cashBookEntries', 'bankAccounts'];
@@ -114,7 +111,7 @@ class FirebaseSyncService {
         final list = backup[key] as List?;
         if (list != null) {
           await userDoc.collection('data').doc(key).set({
-            'data': list,
+            'json': jsonEncode(list),
             'count': list.length,
             'updatedAt': FieldValue.serverTimestamp(),
           });
@@ -123,7 +120,7 @@ class FirebaseSyncService {
 
       if (backup['settings'] != null) {
         await userDoc.collection('data').doc('settings').set({
-          'data': backup['settings'],
+          'json': jsonEncode(backup['settings']),
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }
@@ -150,15 +147,25 @@ class FirebaseSyncService {
 
       for (final key in collections) {
         final snap = await userDoc.collection('data').doc(key).get();
-        if (snap.exists && snap.data()?['data'] != null) {
-          backup[key] = List<Map<String, dynamic>>.from(
-            (snap.data()!['data'] as List).map((e) => Map<String, dynamic>.from(e)));
+        if (snap.exists) {
+          // Support both JSON string format and legacy nested format
+          if (snap.data()?['json'] != null) {
+            backup[key] = List<Map<String, dynamic>>.from(
+              (jsonDecode(snap.data()!['json']) as List).map((e) => Map<String, dynamic>.from(e)));
+          } else if (snap.data()?['data'] != null) {
+            backup[key] = List<Map<String, dynamic>>.from(
+              (snap.data()!['data'] as List).map((e) => Map<String, dynamic>.from(e)));
+          }
         }
       }
 
       final settingsSnap = await userDoc.collection('data').doc('settings').get();
-      if (settingsSnap.exists && settingsSnap.data()?['data'] != null) {
-        backup['settings'] = Map<String, dynamic>.from(settingsSnap.data()!['data']);
+      if (settingsSnap.exists) {
+        if (settingsSnap.data()?['json'] != null) {
+          backup['settings'] = Map<String, dynamic>.from(jsonDecode(settingsSnap.data()!['json']));
+        } else if (settingsSnap.data()?['data'] != null) {
+          backup['settings'] = Map<String, dynamic>.from(settingsSnap.data()!['data']);
+        }
       }
 
       return backup;
