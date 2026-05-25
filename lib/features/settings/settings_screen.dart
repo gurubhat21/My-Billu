@@ -705,9 +705,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildCloudSyncCard(BuildContext context) {
-    return StreamBuilder(
-      stream: _syncService.authStateChanges,
-      builder: (context, snapshot) {
+    try {
+      return StreamBuilder(
+        stream: _syncService.authStateChanges,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF4285F4), Color(0xFF34A853)]),
+                      borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.cloud_off, color: Colors.white, size: 22)),
+                  const SizedBox(width: 14),
+                  const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Firebase Cloud Sync', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    Text('Setup required - check Firebase configuration', style: TextStyle(fontSize: 12, color: Colors.orange)),
+                  ])),
+                ]),
+              ]));
+          }
         final user = _syncService.currentUser;
         final isSignedIn = user != null;
 
@@ -871,6 +889,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ]));
       });
+    } catch (e) {
+      return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF4285F4), Color(0xFF34A853)]),
+                borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.cloud_off, color: Colors.white, size: 22)),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Firebase Cloud Sync', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              Text('Error: $e', style: const TextStyle(fontSize: 12, color: Colors.orange)),
+            ])),
+          ]),
+        ]));
+    }
   }
 
   Future<void> _firebaseSyncNow(BuildContext context) async {

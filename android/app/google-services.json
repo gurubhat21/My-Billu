@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "348057118012",
+    "project_id": "my-billu",
+    "storage_bucket": "my-billu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:348057118012:android:cac50e0ab8dd30c6276a39",
+        "android_client_info": {
+          "package_name": "com.mybillu.my_billu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApUwLMqrRzltnYFcVInJjr2Jeyws0ZOKo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
