@@ -102,19 +102,48 @@ class FirebaseSyncService {
         'version': '2.0.0',
       });
 
-      // Store each collection as JSON string to avoid Firestore nested entity limits
+      // Store each collection as JSON chunks (max ~900KB per doc to stay under 1MB limit)
       final collections = ['items', 'customers', 'bills', 'purchases', 'quotations',
         'expenses', 'creditNotes', 'purchaseReturns', 'suppliers', 'recurringBills',
         'cashBookEntries', 'bankAccounts'];
 
+      const maxChunkSize = 900000; // 900KB per chunk
+
       for (final key in collections) {
         final list = backup[key] as List?;
-        if (list != null) {
+        if (list == null || list.isEmpty) continue;
+
+        final fullJson = jsonEncode(list);
+
+        if (fullJson.length <= maxChunkSize) {
+          // Small enough for single doc
           await userDoc.collection('data').doc(key).set({
-            'json': jsonEncode(list),
+            'json': fullJson,
             'count': list.length,
+            'chunks': 1,
             'updatedAt': FieldValue.serverTimestamp(),
           });
+        } else {
+          // Split into chunks
+          final chunks = <String>[];
+          for (var i = 0; i < fullJson.length; i += maxChunkSize) {
+            chunks.add(fullJson.substring(i, i + maxChunkSize > fullJson.length ? fullJson.length : i + maxChunkSize));
+          }
+
+          // Write meta doc
+          await userDoc.collection('data').doc(key).set({
+            'count': list.length,
+            'chunks': chunks.length,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+          // Write chunk docs
+          for (var i = 0; i < chunks.length; i++) {
+            await userDoc.collection('data').doc('${key}_$i').set({
+              'json': chunks[i],
+              'index': i,
+            });
+          }
         }
       }
 
@@ -147,16 +176,35 @@ class FirebaseSyncService {
 
       for (final key in collections) {
         final snap = await userDoc.collection('data').doc(key).get();
-        if (snap.exists) {
-          // Support both JSON string format and legacy nested format
-          if (snap.data()?['json'] != null) {
-            backup[key] = List<Map<String, dynamic>>.from(
-              (jsonDecode(snap.data()!['json']) as List).map((e) => Map<String, dynamic>.from(e)));
-          } else if (snap.data()?['data'] != null) {
-            backup[key] = List<Map<String, dynamic>>.from(
-              (snap.data()!['data'] as List).map((e) => Map<String, dynamic>.from(e)));
+        if (!snap.exists) continue;
+
+        final numChunks = snap.data()?['chunks'] as int? ?? 1;
+
+        String fullJson;
+        if (numChunks <= 1 && snap.data()?['json'] != null) {
+          // Single doc
+          fullJson = snap.data()!['json'] as String;
+        } else if (numChunks > 1) {
+          // Reassemble chunks
+          final parts = <String>[];
+          for (var i = 0; i < numChunks; i++) {
+            final chunkSnap = await userDoc.collection('data').doc('${key}_$i').get();
+            if (chunkSnap.exists && chunkSnap.data()?['json'] != null) {
+              parts.add(chunkSnap.data()!['json'] as String);
+            }
           }
+          fullJson = parts.join();
+        } else if (snap.data()?['data'] != null) {
+          // Legacy format
+          backup[key] = List<Map<String, dynamic>>.from(
+            (snap.data()!['data'] as List).map((e) => Map<String, dynamic>.from(e)));
+          continue;
+        } else {
+          continue;
         }
+
+        backup[key] = List<Map<String, dynamic>>.from(
+          (jsonDecode(fullJson) as List).map((e) => Map<String, dynamic>.from(e)));
       }
 
       final settingsSnap = await userDoc.collection('data').doc('settings').get();
