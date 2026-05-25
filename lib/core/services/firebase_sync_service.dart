@@ -21,24 +21,20 @@ class FirebaseSyncService {
   bool get isAutoSyncActive => _autoSyncTimer != null;
   bool get isSyncing => _isSyncing;
 
+  bool get isDesktop => !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+       defaultTargetPlatform == TargetPlatform.linux ||
+       defaultTargetPlatform == TargetPlatform.macOS);
+
   Future<User?> signInWithGoogle() async {
     try {
       if (kIsWeb) {
-        // On web, use Firebase Auth popup directly
         final provider = GoogleAuthProvider();
         provider.addScope('email');
         final result = await _auth.signInWithPopup(provider);
         return result.user;
-      } else if (defaultTargetPlatform == TargetPlatform.windows ||
-                 defaultTargetPlatform == TargetPlatform.linux ||
-                 defaultTargetPlatform == TargetPlatform.macOS) {
-        // On desktop, use signInWithProvider (opens system browser)
-        final provider = GoogleAuthProvider();
-        provider.addScope('email');
-        final result = await _auth.signInWithProvider(provider);
-        return result.user;
       } else {
-        // On Android/iOS, use google_sign_in package
+        // Android/iOS
         final googleUser = await GoogleSignIn(scopes: ['email']).signIn();
         if (googleUser == null) return null;
         final googleAuth = await googleUser.authentication;
@@ -51,6 +47,21 @@ class FirebaseSyncService {
       }
     } catch (e) {
       debugPrint('Google Sign-In error: $e');
+      rethrow;
+    }
+  }
+
+  Future<User?> signInWithEmail(String email, String password) async {
+    try {
+      // Try sign in first
+      final result = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      return result.user;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') {
+        // Create new account
+        final result = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+        return result.user;
+      }
       rethrow;
     }
   }

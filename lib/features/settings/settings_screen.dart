@@ -660,6 +660,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _syncing = false;
   bool _autoSyncEnabled = false;
   final _syncService = FirebaseSyncService();
+  final _syncEmailCtrl = TextEditingController();
+  final _syncPasswordCtrl = TextEditingController();
+
+  Future<void> _emailSignIn(BuildContext context) async {
+    final email = _syncEmailCtrl.text.trim();
+    final password = _syncPasswordCtrl.text.trim();
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please enter email and password'), backgroundColor: AppColors.warning));
+      return;
+    }
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Password must be at least 6 characters'), backgroundColor: AppColors.warning));
+      return;
+    }
+    setState(() => _syncing = true);
+    try {
+      final user = await _syncService.signInWithEmail(email, password);
+      setState(() => _syncing = false);
+      if (user != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Row(children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 18), const SizedBox(width: 8),
+            Text('Signed in as ${user.email}'),
+          ]),
+          backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } catch (e) {
+      setState(() => _syncing = false);
+      if (mounted) {
+        String msg = e.toString();
+        if (msg.contains('wrong-password')) msg = 'Wrong password. Try again.';
+        if (msg.contains('invalid-email')) msg = 'Invalid email address.';
+        if (msg.contains('too-many-requests')) msg = 'Too many attempts. Try later.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(msg), backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 5)));
+      }
+    }
+  }
 
   Widget _buildCloudSyncCard(BuildContext context) {
     return StreamBuilder(
@@ -686,43 +729,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 16),
 
             if (!isSignedIn) ...[
-              // Sign-in button
-              SizedBox(width: double.infinity, child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4285F4),
-                  padding: const EdgeInsets.symmetric(vertical: 14)),
-                onPressed: _syncing ? null : () async {
-                  setState(() => _syncing = true);
-                  try {
-                    final user = await _syncService.signInWithGoogle();
-                    setState(() => _syncing = false);
-                    if (user != null && mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Row(children: [
-                          const Icon(Icons.check_circle, color: Colors.white, size: 18), const SizedBox(width: 8),
-                          Text('Signed in as ${user.email}'),
-                        ]),
-                        backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ));
+              if (_syncService.isDesktop) ...[
+                // Windows/Desktop: Email + Password sign-in
+                TextField(
+                  controller: _syncEmailCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: const Icon(Icons.email, size: 18),
+                    filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _syncPasswordCtrl,
+                  obscureText: true,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: const Icon(Icons.lock, size: 18),
+                    filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4285F4),
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: _syncing ? null : () => _emailSignIn(context),
+                  icon: _syncing
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.login, size: 20),
+                  label: Text(_syncing ? 'Signing in...' : 'Sign In / Create Account'),
+                )),
+                const SizedBox(height: 8),
+                Text('Use same email & password on all devices to sync',
+                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.35))),
+              ] else ...[
+                // Web/Android: Google sign-in
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4285F4),
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: _syncing ? null : () async {
+                    setState(() => _syncing = true);
+                    try {
+                      final user = await _syncService.signInWithGoogle();
+                      setState(() => _syncing = false);
+                      if (user != null && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Row(children: [
+                            const Icon(Icons.check_circle, color: Colors.white, size: 18), const SizedBox(width: 8),
+                            Text('Signed in as ${user.email}'),
+                          ]),
+                          backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ));
+                      }
+                    } catch (e) {
+                      setState(() => _syncing = false);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Sign-in error: $e'), backgroundColor: AppColors.error,
+                          duration: const Duration(seconds: 5)));
+                      }
                     }
-                  } catch (e) {
-                    setState(() => _syncing = false);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text('Sign-in error: $e'), backgroundColor: AppColors.error,
-                        duration: const Duration(seconds: 5)));
-                    }
-                  }
-                },
-                icon: _syncing
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.login, size: 20),
-                label: Text(_syncing ? 'Signing in...' : 'Sign in with Google'),
-              )),
-              const SizedBox(height: 8),
-              Text('Sign in to sync your data across devices',
-                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.35))),
+                  },
+                  icon: _syncing
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.login, size: 20),
+                  label: Text(_syncing ? 'Signing in...' : 'Sign in with Google'),
+                )),
+                const SizedBox(height: 8),
+                Text('Sign in to sync your data across devices',
+                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.35))),
+              ],
             ] else ...[
               // Signed-in user info
               Container(padding: const EdgeInsets.all(12),
