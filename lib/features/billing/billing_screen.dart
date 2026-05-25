@@ -44,6 +44,7 @@ class _BillingScreenState extends State<BillingScreen> {
   PaymentMethod _partialMethod2 = PaymentMethod.upi;
   final _partialAmount1Ctrl = TextEditingController();
   String _itemSearch = '';
+  bool _isGridView = true;
   final _discountCtrl = TextEditingController(text: '0');
   final _walkInNameCtrl = TextEditingController();
   final _walkInPhoneCtrl = TextEditingController();
@@ -140,7 +141,18 @@ class _BillingScreenState extends State<BillingScreen> {
     return Column(children: [
       Padding(padding: const EdgeInsets.all(16), child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Create Bill', style: Theme.of(context).textTheme.headlineLarge),
+          Row(children: [
+            Expanded(child: Text('Create Bill', style: Theme.of(context).textTheme.headlineLarge)),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                _viewToggleBtn(Icons.grid_view_rounded, true),
+                _viewToggleBtn(Icons.view_list_rounded, false),
+              ]),
+            ),
+          ]),
           const SizedBox(height: 12),
           TextField(onChanged: (v) => setState(() => _itemSearch = v),
             decoration: const InputDecoration(hintText: 'Search items...', prefixIcon: Icon(Icons.search, color: AppColors.primary))),
@@ -148,31 +160,85 @@ class _BillingScreenState extends State<BillingScreen> {
       )),
       Expanded(child: items.isEmpty
           ? const EmptyState(icon: Icons.inventory_2_outlined, title: 'No items', subtitle: 'Add items in catalog first')
-          : GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 200, childAspectRatio: 1.1, crossAxisSpacing: 10, mainAxisSpacing: 10),
-              itemCount: items.length,
-              itemBuilder: (ctx, i) {
-                final item = items[i];
-                final inCart = _cart.any((c) => c.item.id == item.id);
-                return GlassCard(onTap: () => _addToCart(item), padding: const EdgeInsets.all(14),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Container(padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: inCart ? AppColors.success.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10)),
-                      child: Icon(inCart ? Icons.check_circle : Icons.inventory_2, size: 20,
-                        color: inCart ? AppColors.success : AppColors.primary)),
-                    const Spacer(),
-                    Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 4),
-                    Text(AppFormatters.currency(item.price),
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 14)),
-                  ]));
-              })),
+          : _isGridView ? _buildGridItems(items) : _buildListItems(items)),
     ]);
+  }
+
+  Widget _viewToggleBtn(IconData icon, bool isGrid) {
+    final active = _isGridView == isGrid;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => setState(() => _isGridView = isGrid),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: active ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon, size: 20, color: active ? Colors.white : AppColors.primary.withValues(alpha: 0.5)),
+      ),
+    );
+  }
+
+  Widget _buildGridItems(List<Item> items) {
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 200, childAspectRatio: 1.1, crossAxisSpacing: 10, mainAxisSpacing: 10),
+      itemCount: items.length,
+      itemBuilder: (ctx, i) {
+        final item = items[i];
+        final inCart = _cart.any((c) => c.item.id == item.id);
+        return GlassCard(onTap: () => _addToCart(item), padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: inCart ? AppColors.success.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10)),
+              child: Icon(inCart ? Icons.check_circle : Icons.inventory_2, size: 20,
+                color: inCart ? AppColors.success : AppColors.primary)),
+            const Spacer(),
+            Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              maxLines: 2, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            Text(AppFormatters.currency(item.price),
+              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 14)),
+          ]));
+      });
+  }
+
+  Widget _buildListItems(List<Item> items) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: items.length,
+      itemBuilder: (ctx, i) {
+        final item = items[i];
+        final inCart = _cart.any((c) => c.item.id == item.id);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: GlassCard(
+            onTap: () => _addToCart(item),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(children: [
+              Container(padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: inCart ? AppColors.success.withValues(alpha: 0.15) : AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10)),
+                child: Icon(inCart ? Icons.check_circle : Icons.inventory_2, size: 18,
+                  color: inCart ? AppColors.success : AppColors.primary)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Text('${item.hsnCode != null && item.hsnCode!.isNotEmpty ? "HSN: ${item.hsnCode} • " : ""}Qty: ${item.stockQuantity}',
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).textTheme.bodySmall?.color)),
+              ])),
+              Text(AppFormatters.currency(item.price),
+                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 14)),
+            ]),
+          ),
+        );
+      });
   }
 
   Widget _buildCartPanel(BuildContext context, AppState appState) {
