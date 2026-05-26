@@ -307,6 +307,39 @@ class _HistoryScreenState extends State<HistoryScreen> {
           icon: const Icon(Icons.share, size: 18),
           label: const Text('Share'),
         ),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+          onPressed: () async {
+            Navigator.pop(ctx);
+            final s = await appState.getAllSettings();
+            final template = _parseTemplate(s['pdf_template']);
+            final paperSize = _parsePaperSize(selectedSize);
+            final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+            try {
+              await InvoiceGenerator.shareViaWhatsApp(bill,
+                customerPhone: bill.customerPhone,
+                businessName: s['businessName'] ?? 'My Billu',
+                businessAddress: s['businessAddress'] ?? '',
+                businessPhone: s['businessPhone'] ?? '',
+                businessGstin: s['businessGstin'] ?? '',
+                businessBankName: s['businessBankName'] ?? '',
+                businessBankAccount: s['businessBankAccount'] ?? '',
+                businessBankIfsc: s['businessBankIfsc'] ?? '',
+                logoBytes: logoBytes,
+                template: template, paperSize: paperSize,
+                thankYouMessage: s['pdf_thank_you_message'],
+                termsConditions: s['pdf_terms_conditions'],
+              );
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('WhatsApp error: $e'), backgroundColor: AppColors.error));
+              }
+            }
+          },
+          icon: const Icon(Icons.chat, size: 18),
+          label: const Text('WhatsApp'),
+        ),
         ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
       ],
     )));

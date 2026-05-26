@@ -1136,6 +1136,11 @@ class _BillingScreenState extends State<BillingScreen> {
               ),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+                onPressed: () => Navigator.pop(ctx, 'whatsapp'),
+                icon: const Icon(Icons.chat, size: 18),
+                label: const Text('WhatsApp'),
+              ),
+              OutlinedButton.icon(
                 onPressed: () => Navigator.pop(ctx, 'share'),
                 icon: const Icon(Icons.share, size: 18),
                 label: const Text('Share'),
@@ -1232,6 +1237,20 @@ class _BillingScreenState extends State<BillingScreen> {
                   content: Text('Save error: $e'), backgroundColor: AppColors.error));
               }
             }
+          } else if (action == 'whatsapp') {
+            await InvoiceGenerator.shareViaWhatsApp(bill,
+              customerPhone: bill.customerPhone,
+              businessName: s['businessName'] ?? 'My Billu',
+              businessAddress: s['businessAddress'] ?? '',
+              businessPhone: s['businessPhone'] ?? '',
+              businessGstin: s['businessGstin'] ?? '',
+              businessBankName: s['businessBankName'] ?? '',
+              businessBankAccount: s['businessBankAccount'] ?? '',
+              businessBankIfsc: s['businessBankIfsc'] ?? '',
+              logoBytes: logoBytes,
+              template: template, paperSize: paperSize,
+              thankYouMessage: tyMsg, termsConditions: tc,
+            );
           }
         }
       }
