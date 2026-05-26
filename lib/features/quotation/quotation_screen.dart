@@ -118,9 +118,9 @@ class _QuotationScreenState extends State<QuotationScreen> {
         const SizedBox(height: 10),
         // Actions
         Row(children: [
+          _actionBtn(Icons.edit, 'Edit', () => _showCreateQuotation(context, appState, existing: q)),
+          const SizedBox(width: 6),
           if (q.status == QuotationStatus.draft || q.status == QuotationStatus.sent) ...[
-            _actionBtn(Icons.edit, 'Edit', () => _showCreateQuotation(context, appState, existing: q)),
-            const SizedBox(width: 6),
             _actionBtn(Icons.send, 'Mark Sent', () async {
               q.status = QuotationStatus.sent;
               await appState.updateQuotation(q);

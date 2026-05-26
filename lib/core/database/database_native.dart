@@ -10,7 +10,7 @@ import '../models/purchase.dart';
 Future<Database> initDatabase(String fileName) async {
   final dbPath = await getDatabasesPath();
   final path = p.join(dbPath, fileName);
-  return await openDatabase(path, version: 5,
+  return await openDatabase(path, version: 6,
     onCreate: _createDB,
     onUpgrade: _upgradeDB,
   );
@@ -21,7 +21,7 @@ Future<Database> initDatabaseAtPath(String dirPath) async {
   final dir = Directory(dirPath);
   if (!dir.existsSync()) dir.createSync(recursive: true);
   final dbFile = p.join(dirPath, 'my_billu.db');
-  return await openDatabase(dbFile, version: 5,
+  return await openDatabase(dbFile, version: 6,
     onCreate: _createDB,
     onUpgrade: _upgradeDB,
   );
@@ -62,7 +62,8 @@ Future<void> _createDB(Database db, int version) async {
       supplierPhone TEXT, supplierGstin TEXT, invoiceNumber TEXT,
       items TEXT NOT NULL, subtotal REAL NOT NULL, totalTax REAL NOT NULL,
       totalAmount REAL NOT NULL, paidAmount REAL DEFAULT 0.0,
-      status TEXT DEFAULT 'received', notes TEXT, createdAt TEXT NOT NULL
+      status TEXT DEFAULT 'received', paymentMethod TEXT DEFAULT 'cash',
+      notes TEXT, createdAt TEXT NOT NULL
     )
   ''');
 }
@@ -86,6 +87,11 @@ Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
   if (oldVersion < 5) {
     try {
       await db.execute('ALTER TABLE items ADD COLUMN purchasePrice REAL DEFAULT 0');
+    } catch (_) {}
+  }
+  if (oldVersion < 6) {
+    try {
+      await db.execute("ALTER TABLE purchases ADD COLUMN paymentMethod TEXT DEFAULT 'cash'");
     } catch (_) {}
   }
 }

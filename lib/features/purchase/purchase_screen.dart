@@ -758,6 +758,14 @@ class _PurchaseHistoryTab extends StatelessWidget {
           ));
           if (confirm == true) await appState.deletePurchase(purchase.id);
         }, child: const Text('Delete', style: TextStyle(color: AppColors.error))),
+        OutlinedButton.icon(
+          onPressed: () {
+            Navigator.pop(ctx);
+            _showEditPurchase(context, purchase, appState);
+          },
+          icon: const Icon(Icons.edit, size: 18),
+          label: const Text('Edit'),
+        ),
         ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
       ],
     ));
@@ -769,6 +777,243 @@ class _PurchaseHistoryTab extends StatelessWidget {
         SizedBox(width: 100, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
         Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
       ]));
+  }
+
+  void _showEditPurchase(BuildContext context, Purchase purchase, AppState appState) {
+    // Build editable items list from purchase
+    final editItems = purchase.items.map((item) => <String, dynamic>{
+      'itemId': item.itemId, 'itemName': item.itemName, 'unitCost': item.unitCost,
+      'quantity': item.quantity, 'taxRate': item.taxRate, 'unit': item.unit,
+      'description': item.description, 'serialNumber': item.serialNumber,
+    }).toList();
+
+    final supplierCtrl = TextEditingController(text: purchase.supplierName);
+    final phoneCtrl = TextEditingController(text: purchase.supplierPhone ?? '');
+    final invoiceCtrl = TextEditingController(text: purchase.invoiceNumber ?? '');
+    final notesCtrl = TextEditingController(text: purchase.notes ?? '');
+    final paidCtrl = TextEditingController(text: purchase.paidAmount.toStringAsFixed(2));
+
+    // Create persistent controllers for each item
+    final itemCtrls = <Map<String, TextEditingController>>[];
+    for (final item in editItems) {
+      itemCtrls.add({
+        'cost': TextEditingController(text: (item['unitCost'] as double).toStringAsFixed(2)),
+        'qty': TextEditingController(text: (item['quantity'] as int).toString()),
+        'tax': TextEditingController(text: (item['taxRate'] as double).toStringAsFixed(1)),
+      });
+    }
+
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setEditState) {
+      // Recalculate totals
+      double subtotal = 0, totalTax = 0;
+      for (final item in editItems) {
+        final cost = (item['unitCost'] as double) * (item['quantity'] as int);
+        subtotal += cost;
+        totalTax += cost * (item['taxRate'] as double) / 100;
+      }
+      final totalAmount = subtotal + totalTax;
+      final paid = double.tryParse(paidCtrl.text) ?? 0;
+
+      return AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.edit, color: AppColors.accent), const SizedBox(width: 10),
+          Text('Edit ${purchase.purchaseNumber}'),
+        ]),
+        content: SizedBox(width: 550, child: SingleChildScrollView(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            // Supplier details
+            TextField(controller: supplierCtrl,
+              decoration: const InputDecoration(labelText: 'Supplier Name *', prefixIcon: Icon(Icons.business), isDense: true)),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: TextField(controller: phoneCtrl,
+                decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone), isDense: true))),
+              const SizedBox(width: 10),
+              Expanded(child: TextField(controller: invoiceCtrl,
+                decoration: const InputDecoration(labelText: 'Invoice #', prefixIcon: Icon(Icons.receipt), isDense: true))),
+            ]),
+            const SizedBox(height: 14),
+
+            // Items header + Add button
+            Row(children: [
+              const Text('Items', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => _showAddPurchaseItem(ctx, appState, editItems, itemCtrls, setEditState),
+                icon: const Icon(Icons.add, size: 16), label: const Text('Add Item', style: TextStyle(fontSize: 12))),
+            ]),
+            const SizedBox(height: 6),
+
+            // Editable items
+            ...editItems.asMap().entries.map((entry) {
+              final i = entry.key;
+              final item = entry.value;
+              final ctrls = itemCtrls[i];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.accent.withValues(alpha: 0.15))),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(child: Text(item['itemName'] as String,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: AppColors.error),
+                      padding: EdgeInsets.zero, constraints: const BoxConstraints(),
+                      onPressed: () => setEditState(() {
+                        editItems.removeAt(i);
+                        itemCtrls[i]['cost']!.dispose();
+                        itemCtrls[i]['qty']!.dispose();
+                        itemCtrls[i]['tax']!.dispose();
+                        itemCtrls.removeAt(i);
+                      })),
+                  ]),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Expanded(child: TextField(
+                      controller: ctrls['cost'],
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Cost ₹', isDense: true),
+                      onChanged: (v) => setEditState(() {
+                        item['unitCost'] = double.tryParse(v) ?? item['unitCost'];
+                      }))),
+                    const SizedBox(width: 8),
+                    Expanded(child: TextField(
+                      controller: ctrls['qty'],
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Qty', isDense: true),
+                      onChanged: (v) => setEditState(() {
+                        item['quantity'] = int.tryParse(v) ?? item['quantity'];
+                      }))),
+                    const SizedBox(width: 8),
+                    Expanded(child: TextField(
+                      controller: ctrls['tax'],
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Tax %', isDense: true),
+                      onChanged: (v) => setEditState(() {
+                        item['taxRate'] = double.tryParse(v) ?? item['taxRate'];
+                      }))),
+                  ]),
+                ]),
+              );
+            }),
+
+            const Divider(),
+            // Totals
+            _detailRow('Subtotal', AppFormatters.currency(subtotal)),
+            _detailRow('GST', AppFormatters.currency(totalTax)),
+            Padding(padding: const EdgeInsets.only(bottom: 6),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                Text(AppFormatters.currency(totalAmount),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
+              ])),
+            const SizedBox(height: 8),
+            TextField(controller: paidCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Paid Amount', prefixIcon: Icon(Icons.payments), isDense: true),
+              onChanged: (_) => setEditState(() {})),
+            const SizedBox(height: 8),
+            TextField(controller: notesCtrl, maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Notes', prefixIcon: Icon(Icons.notes), isDense: true)),
+          ]))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton.icon(
+            onPressed: editItems.isEmpty ? null : () async {
+              Navigator.pop(ctx);
+              final updatedItems = editItems.map((item) => PurchaseItem(
+                itemId: item['itemId'] as String, itemName: item['itemName'] as String,
+                unitCost: item['unitCost'] as double, quantity: item['quantity'] as int,
+                taxRate: item['taxRate'] as double, unit: (item['unit'] as String?) ?? 'pcs',
+                description: item['description'] as String?,
+                serialNumber: item['serialNumber'] as String?,
+              )).toList();
+              final updatedPurchase = Purchase(
+                id: purchase.id,
+                purchaseNumber: purchase.purchaseNumber,
+                supplierName: supplierCtrl.text.trim(),
+                supplierPhone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+                supplierGstin: purchase.supplierGstin,
+                invoiceNumber: invoiceCtrl.text.trim().isEmpty ? null : invoiceCtrl.text.trim(),
+                items: updatedItems,
+                subtotal: subtotal, totalTax: totalTax, totalAmount: totalAmount,
+                paidAmount: paid,
+                status: purchase.status,
+                paymentMethod: purchase.paymentMethod,
+                notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                createdAt: purchase.createdAt,
+              );
+              await appState.updatePurchase(updatedPurchase);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Row(children: [
+                    const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
+                    Text('${purchase.purchaseNumber} updated — ${updatedItems.length} items, ${AppFormatters.currency(totalAmount)}'),
+                  ]),
+                  backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ));
+              }
+            },
+            icon: const Icon(Icons.save, size: 18),
+            label: const Text('Save Changes'),
+          ),
+        ],
+      );
+    }));
+  }
+
+  void _showAddPurchaseItem(BuildContext ctx, AppState appState,
+      List<Map<String, dynamic>> editItems, List<Map<String, TextEditingController>> itemCtrls,
+      StateSetter setEditState) {
+    String search = '';
+    showDialog(context: ctx, builder: (dCtx) => StatefulBuilder(builder: (dCtx, setAddState) {
+      final filtered = search.isEmpty ? appState.items
+          : appState.items.where((i) => i.name.toLowerCase().contains(search.toLowerCase())).toList();
+      return AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.add_shopping_cart, color: AppColors.accent), SizedBox(width: 10), Text('Add Item')]),
+        content: SizedBox(width: 400, height: 350, child: Column(children: [
+          TextField(
+            decoration: const InputDecoration(hintText: 'Search items...', prefixIcon: Icon(Icons.search), isDense: true),
+            onChanged: (v) => setAddState(() => search = v)),
+          const SizedBox(height: 8),
+          Expanded(child: ListView.builder(
+            itemCount: filtered.length,
+            itemBuilder: (_, i) {
+              final item = filtered[i];
+              return ListTile(
+                dense: true,
+                leading: const Icon(Icons.inventory_2, size: 20, color: AppColors.accent),
+                title: Text(item.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                subtitle: Text('₹${item.price.toStringAsFixed(2)} • Tax: ${item.taxRate}%', style: const TextStyle(fontSize: 11)),
+                trailing: const Icon(Icons.add_circle, color: AppColors.success),
+                onTap: () {
+                  Navigator.pop(dCtx);
+                  setEditState(() {
+                    editItems.add({
+                      'itemId': item.id, 'itemName': item.name, 'unitCost': item.price,
+                      'quantity': 1, 'taxRate': item.taxRate, 'unit': item.unit,
+                      'description': item.description, 'serialNumber': null,
+                    });
+                    itemCtrls.add({
+                      'cost': TextEditingController(text: item.price.toStringAsFixed(2)),
+                      'qty': TextEditingController(text: '1'),
+                      'tax': TextEditingController(text: item.taxRate.toStringAsFixed(1)),
+                    });
+                  });
+                },
+              );
+            },
+          )),
+        ])),
+        actions: [TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel'))],
+      );
+    }));
   }
 }
 
