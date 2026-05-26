@@ -141,9 +141,12 @@ class _AuthGateState extends State<AuthGate> {
       if (DateTime.now().isAfter(expiryDate)) {
         _expired = true;
       } else {
-        // Check if within trial period (7 days or less remaining)
+        // Check if within trial period
         final daysLeft = expiryDate.difference(DateTime.now()).inDays;
-        if (daysLeft <= 7) {
+        if (daysLeft <= 0) {
+          // Last day or same day — block completely
+          _expired = true;
+        } else if (daysLeft <= 7) {
           _trialDaysLeft = daysLeft;
         }
       }
