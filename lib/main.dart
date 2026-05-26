@@ -1,3 +1,4 @@
+import 'dart:io' show exit, Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -586,7 +587,11 @@ class _MainShellState extends State<MainShell> {
           ),
         );
         if (shouldExit == true) {
-          SystemNavigator.pop();
+          if (!kIsWeb && (Platform.isAndroid || Platform.isWindows)) {
+            exit(0);
+          } else {
+            SystemNavigator.pop();
+          }
         }
       },
       child: CallbackShortcuts(
