@@ -495,11 +495,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
     String status = bill.status.name;
 
     // Editable copy of items
-    final editItems = bill.items.map((i) => {
+    final editItems = bill.items.map((i) => <String, dynamic>{
       'itemId': i.itemId, 'itemName': i.itemName, 'unitPrice': i.unitPrice,
       'quantity': i.quantity, 'taxRate': i.taxRate, 'unit': i.unit,
       'description': i.description, 'serialNumber': i.serialNumber,
     }).toList();
+
+    // Create controllers once per item
+    final List<List<TextEditingController>> itemCtrls = editItems.map((i) => [
+      TextEditingController(text: (i['unitPrice'] as double).toStringAsFixed(2)),
+      TextEditingController(text: (i['quantity'] as int).toString()),
+      TextEditingController(text: (i['taxRate'] as double).toStringAsFixed(1)),
+    ]).toList();
 
     double calcSubtotal() => editItems.fold(0.0, (s, i) => s + (i['unitPrice'] as double) * (i['quantity'] as int));
     double calcTax() => editItems.fold(0.0, (s, i) => s + (i['unitPrice'] as double) * (i['quantity'] as int) * (i['taxRate'] as double) / 100);
@@ -529,7 +536,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
             TextButton.icon(
               onPressed: () {
                 final appState = context.read<AppState>();
-                _showAddItemDialog(ctx, appState.items, editItems, setEditState);
+                _showAddItemDialog(ctx, appState.items, editItems, (fn) {
+                  setEditState(() {
+                    fn();
+                    // Add controllers for new item
+                    final newItem = editItems.last;
+                    itemCtrls.add([
+                      TextEditingController(text: (newItem['unitPrice'] as double).toStringAsFixed(2)),
+                      TextEditingController(text: (newItem['quantity'] as int).toString()),
+                      TextEditingController(text: (newItem['taxRate'] as double).toStringAsFixed(1)),
+                    ]);
+                  });
+                });
               },
               icon: const Icon(Icons.add_circle, size: 18),
               label: const Text('Add Item', style: TextStyle(fontSize: 13)),
@@ -541,12 +559,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ...editItems.asMap().entries.map((entry) {
             final idx = entry.key;
             final item = entry.value;
-            final priceCtrl = TextEditingController(text: (item['unitPrice'] as double).toStringAsFixed(2));
-            final qtyCtrl = TextEditingController(text: (item['quantity'] as int).toString());
-            final taxCtrl = TextEditingController(text: (item['taxRate'] as double).toStringAsFixed(1));
+            final ctrls = itemCtrls[idx];
             final itemSubtotal = (item['unitPrice'] as double) * (item['quantity'] as int);
 
             return Container(
+              key: ValueKey('item_${item['itemId']}_$idx'),
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -562,7 +579,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 13)),
                   const SizedBox(width: 6),
                   InkWell(
-                    onTap: () => setEditState(() => editItems.removeAt(idx)),
+                    onTap: () => setEditState(() {
+                      editItems.removeAt(idx);
+                      itemCtrls.removeAt(idx);
+                    }),
                     borderRadius: BorderRadius.circular(20),
                     child: Container(padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.1), shape: BoxShape.circle),
@@ -570,17 +590,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ]),
                 const SizedBox(height: 8),
                 Row(children: [
-                  Expanded(child: TextField(controller: priceCtrl, keyboardType: TextInputType.number,
+                  Expanded(child: TextField(controller: ctrls[0], keyboardType: TextInputType.number,
                     decoration: const InputDecoration(labelText: 'Price', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
-                    onChanged: (v) => setEditState(() => editItems[idx]['unitPrice'] = double.tryParse(v) ?? item['unitPrice'] as double))),
+                    onChanged: (v) {
+                      editItems[idx]['unitPrice'] = double.tryParse(v) ?? 0.0;
+                      setEditState(() {});
+                    })),
                   const SizedBox(width: 8),
-                  SizedBox(width: 70, child: TextField(controller: qtyCtrl, keyboardType: TextInputType.number,
+                  SizedBox(width: 70, child: TextField(controller: ctrls[1], keyboardType: TextInputType.number,
                     decoration: const InputDecoration(labelText: 'Qty', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
-                    onChanged: (v) => setEditState(() => editItems[idx]['quantity'] = int.tryParse(v) ?? item['quantity'] as int))),
+                    onChanged: (v) {
+                      editItems[idx]['quantity'] = int.tryParse(v) ?? 1;
+                      setEditState(() {});
+                    })),
                   const SizedBox(width: 8),
-                  SizedBox(width: 70, child: TextField(controller: taxCtrl, keyboardType: TextInputType.number,
+                  SizedBox(width: 70, child: TextField(controller: ctrls[2], keyboardType: TextInputType.number,
                     decoration: const InputDecoration(labelText: 'Tax%', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
-                    onChanged: (v) => setEditState(() => editItems[idx]['taxRate'] = double.tryParse(v) ?? item['taxRate'] as double))),
+                    onChanged: (v) {
+                      editItems[idx]['taxRate'] = double.tryParse(v) ?? 0.0;
+                      setEditState(() {});
+                    })),
                 ]),
               ]),
             );
@@ -688,7 +717,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }));
   }
 
-  void _showAddItemDialog(BuildContext ctx, List<Item> allItems, List<Map<String, dynamic>> editItems, StateSetter setEditState) {
+  void _showAddItemDialog(BuildContext ctx, List<Item> allItems, List<Map<String, dynamic>> editItems, Function(VoidCallback) onAddItem) {
     String search = '';
     showDialog(context: ctx, builder: (dCtx) => StatefulBuilder(builder: (dCtx, setAddState) {
       final filtered = search.isEmpty ? allItems
@@ -713,7 +742,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 trailing: const Icon(Icons.add_circle, color: AppColors.success),
                 onTap: () {
                   Navigator.pop(dCtx);
-                  setEditState(() {
+                  onAddItem(() {
                     editItems.add({
                       'itemId': item.id, 'itemName': item.name, 'unitPrice': item.price,
                       'quantity': 1, 'taxRate': item.taxRate, 'unit': item.unit,
