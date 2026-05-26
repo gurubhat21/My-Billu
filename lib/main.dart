@@ -35,6 +35,7 @@ import 'features/cash_book/cash_book_screen.dart';
 import 'features/settings/keyboard_shortcuts_screen.dart';
 import 'features/serial_tracker/serial_tracker_screen.dart';
 import 'features/supplier_payments/supplier_payment_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -128,8 +129,8 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkExpiry(AppState appState) async {
     String? expiryStr = await appState.getSetting('app_expiry_date');
     if (expiryStr == null || expiryStr.isEmpty) {
-      // First launch — set expiry to 1 year from now
-      final defaultExpiry = DateTime.now().add(const Duration(days: 365));
+      // First launch — set expiry to 7 days from now (trial period)
+      final defaultExpiry = DateTime.now().add(const Duration(days: 7));
       expiryStr = defaultExpiry.toIso8601String().split('T').first;
       await appState.saveSetting('app_expiry_date', expiryStr);
     }
@@ -229,6 +230,21 @@ class ExpiredScreen extends StatelessWidget {
               const SizedBox(height: 8),
               const Text('Sumukha Tech Solutions',
                 style: TextStyle(fontSize: 12, color: Colors.white54)),
+              const SizedBox(height: 16),
+              SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                onPressed: () async {
+                  final uri = Uri.parse('https://wa.me/919449831316?text=${Uri.encodeComponent("Hi Guruprasad I Want to buy this.....")}');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.chat, size: 18),
+                label: const Text('WhatsApp Us'),
+              )),
               const SizedBox(height: 24),
               SizedBox(width: double.infinity, child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
@@ -586,9 +602,26 @@ class _MainShellState extends State<MainShell> {
                     ),
                   )),
                 ),
-                Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
                   child: Text('Sumukha Tech Solutions', style: TextStyle(
                     fontSize: 10, color: isDark ? Colors.white.withValues(alpha: 0.25) : Colors.black26, fontWeight: FontWeight.w500)),
+                ),
+                Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final uri = Uri.parse('https://wa.me/919449831316?text=${Uri.encodeComponent("Hi Guruprasad I Want to buy this.....")}');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    icon: const Icon(Icons.chat, size: 14, color: Color(0xFF25D366)),
+                    label: const Text('Contact Us', style: TextStyle(fontSize: 10, color: Color(0xFF25D366))),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: const Color(0xFF25D366).withValues(alpha: 0.3)),
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  )),
                 ),
               ]),
             ),
@@ -863,9 +896,27 @@ class _MainShellState extends State<MainShell> {
             ),
           )),
         ),
-        Padding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        Padding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
           child: Text('Sumukha Tech Solutions', style: TextStyle(
             fontSize: 11, color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black38, fontWeight: FontWeight.w500)),
+        ),
+        Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: SizedBox(width: double.infinity, child: OutlinedButton.icon(
+            onPressed: () async {
+              Navigator.pop(context);
+              final uri = Uri.parse('https://wa.me/919449831316?text=${Uri.encodeComponent("Hi Guruprasad I Want to buy this.....")}');
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            icon: const Icon(Icons.chat, size: 16, color: Color(0xFF25D366)),
+            label: const Text('Contact Us', style: TextStyle(fontSize: 11, color: Color(0xFF25D366))),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: const Color(0xFF25D366).withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          )),
         ),
       ]),
     );
