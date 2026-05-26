@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/bill.dart';
+import '../../core/models/item.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -486,7 +487,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
     );
   }
-
   void _showEditBill(BuildContext context, Bill bill) {
     final customerCtrl = TextEditingController(text: bill.customerName ?? '');
     final notesCtrl = TextEditingController(text: bill.notes ?? '');
@@ -494,94 +494,240 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final paidCtrl = TextEditingController(text: bill.paidAmount.toStringAsFixed(2));
     String status = bill.status.name;
 
-    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setEditState) => AlertDialog(
-      title: const Row(children: [
-        Icon(Icons.edit, color: AppColors.primary), SizedBox(width: 10), Text('Edit Bill')]),
-      content: SingleChildScrollView(child: SizedBox(width: 400, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        _detailRow('Bill No', bill.billNumber),
-        const SizedBox(height: 12),
-        TextField(controller: customerCtrl,
-          decoration: const InputDecoration(labelText: 'Customer Name', prefixIcon: Icon(Icons.person_outline))),
-        const SizedBox(height: 12),
-        TextField(controller: discountCtrl, keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Discount (\u20b9)', prefixIcon: Icon(Icons.discount))),
-        const SizedBox(height: 12),
-        TextField(controller: paidCtrl, keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Paid Amount (\u20b9)', prefixIcon: Icon(Icons.currency_rupee))),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: status,
-          decoration: const InputDecoration(labelText: 'Status', prefixIcon: Icon(Icons.flag)),
-          items: BillStatus.values.map((s) => DropdownMenuItem(value: s.name,
-            child: Text(s.name[0].toUpperCase() + s.name.substring(1)))).toList(),
-          onChanged: (v) {
-            setEditState(() {
-              status = v ?? status;
-              // Auto-adjust paid amount based on status
-              if (status == 'unpaid') {
-                paidCtrl.text = '0.00';
-              } else if (status == 'paid') {
-                final discount = double.tryParse(discountCtrl.text) ?? bill.discount;
-                final total = bill.subtotal - discount + bill.totalTax;
-                paidCtrl.text = total.toStringAsFixed(2);
-              }
-            });
-          },
-        ),
-        const SizedBox(height: 12),
-        TextField(controller: notesCtrl, maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Notes', prefixIcon: Icon(Icons.notes))),
-      ]))),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        ElevatedButton.icon(
-          onPressed: () async {
-            final discount = double.tryParse(discountCtrl.text) ?? bill.discount;
-            final paid = double.tryParse(paidCtrl.text) ?? bill.paidAmount;
-            final totalAmount = bill.subtotal - discount + bill.totalTax;
-            // Auto-determine status from paid amount if not manually set
-            String finalStatus = status;
-            if (paid <= 0) {
-              finalStatus = 'unpaid';
-            } else if (paid >= totalAmount) {
-              finalStatus = 'paid';
-            } else if (paid > 0 && paid < totalAmount) {
-              finalStatus = 'partial';
-            }
-            final updatedBill = Bill(
-              id: bill.id,
-              billNumber: bill.billNumber,
-              customerId: bill.customerId,
-              customerName: customerCtrl.text.trim().isEmpty ? null : customerCtrl.text.trim(),
-              items: bill.items,
-              subtotal: bill.subtotal,
-              discount: discount,
-              totalTax: bill.totalTax,
-              totalAmount: totalAmount,
-              paidAmount: paid,
-              paymentMethod: bill.paymentMethod,
-              status: BillStatus.values.firstWhere((e) => e.name == finalStatus, orElse: () => bill.status),
-              notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-              createdAt: bill.createdAt,
-            );
-            Navigator.pop(ctx);
-            await context.read<AppState>().updateBillRecord(updatedBill);
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Row(children: [
-                  const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
-                  Text('Bill ${bill.billNumber} updated'),
+    // Editable copy of items
+    final editItems = bill.items.map((i) => {
+      'itemId': i.itemId, 'itemName': i.itemName, 'unitPrice': i.unitPrice,
+      'quantity': i.quantity, 'taxRate': i.taxRate, 'unit': i.unit,
+      'description': i.description, 'serialNumber': i.serialNumber,
+    }).toList();
+
+    double calcSubtotal() => editItems.fold(0.0, (s, i) => s + (i['unitPrice'] as double) * (i['quantity'] as int));
+    double calcTax() => editItems.fold(0.0, (s, i) => s + (i['unitPrice'] as double) * (i['quantity'] as int) * (i['taxRate'] as double) / 100);
+
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setEditState) {
+      final subtotal = calcSubtotal();
+      final tax = calcTax();
+      final discount = double.tryParse(discountCtrl.text) ?? 0;
+      final total = subtotal - discount + tax;
+
+      return AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.edit, color: AppColors.primary), SizedBox(width: 10), Text('Edit Bill')]),
+        content: SingleChildScrollView(child: SizedBox(width: 500, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          _detailRow('Bill No', bill.billNumber),
+          const SizedBox(height: 12),
+          TextField(controller: customerCtrl,
+            decoration: const InputDecoration(labelText: 'Customer Name', prefixIcon: Icon(Icons.person_outline))),
+          const SizedBox(height: 16),
+
+          // ===== ITEMS SECTION =====
+          Row(children: [
+            const Icon(Icons.shopping_cart, size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            const Text('Items', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () {
+                final appState = context.read<AppState>();
+                _showAddItemDialog(ctx, appState.items, editItems, setEditState);
+              },
+              icon: const Icon(Icons.add_circle, size: 18),
+              label: const Text('Add Item', style: TextStyle(fontSize: 13)),
+            ),
+          ]),
+          const Divider(height: 8),
+
+          // Item list
+          ...editItems.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final item = entry.value;
+            final priceCtrl = TextEditingController(text: (item['unitPrice'] as double).toStringAsFixed(2));
+            final qtyCtrl = TextEditingController(text: (item['quantity'] as int).toString());
+            final taxCtrl = TextEditingController(text: (item['taxRate'] as double).toStringAsFixed(1));
+            final itemSubtotal = (item['unitPrice'] as double) * (item['quantity'] as int);
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.1))),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Text(item['itemName'] as String,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Text('₹${itemSubtotal.toStringAsFixed(2)}',
+                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 13)),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: () => setEditState(() => editItems.removeAt(idx)),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.1), shape: BoxShape.circle),
+                      child: const Icon(Icons.close, size: 16, color: AppColors.error))),
                 ]),
-                backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ));
-            }
-          },
-          icon: const Icon(Icons.save, size: 18),
-          label: const Text('Save Changes'),
-        ),
-      ],
-    )));
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(child: TextField(controller: priceCtrl, keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Price', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                    onChanged: (v) => setEditState(() => editItems[idx]['unitPrice'] = double.tryParse(v) ?? item['unitPrice'] as double))),
+                  const SizedBox(width: 8),
+                  SizedBox(width: 70, child: TextField(controller: qtyCtrl, keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Qty', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                    onChanged: (v) => setEditState(() => editItems[idx]['quantity'] = int.tryParse(v) ?? item['quantity'] as int))),
+                  const SizedBox(width: 8),
+                  SizedBox(width: 70, child: TextField(controller: taxCtrl, keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Tax%', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                    onChanged: (v) => setEditState(() => editItems[idx]['taxRate'] = double.tryParse(v) ?? item['taxRate'] as double))),
+                ]),
+              ]),
+            );
+          }),
+
+          if (editItems.isEmpty)
+            const Padding(padding: EdgeInsets.symmetric(vertical: 20),
+              child: Text('No items — add items above', style: TextStyle(color: Colors.grey))),
+
+          const SizedBox(height: 12),
+          // Totals
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(10)),
+            child: Column(children: [
+              _detailRow('Subtotal', '₹${subtotal.toStringAsFixed(2)}'),
+              _detailRow('Tax', '₹${tax.toStringAsFixed(2)}'),
+              const SizedBox(height: 4),
+              Row(children: [
+                const Text('Discount', style: TextStyle(fontSize: 13)),
+                const Spacer(),
+                SizedBox(width: 100, child: TextField(controller: discountCtrl, keyboardType: TextInputType.number,
+                  textAlign: TextAlign.right,
+                  decoration: const InputDecoration(prefixText: '₹', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
+                  onChanged: (_) => setEditState(() {}))),
+              ]),
+              const Divider(),
+              _detailRow('Total', '₹${total.toStringAsFixed(2)}'),
+            ]),
+          ),
+
+          const SizedBox(height: 12),
+          TextField(controller: paidCtrl, keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Paid Amount (₹)', prefixIcon: Icon(Icons.currency_rupee)),
+            onChanged: (_) => setEditState(() {})),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: status,
+            decoration: const InputDecoration(labelText: 'Status', prefixIcon: Icon(Icons.flag)),
+            items: BillStatus.values.map((s) => DropdownMenuItem(value: s.name,
+              child: Text(s.name[0].toUpperCase() + s.name.substring(1)))).toList(),
+            onChanged: (v) {
+              setEditState(() {
+                status = v ?? status;
+                if (status == 'unpaid') paidCtrl.text = '0.00';
+                else if (status == 'paid') paidCtrl.text = total.toStringAsFixed(2);
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          TextField(controller: notesCtrl, maxLines: 2,
+            decoration: const InputDecoration(labelText: 'Notes', prefixIcon: Icon(Icons.notes))),
+        ]))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton.icon(
+            onPressed: editItems.isEmpty ? null : () async {
+              final billItems = editItems.map((i) => BillItem(
+                itemId: i['itemId'] as String, itemName: i['itemName'] as String,
+                unitPrice: i['unitPrice'] as double, quantity: i['quantity'] as int,
+                taxRate: i['taxRate'] as double, unit: i['unit'] as String? ?? 'pcs',
+                description: i['description'] as String?, serialNumber: i['serialNumber'] as String?,
+              )).toList();
+              final newSubtotal = billItems.fold(0.0, (s, i) => s + i.subtotal);
+              final newTax = billItems.fold(0.0, (s, i) => s + i.taxAmount);
+              final newDiscount = double.tryParse(discountCtrl.text) ?? 0;
+              final newTotal = newSubtotal - newDiscount + newTax;
+              final paid = double.tryParse(paidCtrl.text) ?? bill.paidAmount;
+              String finalStatus = status;
+              if (paid <= 0) finalStatus = 'unpaid';
+              else if (paid >= newTotal) finalStatus = 'paid';
+              else finalStatus = 'partial';
+
+              final updatedBill = Bill(
+                id: bill.id, billNumber: bill.billNumber, customerId: bill.customerId,
+                customerName: customerCtrl.text.trim().isEmpty ? null : customerCtrl.text.trim(),
+                customerPhone: bill.customerPhone,
+                items: billItems, subtotal: newSubtotal, discount: newDiscount,
+                totalTax: newTax, totalAmount: newTotal, paidAmount: paid,
+                paymentMethod: bill.paymentMethod,
+                status: BillStatus.values.firstWhere((e) => e.name == finalStatus, orElse: () => bill.status),
+                notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                createdAt: bill.createdAt,
+              );
+              Navigator.pop(ctx);
+              await context.read<AppState>().updateBillRecord(updatedBill);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Row(children: [
+                    const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
+                    Text('Bill ${bill.billNumber} updated — ${billItems.length} items, ₹${newTotal.toStringAsFixed(2)}'),
+                  ]),
+                  backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ));
+              }
+            },
+            icon: const Icon(Icons.save, size: 18),
+            label: const Text('Save Changes'),
+          ),
+        ],
+      );
+    }));
+  }
+
+  void _showAddItemDialog(BuildContext ctx, List<Item> allItems, List<Map<String, dynamic>> editItems, StateSetter setEditState) {
+    String search = '';
+    showDialog(context: ctx, builder: (dCtx) => StatefulBuilder(builder: (dCtx, setAddState) {
+      final filtered = search.isEmpty ? allItems
+          : allItems.where((i) => i.name.toLowerCase().contains(search.toLowerCase())).toList();
+      return AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.add_shopping_cart, color: AppColors.primary), SizedBox(width: 10), Text('Add Item')]),
+        content: SizedBox(width: 400, height: 350, child: Column(children: [
+          TextField(
+            decoration: const InputDecoration(hintText: 'Search items...', prefixIcon: Icon(Icons.search), isDense: true),
+            onChanged: (v) => setAddState(() => search = v)),
+          const SizedBox(height: 8),
+          Expanded(child: ListView.builder(
+            itemCount: filtered.length,
+            itemBuilder: (_, i) {
+              final item = filtered[i];
+              return ListTile(
+                dense: true,
+                leading: const Icon(Icons.inventory_2, size: 20, color: AppColors.primary),
+                title: Text(item.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                subtitle: Text('₹${item.price.toStringAsFixed(2)} • Tax: ${item.taxRate}%', style: const TextStyle(fontSize: 11)),
+                trailing: const Icon(Icons.add_circle, color: AppColors.success),
+                onTap: () {
+                  Navigator.pop(dCtx);
+                  setEditState(() {
+                    editItems.add({
+                      'itemId': item.id, 'itemName': item.name, 'unitPrice': item.price,
+                      'quantity': 1, 'taxRate': item.taxRate, 'unit': item.unit,
+                      'description': item.description, 'serialNumber': null,
+                    });
+                  });
+                },
+              );
+            },
+          )),
+        ])),
+        actions: [TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel'))],
+      );
+    }));
   }
 
   InvoiceTemplate _parseTemplate(String? value) {
