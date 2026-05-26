@@ -69,6 +69,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
   final _costCtrl = TextEditingController();
   bool _showDescription = false;
   bool _showSerialNumber = false;
+  bool _gstInclusive = false;
 
   @override
   void initState() {
@@ -80,16 +81,31 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
     final appState = context.read<AppState>();
     final desc = await appState.getSetting('billing_show_description');
     final serial = await appState.getSetting('billing_show_serial_number');
+    final gst = await appState.getSetting('billing_gst_inclusive');
     if (mounted) {
       setState(() {
         _showDescription = desc == 'true';
         _showSerialNumber = serial == 'true';
+        _gstInclusive = gst == 'true';
       });
     }
   }
 
-  double get _subtotal => _cart.fold(0, (sum, e) => sum + e.subtotal);
-  double get _totalTax => _cart.fold(0, (sum, e) => sum + e.taxAmount);
+  double get _subtotal {
+    if (_gstInclusive) {
+      return _cart.fold(0, (sum, e) => sum + (e.costPrice * e.qty / (1 + e.item.taxRate / 100)));
+    }
+    return _cart.fold(0, (sum, e) => sum + e.subtotal);
+  }
+  double get _totalTax {
+    if (_gstInclusive) {
+      return _cart.fold(0, (sum, e) {
+        final inclTotal = e.costPrice * e.qty;
+        return sum + (inclTotal - inclTotal / (1 + e.item.taxRate / 100));
+      });
+    }
+    return _cart.fold(0, (sum, e) => sum + e.taxAmount);
+  }
   double get _total => _subtotal + _totalTax;
 
   /// Find last purchase cost for a given item from purchase history
@@ -467,6 +483,32 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                     ));
                 }),
                 const Divider(),
+                // GST Inclusive/Exclusive toggle
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.15))),
+                  child: Row(children: [
+                    Icon(Icons.receipt_long, size: 16, color: _gstInclusive ? Colors.greenAccent : Colors.cyanAccent),
+                    const SizedBox(width: 8),
+                    Text(_gstInclusive ? 'GST Inclusive' : 'GST Exclusive',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                        color: _gstInclusive ? Colors.greenAccent : Colors.cyanAccent)),
+                    const Spacer(),
+                    SizedBox(height: 24, child: Switch(
+                      value: _gstInclusive,
+                      activeColor: Colors.greenAccent,
+                      onChanged: (v) async {
+                        setState(() => _gstInclusive = v);
+                        final appState = context.read<AppState>();
+                        await appState.saveSetting('billing_gst_inclusive', v.toString());
+                      },
+                    )),
+                  ]),
+                ),
                 _totalRow('Subtotal', AppFormatters.currency(_subtotal)),
                 _totalRow('GST', AppFormatters.currency(_totalTax)),
                 _totalRow('Total', AppFormatters.currency(_total), bold: true),

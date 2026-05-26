@@ -105,6 +105,7 @@ class _AuthGateState extends State<AuthGate> {
   bool? _onboardingDone; // null = loading, true/false = checked
   bool _expired = false;
   String _expiryDateStr = '';
+  int _trialDaysLeft = -1; // -1 = not trial, 0+ = days remaining
 
   @override
   void initState() {
@@ -136,16 +137,95 @@ class _AuthGateState extends State<AuthGate> {
     }
     _expiryDateStr = expiryStr;
     final expiryDate = DateTime.tryParse(expiryStr);
-    if (expiryDate != null && DateTime.now().isAfter(expiryDate)) {
-      _expired = true;
+    if (expiryDate != null) {
+      if (DateTime.now().isAfter(expiryDate)) {
+        _expired = true;
+      } else {
+        // Check if within trial period (7 days or less remaining)
+        final daysLeft = expiryDate.difference(DateTime.now()).inDays;
+        if (daysLeft <= 7) {
+          _trialDaysLeft = daysLeft;
+        }
+      }
     }
   }
 
   void _onExpiryExtended() {
     setState(() {
       _expired = false;
+      _trialDaysLeft = -1;
     });
     _checkOnboarding();
+  }
+
+  void _showTrialPopup() {
+    if (_trialDaysLeft < 0 || !mounted) return;
+    // Show after a small delay so the main screen renders first
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      showDialog(context: context, builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: 0.1),
+              shape: BoxShape.circle),
+            child: const Icon(Icons.timer, color: AppColors.warning, size: 28)),
+          const SizedBox(width: 12),
+          const Expanded(child: Text('Trial Period', style: TextStyle(fontWeight: FontWeight.w800))),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [
+                AppColors.warning.withValues(alpha: 0.1),
+                AppColors.error.withValues(alpha: 0.05)]),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.warning.withValues(alpha: 0.3))),
+            child: Column(children: [
+              Text('$_trialDaysLeft', style: const TextStyle(
+                fontSize: 48, fontWeight: FontWeight.w900, color: AppColors.warning)),
+              Text(_trialDaysLeft == 1 ? 'Day Remaining' : 'Days Remaining',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
+                  color: Colors.white.withValues(alpha: 0.7))),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          Text('Your trial expires on $_expiryDateStr.\nContact us to purchase a full license.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6))),
+          const SizedBox(height: 16),
+          // WhatsApp Contact button
+          SizedBox(width: double.infinity, child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF25D366),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final uri = Uri.parse('https://wa.me/919449831316?text=${Uri.encodeComponent("Hi Guruprasad I Want to buy this.....")}');
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            icon: const Icon(Icons.chat, size: 18),
+            label: const Text('Contact Us on WhatsApp'),
+          )),
+        ]),
+        actions: [
+          SizedBox(width: double.infinity, child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Continue', style: TextStyle(fontWeight: FontWeight.w700)),
+          )),
+        ],
+      ));
+    });
   }
 
   @override
@@ -169,7 +249,10 @@ class _AuthGateState extends State<AuthGate> {
     }
     // Show login
     if (!_loggedIn) {
-      return LoginScreen(onLogin: () => setState(() => _loggedIn = true));
+      return LoginScreen(onLogin: () {
+        setState(() => _loggedIn = true);
+        _showTrialPopup();
+      });
     }
     return MainShell(onLogout: () => setState(() => _loggedIn = false));
   }
