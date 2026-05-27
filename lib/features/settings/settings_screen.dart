@@ -709,6 +709,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return StreamBuilder(
         stream: _syncService.authStateChanges,
         builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF4285F4), Color(0xFF34A853)]),
+                      borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.cloud_sync, color: Colors.white, size: 22)),
+                  const SizedBox(width: 14),
+                  const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Firebase Cloud Sync', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    Text('Loading...', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ])),
+                  const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                ]),
+              ]));
+          }
           if (snapshot.hasError) {
             return GlassCard(padding: const EdgeInsets.all(20), child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
