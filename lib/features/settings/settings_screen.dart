@@ -659,9 +659,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _syncing = false;
   bool _autoSyncEnabled = false;
+  bool _showSyncPassword = false;
   final _syncService = FirebaseSyncService();
   final _syncEmailCtrl = TextEditingController();
   final _syncPasswordCtrl = TextEditingController();
+  late final Stream _authStream = _syncService.authStateChanges;
 
   Future<void> _emailSignIn(BuildContext context) async {
     final email = _syncEmailCtrl.text.trim();
@@ -707,7 +709,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildCloudSyncCard(BuildContext context) {
     try {
       return StreamBuilder(
-        stream: _syncService.authStateChanges,
+        stream: _authStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return GlassCard(padding: const EdgeInsets.all(20), child: Column(
@@ -784,13 +786,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               TextField(
                 key: const ValueKey('sync_password_field'),
                 controller: _syncPasswordCtrl,
-                obscureText: true,
+                obscureText: !_showSyncPassword,
                 style: const TextStyle(color: Colors.white),
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _syncing ? null : _emailSignIn(context),
                 decoration: InputDecoration(
                   labelText: 'Password (min 6 chars)',
                   prefixIcon: const Icon(Icons.lock, size: 18),
+                  suffixIcon: IconButton(
+                    icon: Icon(_showSyncPassword ? Icons.visibility_off : Icons.visibility, size: 20),
+                    onPressed: () => setState(() => _showSyncPassword = !_showSyncPassword),
+                  ),
                   filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
