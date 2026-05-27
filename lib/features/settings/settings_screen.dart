@@ -767,9 +767,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (!isSignedIn) ...[
               // Email + Password sign-in (works on all platforms)
               TextField(
+                key: const ValueKey('sync_email_field'),
                 controller: _syncEmailCtrl,
                 style: const TextStyle(color: Colors.white),
                 keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: 'Email',
                   hintText: 'your@email.com',
@@ -780,9 +782,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 10),
               TextField(
+                key: const ValueKey('sync_password_field'),
                 controller: _syncPasswordCtrl,
                 obscureText: true,
                 style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _syncing ? null : _emailSignIn(context),
                 decoration: InputDecoration(
                   labelText: 'Password (min 6 chars)',
                   prefixIcon: const Icon(Icons.lock, size: 18),
