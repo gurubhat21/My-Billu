@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../core/utils/input_formatters.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/item.dart';
 import '../../core/models/customer.dart';
@@ -381,9 +383,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       decoration: const InputDecoration(labelText: 'Address', prefixIcon: Icon(Icons.location_on_outlined))),
                     const SizedBox(height: 14),
                     TextField(controller: _bizPhoneCtrl, keyboardType: TextInputType.phone,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone_outlined))),
                     const SizedBox(height: 14),
                     TextField(controller: _bizGstinCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      inputFormatters: [UpperCaseTextFormatter()],
                       decoration: const InputDecoration(labelText: 'GSTIN', prefixIcon: Icon(Icons.badge_outlined))),
                     const SizedBox(height: 20),
 
@@ -2546,12 +2551,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 10),
                 Row(children: [
                   Expanded(child: TextField(controller: _fq1PhoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(labelText: 'Phone',
                       prefixIcon: const Icon(Icons.phone, size: 18),
                       isDense: true,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))))),
                   const SizedBox(width: 10),
                   Expanded(child: TextField(controller: _fq1GstinCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [UpperCaseTextFormatter()],
                     decoration: InputDecoration(labelText: 'GSTIN',
                       prefixIcon: const Icon(Icons.numbers, size: 18),
                       isDense: true,
@@ -2584,12 +2593,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 10),
                 Row(children: [
                   Expanded(child: TextField(controller: _fq2PhoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(labelText: 'Phone',
                       prefixIcon: const Icon(Icons.phone, size: 18),
                       isDense: true,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))))),
                   const SizedBox(width: 10),
                   Expanded(child: TextField(controller: _fq2GstinCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [UpperCaseTextFormatter()],
                     decoration: InputDecoration(labelText: 'GSTIN',
                       prefixIcon: const Icon(Icons.numbers, size: 18),
                       isDense: true,

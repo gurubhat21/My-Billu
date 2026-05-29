@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../core/utils/input_formatters.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/bill.dart';
 import '../../core/models/item.dart';
@@ -961,6 +963,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
                 const SizedBox(height: 8),
                 TextField(controller: phoneCtrl,
                   keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: const InputDecoration(
                     labelText: 'Mobile Number (optional)',
                     prefixIcon: Icon(Icons.phone, size: 18),

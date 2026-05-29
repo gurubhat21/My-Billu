@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../core/utils/input_formatters.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/supplier.dart';
 import '../../core/providers/app_state.dart';
@@ -91,13 +93,13 @@ class _SupplierScreenState extends State<SupplierScreen> {
       content: SizedBox(width: 400, child: Column(mainAxisSize: MainAxisSize.min, children: [
         TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name *', border: OutlineInputBorder())),
         const SizedBox(height: 10),
-        TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: 'Phone', border: OutlineInputBorder())),
+        TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: const InputDecoration(labelText: 'Phone', border: OutlineInputBorder())),
         const SizedBox(height: 10),
         TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder())),
         const SizedBox(height: 10),
         TextField(controller: addressCtrl, decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder())),
         const SizedBox(height: 10),
-        TextField(controller: gstinCtrl, textCapitalization: TextCapitalization.characters,
+        TextField(controller: gstinCtrl, textCapitalization: TextCapitalization.characters, inputFormatters: [UpperCaseTextFormatter()],
           decoration: const InputDecoration(labelText: 'GSTIN', border: OutlineInputBorder(), hintText: 'e.g. 29ABCDE1234F1Z5')),
       ])),
       actions: [

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../core/utils/input_formatters.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/customer.dart';
 import '../../core/models/bill.dart';
@@ -215,6 +217,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 TextField(
                   controller: phoneCtrl,
                   keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: const InputDecoration(
                     labelText: 'Phone Number',
                     prefixIcon: Icon(Icons.phone_outlined),
@@ -242,6 +245,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 TextField(
                   controller: gstinCtrl,
                   textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [UpperCaseTextFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'GSTIN',
                     prefixIcon: Icon(Icons.badge_outlined),

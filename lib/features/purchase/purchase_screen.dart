@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -225,6 +226,8 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                   Expanded(child: _buildSupplierAutocomplete(appState)),
                   const SizedBox(width: 12),
                   Expanded(child: TextField(controller: _supplierPhoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone)))),
                   const SizedBox(width: 12),
                   Expanded(child: TextField(controller: _invoiceCtrl,
@@ -233,6 +236,8 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                   _buildSupplierAutocomplete(appState),
                   const SizedBox(height: 12),
                   TextField(controller: _supplierPhoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone))),
                   const SizedBox(height: 12),
                   TextField(controller: _invoiceCtrl,
@@ -869,6 +874,8 @@ class _PurchaseHistoryTab extends StatelessWidget {
             const SizedBox(height: 10),
             Row(children: [
               Expanded(child: TextField(controller: phoneCtrl,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone), isDense: true))),
               const SizedBox(width: 10),
               Expanded(child: TextField(controller: invoiceCtrl,
