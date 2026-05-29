@@ -489,8 +489,8 @@ class _MainShellState extends State<MainShell> {
     _DrawerItem(icon: Icons.bar_chart, label: 'Reports', index: 9),
     _DrawerItem(icon: Icons.history, label: 'Audit Trail', index: 16),
     _DrawerItem(icon: Icons.qr_code_scanner, label: 'Serial Tracker', index: 18),
-    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 15),
     _DrawerItem(icon: Icons.description_outlined, label: 'Fake Quote', index: 20),
+    _DrawerItem(icon: Icons.settings, label: 'Settings', index: 15),
   ];
 
   void _goTo(int index) {
