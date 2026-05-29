@@ -154,6 +154,8 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
     return Consumer<AppState>(builder: (context, appState, _) {
       return LayoutBuilder(builder: (context, constraints) {
         final isWide = constraints.maxWidth > 700;
+        // Filter history by selected company
+        final filtered = _history.where((r) => r.companyName == _currentCompanyName).toList();
         return Column(children: [
           Padding(padding: EdgeInsets.all(isWide ? 24 : 16), child: Row(children: [
             Expanded(child: Text('Fake Quotation', style: Theme.of(context).textTheme.headlineLarge)),
@@ -167,11 +169,12 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
           Padding(padding: EdgeInsets.symmetric(horizontal: isWide ? 24 : 16), child: _buildCompanySelector()),
           const SizedBox(height: 16),
           // History list or empty state
-          Expanded(child: _history.isEmpty
+          Expanded(child: filtered.isEmpty
             ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.description_outlined, size: 64, color: Colors.white.withValues(alpha: 0.15)),
                 const SizedBox(height: 12),
-                const Text('No fake quotations yet', style: TextStyle(fontSize: 14)),
+                Text(_currentCompanyName.isEmpty ? 'No company selected' : 'No quotes for $_currentCompanyName',
+                  style: const TextStyle(fontSize: 14)),
                 const SizedBox(height: 4),
                 Text('Select a company profile above, then tap "Create Fake Quotation".',
                   style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5)),
@@ -184,8 +187,8 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
               ]))
             : ListView.builder(
                 padding: EdgeInsets.symmetric(horizontal: isWide ? 24 : 12, vertical: 4),
-                itemCount: _history.length,
-                itemBuilder: (ctx, i) => _buildHistoryTile(context, _history[i], appState, isWide),
+                itemCount: filtered.length,
+                itemBuilder: (ctx, i) => _buildHistoryTile(context, filtered[i], appState, isWide),
               ),
           ),
         ]);
@@ -229,6 +232,15 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
           ]),
           const SizedBox(height: 10),
           Row(children: [
+            // Edit button
+            Expanded(child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+              onPressed: () => _editQuoteFromHistory(context, appState, record),
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text('Edit', style: TextStyle(fontSize: 12)),
+            )),
+            const SizedBox(width: 6),
+            // Preview / Print
             Expanded(child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
               onPressed: () {
@@ -237,13 +249,47 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
                   _showPrintShareDialog(context, appState, bill);
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Error: $e'), backgroundColor: AppColors.error));
+                    content: Text('Error: \$e'), backgroundColor: AppColors.error));
                 }
               },
               icon: const Icon(Icons.print, size: 16),
-              label: const Text('Print / Share', style: TextStyle(fontSize: 12)),
+              label: const Text('Print', style: TextStyle(fontSize: 12)),
             )),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
+            // Share
+            IconButton(
+              onPressed: () async {
+                try {
+                  final bill = Bill.fromMap(record.billData);
+                  final s = await appState.getAllSettings();
+                  final template = _parseTemplate(s['pdf_template']);
+                  final paperSize = (s['pdf_paper_size'] ?? 'a4') == 'a5' ? PaperSize.a5 : PaperSize.a4;
+                  final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+                  await InvoiceGenerator.shareInvoice(bill,
+                    businessName: record.companyName,
+                    businessAddress: _currentCompanyAddress,
+                    businessPhone: _currentCompanyPhone,
+                    businessGstin: _currentCompanyGstin,
+                    businessBankName: s['businessBankName'] ?? '',
+                    businessBankAccount: s['businessBankAccount'] ?? '',
+                    businessBankIfsc: s['businessBankIfsc'] ?? '',
+                    logoBytes: logoBytes,
+                    template: template, paperSize: paperSize,
+                    documentTitle: 'QUOTATION',
+                    thankYouMessage: s['pdf_thank_you_message'],
+                    termsConditions: s['pdf_terms_conditions'],
+                  );
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Share error: \$e'), backgroundColor: AppColors.error));
+                  }
+                }
+              },
+              icon: const Icon(Icons.share, size: 18, color: Color(0xFF25D366)),
+              tooltip: 'Share',
+            ),
+            // Delete
             IconButton(
               onPressed: () async {
                 final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
@@ -266,6 +312,209 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
         ]),
       ),
     );
+  }
+
+  // ==================== EDIT QUOTE FROM HISTORY ====================
+  void _editQuoteFromHistory(BuildContext context, AppState appState, _FakeQuoteRecord record) async {
+    final showDesc = (await appState.getSetting('billing_show_description')) == 'true';
+    final gstMode = (await appState.getSetting('billing_gst_inclusive')) == 'true';
+    if (!context.mounted) return;
+
+    // Rebuild cart from bill data
+    Bill existingBill;
+    try {
+      existingBill = Bill.fromMap(record.billData);
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Cannot load this quote for editing'), backgroundColor: AppColors.error));
+      return;
+    }
+
+    final cart = <_FakeCartItem>[];
+    for (final bi in existingBill.items) {
+      final item = appState.items.where((it) => it.id == bi.itemId).firstOrNull;
+      cart.add(_FakeCartItem(
+        item: item ?? Item(id: bi.itemId, name: bi.itemName, price: bi.unitPrice, taxRate: bi.taxRate, unit: bi.unit),
+        quantity: bi.quantity,
+        price: bi.unitPrice,
+        description: bi.description ?? '',
+      ));
+    }
+
+    final customerCtrl = TextEditingController(text: existingBill.customerName ?? '');
+    final phoneCtrl = TextEditingController(text: existingBill.customerPhone ?? '');
+    final notesCtrl = TextEditingController(text: existingBill.notes ?? '');
+    final discountCtrl = TextEditingController(text: existingBill.discount.toString());
+    String? selectedCustomerId = existingBill.customerId;
+    bool gstInclusive = gstMode;
+    Customer? selectedCustomer;
+    if (selectedCustomerId != null) {
+      selectedCustomer = appState.customers.where((c) => c.id == selectedCustomerId).firstOrNull;
+    }
+
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
+      double subtotal = 0, totalTax = 0;
+      for (final c in cart) {
+        if (gstInclusive) {
+          subtotal += c.price * c.quantity / (1 + c.item.taxRate / 100);
+          final inclTotal = c.price * c.quantity;
+          totalTax += inclTotal - inclTotal / (1 + c.item.taxRate / 100);
+        } else {
+          subtotal += c.price * c.quantity;
+          totalTax += c.price * c.quantity * c.item.taxRate / 100;
+        }
+      }
+      final discount = double.tryParse(discountCtrl.text) ?? 0;
+      final totalAmount = subtotal + totalTax - discount;
+
+      final displayName = selectedCustomer?.name
+          ?? (customerCtrl.text.trim().isNotEmpty ? customerCtrl.text.trim() : 'Walk-in Customer');
+      final displayPhone = selectedCustomer?.phone ?? (phoneCtrl.text.trim().isNotEmpty ? phoneCtrl.text.trim() : null);
+
+      return AlertDialog(
+        title: Text('Edit ${record.billNumber}'),
+        content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Customer picker
+            InkWell(
+              onTap: () => _showCustomerPicker(ctx, appState, customerCtrl, phoneCtrl, (cust) {
+                setDialogState(() {
+                  selectedCustomer = cust;
+                  selectedCustomerId = cust?.id;
+                  if (cust != null) {
+                    customerCtrl.text = cust.name;
+                    phoneCtrl.text = cust.phone ?? '';
+                  }
+                });
+              }),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).brightness == Brightness.dark ? AppColors.darkCard : AppColors.lightCard,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3))),
+                child: Row(children: [
+                  CircleAvatar(radius: 18, backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                    child: Icon(selectedCustomer != null ? Icons.person : Icons.person_add, size: 18, color: AppColors.primary)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(displayName, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                    if (displayPhone != null)
+                      Text(displayPhone, style: TextStyle(fontSize: 11, color: Theme.of(ctx).textTheme.bodySmall?.color)),
+                  ])),
+                  const Icon(Icons.chevron_right, size: 20),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 14),
+            // Add items
+            Row(children: [
+              const Text('Items', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => _showAddItem(ctx, appState, cart, setDialogState),
+                icon: const Icon(Icons.add, size: 16), label: const Text('Add Item')),
+            ]),
+            if (cart.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(8)),
+                child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.shopping_cart_outlined, size: 32, color: Colors.white.withValues(alpha: 0.15)),
+                  const SizedBox(height: 8),
+                  const Text('No items added', style: TextStyle(fontSize: 12)),
+                ])))
+            else
+              ...cart.asMap().entries.map((e) => _buildCartItem(ctx, e.key, cart, setDialogState, showDesc)),
+            const Divider(),
+            TextField(controller: discountCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Discount \u20B9', prefixIcon: Icon(Icons.local_offer)),
+              onChanged: (_) => setDialogState(() {})),
+            const SizedBox(height: 8),
+            TextField(controller: notesCtrl,
+              decoration: const InputDecoration(labelText: 'Notes', prefixIcon: Icon(Icons.note)),
+              maxLines: 2),
+            const SizedBox(height: 12),
+            // Summary
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient.scale(0.3),
+                borderRadius: BorderRadius.circular(10)),
+              child: Column(children: [
+                Row(children: [
+                  const Icon(Icons.receipt_long, size: 14, color: Colors.white54),
+                  const SizedBox(width: 6),
+                  Text(gstInclusive ? 'GST Inclusive' : 'GST Exclusive',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                      color: gstInclusive ? Colors.greenAccent : Colors.cyanAccent)),
+                  const Spacer(),
+                  SizedBox(height: 24, child: Switch(
+                    value: gstInclusive,
+                    activeColor: Colors.greenAccent,
+                    onChanged: (v) async {
+                      setDialogState(() => gstInclusive = v);
+                      await appState.saveSetting('billing_gst_inclusive', v.toString());
+                    },
+                  )),
+                ]),
+                const SizedBox(height: 4),
+                _summaryRow('Subtotal', AppFormatters.currency(subtotal)),
+                _summaryRow('GST', AppFormatters.currency(totalTax)),
+                if (discount > 0) _summaryRow('Discount', '- ${AppFormatters.currency(discount)}'),
+                const Divider(color: Colors.white24),
+                _summaryRow('Total', AppFormatters.currency(totalAmount), bold: true),
+              ])),
+          ]))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton.icon(
+            onPressed: cart.isEmpty ? null : () async {
+              Navigator.pop(ctx);
+              final billItems = cart.map((c) {
+                final serials = c.serialNumbers.where((s) => s.isNotEmpty).toList();
+                return BillItem(
+                  itemId: c.item.id, itemName: c.item.name,
+                  unitPrice: c.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit,
+                  description: c.description.isNotEmpty ? c.description : null,
+                  serialNumber: serials.isNotEmpty ? serials.join(', ') : null,
+                );
+              }).toList();
+
+              final bill = Bill(
+                id: record.id,
+                billNumber: record.billNumber,
+                customerId: selectedCustomerId,
+                customerName: customerCtrl.text.isEmpty ? null : customerCtrl.text,
+                customerPhone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text,
+                items: billItems,
+                subtotal: subtotal,
+                discount: discount,
+                totalTax: totalTax,
+                totalAmount: totalAmount,
+                paidAmount: 0,
+                paymentMethod: PaymentMethod.cash,
+                status: BillStatus.unpaid,
+                notes: notesCtrl.text.isEmpty ? null : notesCtrl.text,
+                createdAt: record.createdAt,
+              );
+
+              // Update history record
+              await _deleteFromHistory(record.id);
+              await _addToHistory(bill, _currentCompanyName);
+              if (context.mounted) {
+                _showPrintShareDialog(context, appState, bill);
+              }
+            },
+            icon: const Icon(Icons.save, size: 18),
+            label: const Text('Update & Print')),
+        ],
+      );
+    }));
   }
 
   // ==================== COMPANY PROFILE SELECTOR ====================
