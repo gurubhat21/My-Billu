@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/bill.dart';
@@ -21,6 +22,46 @@ class _FakeCartItem {
       serialNumbers = serialNumbers ?? [''];
 }
 
+class _FakeQuoteRecord {
+  final String id;
+  final String billNumber;
+  final String companyName;
+  final String? customerName;
+  final double totalAmount;
+  final int itemCount;
+  final DateTime createdAt;
+  final Map<String, dynamic> billData; // full Bill.toMap() for reprinting
+
+  _FakeQuoteRecord({
+    required this.id,
+    required this.billNumber,
+    required this.companyName,
+    this.customerName,
+    required this.totalAmount,
+    required this.itemCount,
+    required this.createdAt,
+    required this.billData,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id, 'billNumber': billNumber, 'companyName': companyName,
+    'customerName': customerName, 'totalAmount': totalAmount,
+    'itemCount': itemCount, 'createdAt': createdAt.toIso8601String(),
+    'billData': billData,
+  };
+
+  factory _FakeQuoteRecord.fromMap(Map<String, dynamic> m) => _FakeQuoteRecord(
+    id: m['id'] as String,
+    billNumber: m['billNumber'] as String,
+    companyName: m['companyName'] as String? ?? '',
+    customerName: m['customerName'] as String?,
+    totalAmount: (m['totalAmount'] as num?)?.toDouble() ?? 0,
+    itemCount: (m['itemCount'] as num?)?.toInt() ?? 0,
+    createdAt: DateTime.tryParse(m['createdAt'] as String? ?? '') ?? DateTime.now(),
+    billData: Map<String, dynamic>.from(m['billData'] as Map? ?? {}),
+  );
+}
+
 class FakeQuoteScreen extends StatefulWidget {
   const FakeQuoteScreen({super.key});
   @override
@@ -39,10 +80,13 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
   String _company2Address = '';
   String _company2Gstin = '';
 
+  List<_FakeQuoteRecord> _history = [];
+
   @override
   void initState() {
     super.initState();
     _loadProfiles();
+    _loadHistory();
   }
 
   Future<void> _loadProfiles() async {
@@ -59,6 +103,45 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
       _company1Name = c1n; _company1Phone = c1p; _company1Address = c1a; _company1Gstin = c1g;
       _company2Name = c2n; _company2Phone = c2p; _company2Address = c2a; _company2Gstin = c2g;
     });
+  }
+
+  Future<void> _loadHistory() async {
+    final appState = context.read<AppState>();
+    final raw = await appState.getSetting('fake_quote_history');
+    if (raw != null) {
+      try {
+        final list = jsonDecode(raw) as List;
+        if (mounted) setState(() {
+          _history = list.map((e) => _FakeQuoteRecord.fromMap(Map<String, dynamic>.from(e))).toList();
+          _history.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        });
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _saveHistory() async {
+    final appState = context.read<AppState>();
+    await appState.saveSetting('fake_quote_history', jsonEncode(_history.map((e) => e.toMap()).toList()));
+  }
+
+  Future<void> _addToHistory(Bill bill, String companyName) async {
+    final record = _FakeQuoteRecord(
+      id: bill.id,
+      billNumber: bill.billNumber,
+      companyName: companyName,
+      customerName: bill.customerName,
+      totalAmount: bill.totalAmount,
+      itemCount: bill.items.length,
+      createdAt: bill.createdAt,
+      billData: bill.toMap(),
+    );
+    setState(() => _history.insert(0, record));
+    await _saveHistory();
+  }
+
+  Future<void> _deleteFromHistory(String id) async {
+    setState(() => _history.removeWhere((r) => r.id == id));
+    await _saveHistory();
   }
 
   String get _currentCompanyName => _selectedProfile == 1 ? _company1Name : _company2Name;
@@ -83,24 +166,106 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
           // Company profile selector
           Padding(padding: EdgeInsets.symmetric(horizontal: isWide ? 24 : 16), child: _buildCompanySelector()),
           const SizedBox(height: 16),
-          // Empty state
-          Expanded(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.description_outlined, size: 64, color: Colors.white.withValues(alpha: 0.15)),
-            const SizedBox(height: 12),
-            const Text('Fake quotations are not saved.', style: TextStyle(fontSize: 14)),
-            const SizedBox(height: 4),
-            Text('Select a company profile above, then tap "Create Fake Quotation" to generate a PDF.',
-              style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5)),
-              textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            TextButton.icon(
-              onPressed: () => _showCreateFakeQuotation(context, appState),
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('Create one now')),
-          ]))),
+          // History list or empty state
+          Expanded(child: _history.isEmpty
+            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.description_outlined, size: 64, color: Colors.white.withValues(alpha: 0.15)),
+                const SizedBox(height: 12),
+                const Text('No fake quotations yet', style: TextStyle(fontSize: 14)),
+                const SizedBox(height: 4),
+                Text('Select a company profile above, then tap "Create Fake Quotation".',
+                  style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5)),
+                  textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  onPressed: () => _showCreateFakeQuotation(context, appState),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Create one now')),
+              ]))
+            : ListView.builder(
+                padding: EdgeInsets.symmetric(horizontal: isWide ? 24 : 12, vertical: 4),
+                itemCount: _history.length,
+                itemBuilder: (ctx, i) => _buildHistoryTile(context, _history[i], appState, isWide),
+              ),
+          ),
         ]);
       });
     });
+  }
+
+  Widget _buildHistoryTile(BuildContext context, _FakeQuoteRecord record, AppState appState, bool isWide) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GlassCard(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.description, size: 18, color: Color(0xFFEF4444))),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(record.billNumber, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              Text(record.companyName, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
+            ])),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(AppFormatters.currency(record.totalAmount),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.primary)),
+              Text('${record.itemCount} items', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5))),
+            ]),
+          ]),
+          const SizedBox(height: 8),
+          Row(children: [
+            Icon(Icons.person_outline, size: 14, color: Colors.white.withValues(alpha: 0.4)),
+            const SizedBox(width: 4),
+            Text(record.customerName ?? 'Walk-in', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6))),
+            const Spacer(),
+            Icon(Icons.access_time, size: 14, color: Colors.white.withValues(alpha: 0.4)),
+            const SizedBox(width: 4),
+            Text(AppFormatters.dateTime(record.createdAt), style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+              onPressed: () {
+                try {
+                  final bill = Bill.fromMap(record.billData);
+                  _showPrintShareDialog(context, appState, bill);
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Error: $e'), backgroundColor: AppColors.error));
+                }
+              },
+              icon: const Icon(Icons.print, size: 16),
+              label: const Text('Print / Share', style: TextStyle(fontSize: 12)),
+            )),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: () async {
+                final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+                  title: const Text('Delete?'),
+                  content: Text('Delete ${record.billNumber}?'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Delete')),
+                  ],
+                ));
+                if (confirm == true) _deleteFromHistory(record.id);
+              },
+              icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+              tooltip: 'Delete',
+            ),
+          ]),
+        ]),
+      ),
+    );
   }
 
   // ==================== COMPANY PROFILE SELECTOR ====================
@@ -360,7 +525,8 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
                 notes: notesCtrl.text.isEmpty ? null : notesCtrl.text,
               );
 
-              // Show print/share/save dialog
+              // Save to history and show print/share/save dialog
+              await _addToHistory(bill, _currentCompanyName);
               if (context.mounted) {
                 _showPrintShareDialog(context, appState, bill);
               }
