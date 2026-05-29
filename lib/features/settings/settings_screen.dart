@@ -66,6 +66,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _featuresExpanded = false;
   bool _businessProfileExpanded = false;
   bool _templateExpanded = false;
+  bool _fakeQuoteExpanded = false;
+  final _fq1NameCtrl = TextEditingController();
+  final _fq1PhoneCtrl = TextEditingController();
+  final _fq1GstinCtrl = TextEditingController();
+  final _fq2NameCtrl = TextEditingController();
+  final _fq2PhoneCtrl = TextEditingController();
+  final _fq2GstinCtrl = TextEditingController();
   final _invPrefixCtrl = TextEditingController(text: 'INV');
   final _invPatternCtrl = TextEditingController();
   final _invStartCtrl = TextEditingController(text: '1');
@@ -499,6 +506,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onToggle: () => setState(() => _templateExpanded = !_templateExpanded),
             children: [
               _buildPdfTemplateCard(context),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Fake Quote
+          _buildCollapsibleSection(
+            context,
+            icon: Icons.description_outlined,
+            title: 'Fake Quote',
+            color: const Color(0xFFEF4444),
+            isExpanded: _fakeQuoteExpanded,
+            onToggle: () => setState(() => _fakeQuoteExpanded = !_fakeQuoteExpanded),
+            children: [
+              _buildFakeQuoteSettingsCard(context),
             ],
           ),
           const SizedBox(height: 20),
@@ -2483,6 +2504,133 @@ class _SettingsScreenState extends State<SettingsScreen> {
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
       ],
     ));
+  }
+  Widget _buildFakeQuoteSettingsCard(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _loadFakeQuoteSettings(context),
+      builder: (context, snapshot) {
+        return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)]),
+                  borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.business, color: Colors.white, size: 22)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Fake Company Profiles', style: Theme.of(context).textTheme.titleLarge),
+                Text('Configure 2 company profiles for fake quotations',
+                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+              ])),
+            ]),
+            const SizedBox(height: 20),
+
+            // Company 1
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.2))),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Company 1', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFFEF4444))),
+                const SizedBox(height: 12),
+                TextField(controller: _fq1NameCtrl,
+                  decoration: InputDecoration(labelText: 'Company Name',
+                    prefixIcon: const Icon(Icons.business, size: 18),
+                    isDense: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(child: TextField(controller: _fq1PhoneCtrl,
+                    decoration: InputDecoration(labelText: 'Phone',
+                      prefixIcon: const Icon(Icons.phone, size: 18),
+                      isDense: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))))),
+                  const SizedBox(width: 10),
+                  Expanded(child: TextField(controller: _fq1GstinCtrl,
+                    decoration: InputDecoration(labelText: 'GSTIN',
+                      prefixIcon: const Icon(Icons.numbers, size: 18),
+                      isDense: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))))),
+                ]),
+              ])),
+            const SizedBox(height: 16),
+
+            // Company 2
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B82F6).withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.2))),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Company 2', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF3B82F6))),
+                const SizedBox(height: 12),
+                TextField(controller: _fq2NameCtrl,
+                  decoration: InputDecoration(labelText: 'Company Name',
+                    prefixIcon: const Icon(Icons.business, size: 18),
+                    isDense: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(child: TextField(controller: _fq2PhoneCtrl,
+                    decoration: InputDecoration(labelText: 'Phone',
+                      prefixIcon: const Icon(Icons.phone, size: 18),
+                      isDense: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))))),
+                  const SizedBox(width: 10),
+                  Expanded(child: TextField(controller: _fq2GstinCtrl,
+                    decoration: InputDecoration(labelText: 'GSTIN',
+                      prefixIcon: const Icon(Icons.numbers, size: 18),
+                      isDense: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))))),
+                ]),
+              ])),
+            const SizedBox(height: 16),
+
+            // Save Button
+            SizedBox(width: double.infinity, child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444),
+                padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: () async {
+                final appState = context.read<AppState>();
+                await appState.saveSetting('fake_company_1_name', _fq1NameCtrl.text.trim());
+                await appState.saveSetting('fake_company_1_phone', _fq1PhoneCtrl.text.trim());
+                await appState.saveSetting('fake_company_1_gstin', _fq1GstinCtrl.text.trim());
+                await appState.saveSetting('fake_company_2_name', _fq2NameCtrl.text.trim());
+                await appState.saveSetting('fake_company_2_phone', _fq2PhoneCtrl.text.trim());
+                await appState.saveSetting('fake_company_2_gstin', _fq2GstinCtrl.text.trim());
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Fake company profiles saved!'),
+                    backgroundColor: AppColors.success));
+                }
+              },
+              icon: const Icon(Icons.save, color: Colors.white),
+              label: const Text('Save Profiles', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            )),
+          ]));
+      });
+  }
+
+  Future<bool> _loadFakeQuoteSettings(BuildContext context) async {
+    final appState = context.read<AppState>();
+    final n1 = await appState.getSetting('fake_company_1_name') ?? '';
+    final p1 = await appState.getSetting('fake_company_1_phone') ?? '';
+    final g1 = await appState.getSetting('fake_company_1_gstin') ?? '';
+    final n2 = await appState.getSetting('fake_company_2_name') ?? '';
+    final p2 = await appState.getSetting('fake_company_2_phone') ?? '';
+    final g2 = await appState.getSetting('fake_company_2_gstin') ?? '';
+    if (_fq1NameCtrl.text.isEmpty && n1.isNotEmpty) _fq1NameCtrl.text = n1;
+    if (_fq1PhoneCtrl.text.isEmpty && p1.isNotEmpty) _fq1PhoneCtrl.text = p1;
+    if (_fq1GstinCtrl.text.isEmpty && g1.isNotEmpty) _fq1GstinCtrl.text = g1;
+    if (_fq2NameCtrl.text.isEmpty && n2.isNotEmpty) _fq2NameCtrl.text = n2;
+    if (_fq2PhoneCtrl.text.isEmpty && p2.isNotEmpty) _fq2PhoneCtrl.text = p2;
+    if (_fq2GstinCtrl.text.isEmpty && g2.isNotEmpty) _fq2GstinCtrl.text = g2;
+    return true;
   }
 
   Widget _buildPdfTemplateCard(BuildContext context) {

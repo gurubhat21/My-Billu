@@ -37,6 +37,7 @@ import 'features/settings/keyboard_shortcuts_screen.dart';
 import 'features/serial_tracker/serial_tracker_screen.dart';
 import 'features/supplier_payments/supplier_payment_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'features/fake_quote/fake_quote_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -458,6 +459,7 @@ class _MainShellState extends State<MainShell> {
     CashBookScreen(),           // 17
     SerialTrackerScreen(),      // 18
     SupplierPaymentScreen(),    // 19
+    FakeQuoteScreen(),           // 20
   ];
 
   static const _bottomBarMapping = [0, 1, 2, 3];
@@ -488,6 +490,7 @@ class _MainShellState extends State<MainShell> {
     _DrawerItem(icon: Icons.history, label: 'Audit Trail', index: 16),
     _DrawerItem(icon: Icons.qr_code_scanner, label: 'Serial Tracker', index: 18),
     _DrawerItem(icon: Icons.settings, label: 'Settings', index: 15),
+    _DrawerItem(icon: Icons.description_outlined, label: 'Fake Quote', index: 20),
   ];
 
   void _goTo(int index) {
