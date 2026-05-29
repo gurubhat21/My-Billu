@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/bill.dart';
 
-enum InvoiceTemplate { modern, classic, minimal, gstInvoice }
+enum InvoiceTemplate { modern, classic, minimal, gstInvoice, simple }
 enum PaperSize { a4, a5 }
 
 class InvoiceGenerator {
@@ -102,6 +102,8 @@ class InvoiceGenerator {
             return _buildMinimalTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc);
           case InvoiceTemplate.gstInvoice:
             return _buildGstInvoiceTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc);
+          case InvoiceTemplate.simple:
+            return _buildSimpleTemplate(bill, businessName, businessAddress, businessPhone, isA5, bk, logoImage, docTitle, tyMsg, tc);
         }
       },
     ));
@@ -848,6 +850,168 @@ ${thankYouMessage ?? 'Thank you for your business!'}
 
   static String _fmtDate(DateTime d) => '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
   static String _cur(double a) => 'Rs.${a.toStringAsFixed(2)}';
+
+  // ===== TEMPLATE 5: SIMPLE (No GST) =====
+
+  static pw.Widget _buildSimpleTemplate(Bill bill, String bName, String bAddr, String bPhone, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText) {
+    final isQuotation = docTitle != null;
+    final fs = isA5 ? 0.8 : 1.0;
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+      // Logo
+      if (logo != null) ...[
+        pw.Center(child: pw.Container(
+          width: isA5 ? 50 : 70, height: isA5 ? 50 : 70,
+          child: pw.Image(logo, fit: pw.BoxFit.contain),
+        )),
+        pw.SizedBox(height: 8 * fs),
+      ],
+      // Header
+      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+        pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          pw.Text(bName, style: pw.TextStyle(fontSize: 22 * fs, fontWeight: pw.FontWeight.bold)),
+          if (bAddr.isNotEmpty) pw.Text(bAddr, style: pw.TextStyle(fontSize: 10 * fs, color: PdfColors.grey700)),
+          if (bPhone.isNotEmpty) pw.Text('Phone: $bPhone', style: pw.TextStyle(fontSize: 10 * fs, color: PdfColors.grey700)),
+        ]),
+        pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+          pw.Container(
+            padding: pw.EdgeInsets.symmetric(horizontal: 16 * fs, vertical: 8 * fs),
+            decoration: pw.BoxDecoration(color: PdfColors.teal700, borderRadius: pw.BorderRadius.circular(6)),
+            child: pw.Text(docTitle ?? 'BILL / INVOICE', style: pw.TextStyle(fontSize: 14 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.white))),
+          pw.SizedBox(height: 8),
+          pw.Text('${isQuotation ? 'Quotation' : 'Invoice'} #: ${bill.billNumber}', style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold)),
+          pw.Text('Date: ${_fmtDate(bill.createdAt)}', style: pw.TextStyle(fontSize: 10 * fs, color: PdfColors.grey700)),
+        ]),
+      ]),
+      pw.SizedBox(height: 16 * fs),
+      pw.Divider(color: PdfColors.teal200),
+      pw.SizedBox(height: 10 * fs),
+      // Customer
+      pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          pw.Text('Bill To:', style: pw.TextStyle(fontSize: 10 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
+          pw.SizedBox(height: 4),
+          pw.Text(bill.customerName ?? 'Walk-in Customer', style: pw.TextStyle(fontSize: 13 * fs, fontWeight: pw.FontWeight.bold)),
+          if (bill.customerPhone != null && bill.customerPhone!.isNotEmpty)
+            pw.Text('Ph: ${bill.customerPhone}', style: pw.TextStyle(fontSize: 9 * fs, color: PdfColors.grey600)),
+        ])),
+        pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+          pw.Text('Payment: ${bill.paymentMethod.name.toUpperCase()}', style: pw.TextStyle(fontSize: 10 * fs)),
+          pw.Text('Status: ${bill.status.name.toUpperCase()}',
+            style: pw.TextStyle(fontSize: 10 * fs, fontWeight: pw.FontWeight.bold,
+              color: bill.status == BillStatus.paid ? PdfColors.green700 : PdfColors.red700)),
+        ]),
+      ]),
+      pw.SizedBox(height: 14 * fs),
+      // Simple items table (no GST columns)
+      _buildSimpleItemsTable(bill, fs),
+      pw.SizedBox(height: 14 * fs),
+      // Totals (no CGST/SGST)
+      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
+        pw.Container(
+          width: 200 * fs, padding: pw.EdgeInsets.all(10 * fs),
+          decoration: pw.BoxDecoration(color: PdfColors.grey100, borderRadius: pw.BorderRadius.circular(6), border: pw.Border.all(color: PdfColors.grey300)),
+          child: pw.Column(children: [
+            _totalRow('Subtotal', _cur(bill.subtotal), fontSize: 10 * fs),
+            if (bill.discount > 0) ...[
+              pw.SizedBox(height: 3 * fs),
+              _totalRow('Discount', '- ${_cur(bill.discount)}', fontSize: 10 * fs, color: PdfColors.red700),
+            ],
+            pw.Divider(color: PdfColors.grey300),
+            _totalRow('Total', _cur(bill.totalAmount), bold: true, fontSize: 13 * fs),
+            if (bill.discount > 0) ...[
+              pw.SizedBox(height: 6 * fs),
+              pw.Container(
+                width: double.infinity,
+                padding: pw.EdgeInsets.symmetric(horizontal: 8 * fs, vertical: 4 * fs),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.green50,
+                  borderRadius: pw.BorderRadius.circular(4),
+                  border: pw.Border.all(color: PdfColors.green200)),
+                child: pw.Text('YOU SAVED ${_cur(bill.discount)}',
+                  style: pw.TextStyle(fontSize: 10 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.green800),
+                  textAlign: pw.TextAlign.center),
+              ),
+            ],
+            if (!isQuotation && bill.paidAmount > 0 && bill.paidAmount < bill.totalAmount) ...[
+              pw.SizedBox(height: 3 * fs),
+              _totalRow('Paid', _cur(bill.paidAmount), fontSize: 10 * fs),
+              pw.SizedBox(height: 3 * fs),
+              _totalRow('Balance Due', _cur(bill.balanceDue), bold: true, fontSize: 11 * fs, color: PdfColors.red700),
+            ],
+          ])),
+      ]),
+      pw.SizedBox(height: 6 * fs),
+      pw.Text('Amount in words: ${_amountToWords(bill.totalAmount)} Only',
+        style: pw.TextStyle(fontSize: 8.5 * fs, fontStyle: pw.FontStyle.italic, color: PdfColors.grey700)),
+      pw.SizedBox(height: 14 * fs),
+      _bankDetailsBlock(fs, bk, accent: PdfColors.teal700),
+      pw.SizedBox(height: 8 * fs),
+      pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+      pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
+      pw.SizedBox(height: 14 * fs),
+      pw.Divider(color: PdfColors.grey300),
+      pw.SizedBox(height: 6 * fs),
+      pw.Center(child: pw.Text(thankYouMsg ?? 'Thank you for your business!', style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.teal700))),
+      pw.SizedBox(height: 3),
+      pw.Center(child: pw.Text('Generated by My Billu - Smart Billing Software', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500))),
+    ]);
+  }
+
+  static pw.Widget _buildSimpleItemsTable(Bill bill, double fs) {
+    final headerStyle = pw.TextStyle(fontSize: 8.5 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.white);
+    final cellStyle = pw.TextStyle(fontSize: 8.5 * fs);
+    final subStyle = pw.TextStyle(fontSize: 7 * fs, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic);
+    final pad = pw.EdgeInsets.symmetric(horizontal: 5 * fs, vertical: 3 * fs);
+
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(0.6),  // #
+        1: const pw.FlexColumnWidth(4),    // Item
+        2: const pw.FlexColumnWidth(1.2),  // Price
+        3: const pw.FlexColumnWidth(1),    // Qty
+        4: const pw.FlexColumnWidth(1.3),  // Total
+      },
+      children: [
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.teal700),
+          children: [
+            pw.Padding(padding: pad, child: pw.Text('#', style: headerStyle)),
+            pw.Padding(padding: pad, child: pw.Text('Item', style: headerStyle)),
+            pw.Padding(padding: pad, child: pw.Text('Price', style: headerStyle)),
+            pw.Padding(padding: pad, child: pw.Text('Qty', style: headerStyle)),
+            pw.Padding(padding: pad, child: pw.Text('Total', style: headerStyle)),
+          ],
+        ),
+        ...bill.items.asMap().entries.map((e) {
+          final item = e.value;
+          final altBg = e.key % 2 == 1 ? PdfColors.grey50 : null;
+          final nameChildren = <pw.Widget>[
+            pw.Text(item.itemName, style: cellStyle),
+          ];
+          if (item.description != null && item.description!.isNotEmpty) {
+            nameChildren.add(pw.Text(item.description!, style: subStyle));
+          }
+          if (item.serialNumber != null && item.serialNumber!.isNotEmpty) {
+            nameChildren.add(pw.Text('SN: ${item.serialNumber}', style: subStyle));
+          }
+          return pw.TableRow(
+            decoration: altBg != null ? pw.BoxDecoration(color: altBg) : null,
+            children: [
+              pw.Padding(padding: pad, child: pw.Text('${e.key + 1}', style: cellStyle)),
+              pw.Padding(padding: pad, child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: nameChildren)),
+              pw.Padding(padding: pad, child: pw.Text(_cur(item.unitPrice), style: cellStyle)),
+              pw.Padding(padding: pad, child: pw.Text('${item.quantity} ${item.unit}', style: cellStyle)),
+              pw.Padding(padding: pad, child: pw.Text(_cur(item.total),
+                style: pw.TextStyle(fontSize: 8.5 * fs, fontWeight: pw.FontWeight.bold))),
+            ],
+          );
+        }),
+      ],
+    );
+  }
 
   // ===== TEMPLATE 4: GST INVOICE (Traditional Indian Tax Invoice) =====
 

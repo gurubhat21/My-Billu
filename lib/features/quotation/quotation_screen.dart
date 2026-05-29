@@ -1044,6 +1044,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
       case 'classic': return InvoiceTemplate.classic;
       case 'minimal': return InvoiceTemplate.minimal;
       case 'gstInvoice': return InvoiceTemplate.gstInvoice;
+      case 'simple': return InvoiceTemplate.simple;
       default: return InvoiceTemplate.modern;
     }
   }

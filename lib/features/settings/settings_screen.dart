@@ -2574,6 +2574,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               desc: 'Traditional Indian GST Tax Invoice with full breakdown',
               features: ['GST split table', 'Amount in words', 'Signature & T&C'],
             ),
+            const SizedBox(height: 10),
+            _templatePreviewCard(
+              context: context,
+              name: 'Simple (No GST)',
+              value: 'simple',
+              selected: currentTemplate,
+              icon: Icons.description,
+              color: const Color(0xFF0D9488),
+              desc: 'Clean bill without any GST/tax details',
+              features: ['No GSTIN', 'No CGST/SGST', 'Simple totals'],
+            ),
           ]),
         );
       },
@@ -2720,6 +2731,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case 'classic': template = InvoiceTemplate.classic; break;
       case 'minimal': template = InvoiceTemplate.minimal; break;
       case 'gstInvoice': template = InvoiceTemplate.gstInvoice; break;
+      case 'simple': template = InvoiceTemplate.simple; break;
       default: template = InvoiceTemplate.modern;
     }
 
