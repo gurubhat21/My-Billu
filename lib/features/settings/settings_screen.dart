@@ -1925,16 +1925,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ]),
         ),
       ),
-      // Animated content
-      AnimatedCrossFade(
-        firstChild: const SizedBox.shrink(),
-        secondChild: Padding(
+      // Content - only build when expanded (no AnimatedCrossFade)
+      if (isExpanded)
+        Padding(
           padding: const EdgeInsets.only(top: 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
         ),
-        crossFadeState: isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-        duration: const Duration(milliseconds: 300),
-      ),
     ]);
   }
 
