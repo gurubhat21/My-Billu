@@ -32,9 +32,11 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
   int _selectedProfile = 1;
   String _company1Name = '';
   String _company1Phone = '';
+  String _company1Address = '';
   String _company1Gstin = '';
   String _company2Name = '';
   String _company2Phone = '';
+  String _company2Address = '';
   String _company2Gstin = '';
 
   @override
@@ -47,18 +49,21 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
     final appState = context.read<AppState>();
     final c1n = await appState.getSetting('fake_company_1_name') ?? '';
     final c1p = await appState.getSetting('fake_company_1_phone') ?? '';
+    final c1a = await appState.getSetting('fake_company_1_address') ?? '';
     final c1g = await appState.getSetting('fake_company_1_gstin') ?? '';
     final c2n = await appState.getSetting('fake_company_2_name') ?? '';
     final c2p = await appState.getSetting('fake_company_2_phone') ?? '';
+    final c2a = await appState.getSetting('fake_company_2_address') ?? '';
     final c2g = await appState.getSetting('fake_company_2_gstin') ?? '';
     if (mounted) setState(() {
-      _company1Name = c1n; _company1Phone = c1p; _company1Gstin = c1g;
-      _company2Name = c2n; _company2Phone = c2p; _company2Gstin = c2g;
+      _company1Name = c1n; _company1Phone = c1p; _company1Address = c1a; _company1Gstin = c1g;
+      _company2Name = c2n; _company2Phone = c2p; _company2Address = c2a; _company2Gstin = c2g;
     });
   }
 
   String get _currentCompanyName => _selectedProfile == 1 ? _company1Name : _company2Name;
   String get _currentCompanyPhone => _selectedProfile == 1 ? _company1Phone : _company2Phone;
+  String get _currentCompanyAddress => _selectedProfile == 1 ? _company1Address : _company2Address;
   String get _currentCompanyGstin => _selectedProfile == 1 ? _company1Gstin : _company2Gstin;
 
   @override
@@ -755,7 +760,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
     final businessPhone = _currentCompanyPhone;
     final businessGstin = _currentCompanyGstin;
     // Use address from settings if available, but override name/phone/gstin
-    final businessAddress = s['businessAddress'] ?? '';
+    final businessAddress = _currentCompanyAddress;
 
     if (action == 'print') {
       await InvoiceGenerator.generateAndPrint(bill,

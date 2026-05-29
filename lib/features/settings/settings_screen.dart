@@ -69,9 +69,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _fakeQuoteExpanded = false;
   final _fq1NameCtrl = TextEditingController();
   final _fq1PhoneCtrl = TextEditingController();
+  final _fq1AddressCtrl = TextEditingController();
   final _fq1GstinCtrl = TextEditingController();
   final _fq2NameCtrl = TextEditingController();
   final _fq2PhoneCtrl = TextEditingController();
+  final _fq2AddressCtrl = TextEditingController();
   final _fq2GstinCtrl = TextEditingController();
   final _invPrefixCtrl = TextEditingController(text: 'INV');
   final _invPatternCtrl = TextEditingController();
@@ -2555,6 +2557,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       isDense: true,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))))),
                 ]),
+                const SizedBox(height: 10),
+                TextField(controller: _fq1AddressCtrl,
+                  decoration: InputDecoration(labelText: 'Address',
+                    prefixIcon: const Icon(Icons.location_on, size: 18),
+                    isDense: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
               ])),
             const SizedBox(height: 16),
 
@@ -2587,6 +2595,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       isDense: true,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))))),
                 ]),
+                const SizedBox(height: 10),
+                TextField(controller: _fq2AddressCtrl,
+                  decoration: InputDecoration(labelText: 'Address',
+                    prefixIcon: const Icon(Icons.location_on, size: 18),
+                    isDense: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
               ])),
             const SizedBox(height: 16),
 
@@ -2599,9 +2613,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final appState = context.read<AppState>();
                 await appState.saveSetting('fake_company_1_name', _fq1NameCtrl.text.trim());
                 await appState.saveSetting('fake_company_1_phone', _fq1PhoneCtrl.text.trim());
+                await appState.saveSetting('fake_company_1_address', _fq1AddressCtrl.text.trim());
                 await appState.saveSetting('fake_company_1_gstin', _fq1GstinCtrl.text.trim());
                 await appState.saveSetting('fake_company_2_name', _fq2NameCtrl.text.trim());
                 await appState.saveSetting('fake_company_2_phone', _fq2PhoneCtrl.text.trim());
+                await appState.saveSetting('fake_company_2_address', _fq2AddressCtrl.text.trim());
                 await appState.saveSetting('fake_company_2_gstin', _fq2GstinCtrl.text.trim());
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -2620,15 +2636,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final appState = context.read<AppState>();
     final n1 = await appState.getSetting('fake_company_1_name') ?? '';
     final p1 = await appState.getSetting('fake_company_1_phone') ?? '';
+    final a1 = await appState.getSetting('fake_company_1_address') ?? '';
     final g1 = await appState.getSetting('fake_company_1_gstin') ?? '';
     final n2 = await appState.getSetting('fake_company_2_name') ?? '';
     final p2 = await appState.getSetting('fake_company_2_phone') ?? '';
+    final a2 = await appState.getSetting('fake_company_2_address') ?? '';
     final g2 = await appState.getSetting('fake_company_2_gstin') ?? '';
     if (_fq1NameCtrl.text.isEmpty && n1.isNotEmpty) _fq1NameCtrl.text = n1;
     if (_fq1PhoneCtrl.text.isEmpty && p1.isNotEmpty) _fq1PhoneCtrl.text = p1;
+    if (_fq1AddressCtrl.text.isEmpty && a1.isNotEmpty) _fq1AddressCtrl.text = a1;
     if (_fq1GstinCtrl.text.isEmpty && g1.isNotEmpty) _fq1GstinCtrl.text = g1;
     if (_fq2NameCtrl.text.isEmpty && n2.isNotEmpty) _fq2NameCtrl.text = n2;
     if (_fq2PhoneCtrl.text.isEmpty && p2.isNotEmpty) _fq2PhoneCtrl.text = p2;
+    if (_fq2AddressCtrl.text.isEmpty && a2.isNotEmpty) _fq2AddressCtrl.text = a2;
     if (_fq2GstinCtrl.text.isEmpty && g2.isNotEmpty) _fq2GstinCtrl.text = g2;
     return true;
   }
