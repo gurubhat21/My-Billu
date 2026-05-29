@@ -663,7 +663,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _syncService = FirebaseSyncService();
   final _syncEmailCtrl = TextEditingController();
   final _syncPasswordCtrl = TextEditingController();
-  late final Stream _authStream = _syncService.authStateChanges;
+  Stream? _authStream;
+
+  Stream? _getAuthStream() {
+    try {
+      _authStream ??= _syncService.authStateChanges;
+      return _authStream;
+    } catch (e) {
+      return null;
+    }
+  }
 
   Future<void> _emailSignIn(BuildContext context) async {
     final email = _syncEmailCtrl.text.trim();
@@ -708,8 +717,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildCloudSyncCard(BuildContext context) {
     try {
+      final stream = _getAuthStream();
+      if (stream == null) {
+        return _buildFirebaseErrorCard();
+      }
       return StreamBuilder(
-        stream: _authStream,
+        stream: stream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return GlassCard(padding: const EdgeInsets.all(20), child: Column(
@@ -935,6 +948,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ]),
         ]));
     }
+  }
+
+  Widget _buildFirebaseErrorCard() {
+    return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF4285F4), Color(0xFF34A853)]),
+              borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.cloud_off, color: Colors.white, size: 22)),
+          const SizedBox(width: 14),
+          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Firebase Cloud Sync', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            Text('Firebase not configured on this device', style: TextStyle(fontSize: 12, color: Colors.orange)),
+          ])),
+        ]),
+      ]));
   }
 
   Future<void> _firebaseSyncNow(BuildContext context) async {
