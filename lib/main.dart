@@ -64,6 +64,33 @@ void main() async {
   } catch (e) {
     debugPrint('Firebase init error: $e');
   }
+  // Override default error widget to prevent grey/red screens
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.orange.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Row(children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+            SizedBox(width: 8),
+            Expanded(child: Text('Something went wrong',
+              style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w600, fontSize: 13))),
+          ]),
+          const SizedBox(height: 4),
+          Text(details.exceptionAsString(),
+            style: const TextStyle(color: Colors.grey, fontSize: 10),
+            maxLines: 2, overflow: TextOverflow.ellipsis),
+        ]),
+      ),
+    );
+  };
 
   runApp(const MyBilluApp());
 }
