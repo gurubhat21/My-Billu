@@ -783,12 +783,30 @@ ${thankYouMessage ?? 'Thank you for your business!'}
         decoration: pw.BoxDecoration(color: bg, borderRadius: pw.BorderRadius.circular(6), border: pw.Border.all(color: border)),
         child: pw.Column(children: [
           _totalRow('Subtotal', _cur(bill.subtotal), fontSize: 10 * fs),
+          if (bill.discount > 0) ...[
+            pw.SizedBox(height: 3 * fs),
+            _totalRow('Discount', '- ${_cur(bill.discount)}', fontSize: 10 * fs, color: PdfColors.red700),
+          ],
           pw.SizedBox(height: 3 * fs),
           _totalRow('CGST', _cur(bill.totalCgst), fontSize: 10 * fs),
           pw.SizedBox(height: 3 * fs),
           _totalRow('SGST', _cur(bill.totalSgst), fontSize: 10 * fs),
           pw.Divider(color: border),
           _totalRow('Total', _cur(bill.totalAmount), bold: true, fontSize: 13 * fs),
+          if (bill.discount > 0) ...[
+            pw.SizedBox(height: 6 * fs),
+            pw.Container(
+              width: double.infinity,
+              padding: pw.EdgeInsets.symmetric(horizontal: 8 * fs, vertical: 4 * fs),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.green50,
+                borderRadius: pw.BorderRadius.circular(4),
+                border: pw.Border.all(color: PdfColors.green200)),
+              child: pw.Text('YOU SAVED ${_cur(bill.discount)}',
+                style: pw.TextStyle(fontSize: 10 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.green800),
+                textAlign: pw.TextAlign.center),
+            ),
+          ],
           if (!isQuotation && bill.paidAmount > 0 && bill.paidAmount < bill.totalAmount) ...[
             pw.SizedBox(height: 3 * fs),
             _totalRow('Paid', _cur(bill.paidAmount), fontSize: 10 * fs),
@@ -829,7 +847,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
   }
 
   static String _fmtDate(DateTime d) => '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
-  static String _cur(double a) => '\u20b9${a.toStringAsFixed(2)}';
+  static String _cur(double a) => 'Rs.${a.toStringAsFixed(2)}';
 
   // ===== TEMPLATE 4: GST INVOICE (Traditional Indian Tax Invoice) =====
 
@@ -947,6 +965,8 @@ ${thankYouMessage ?? 'Thank you for your business!'}
               padding: pw.EdgeInsets.all(6 * fs),
               child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
                 _gstTotalLine('Total', bill.subtotal, fs),
+                if (bill.discount > 0)
+                  _gstTotalLine('Discount', -bill.discount, fs),
                 _gstTotalLine('CGST Total', bill.totalCgst, fs),
                 _gstTotalLine('SGST Total', bill.totalSgst, fs),
                 _gstTotalLine('Round off', 0, fs),
@@ -957,11 +977,23 @@ ${thankYouMessage ?? 'Thank you for your business!'}
                     border: pw.Border.all(width: 1.5),
                     color: PdfColors.grey100),
                   child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                    pw.Text('Grand Total \u20b9', style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Grand Total Rs.', style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold)),
                     pw.Text(bill.totalAmount.toStringAsFixed(2),
                       style: pw.TextStyle(fontSize: 12 * fs, fontWeight: pw.FontWeight.bold)),
                   ]),
                 ),
+                if (bill.discount > 0) ...[
+                  pw.SizedBox(height: 4 * fs),
+                  pw.Container(
+                    padding: pw.EdgeInsets.symmetric(horizontal: 6 * fs, vertical: 3 * fs),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.green50,
+                      borderRadius: pw.BorderRadius.circular(3),
+                      border: pw.Border.all(color: PdfColors.green200)),
+                    child: pw.Text('YOU SAVED ${_cur(bill.discount)}',
+                      style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.green800)),
+                  ),
+                ],
               ]),
             )),
           ]),
