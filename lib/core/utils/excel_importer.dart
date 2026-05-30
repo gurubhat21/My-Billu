@@ -8,7 +8,7 @@ import '../models/bill.dart';
 
 class ExcelImporter {
   /// Import items from an Excel file.
-  /// Expected columns: Name, Price, TaxRate(%), HSN Code, Unit, Stock, Category
+  /// Expected columns: Name, Purchase Price, Sales Price, GST%, HSN Code, Unit, Stock Qty, Category
   /// First row is treated as header and skipped.
   static Future<List<Item>?> importItems() async {
     final bytes = await _pickExcelFile();
@@ -28,12 +28,13 @@ class ExcelImporter {
 
       items.add(Item(
         name: name,
-        price: _cellToDouble(row.length > 1 ? row[1] : null),
-        taxRate: row.length > 2 ? _cellToDouble(row[2], fallback: 18.0) : 18.0,
-        hsnCode: row.length > 3 ? _cellToString(row[3]) : '',
-        unit: row.length > 4 ? _cellToString(row[4], fallback: 'pcs') : 'pcs',
-        stockQuantity: row.length > 5 ? _cellToInt(row[5]) : 0,
-        category: row.length > 6 ? _cellToString(row[6]) : '',
+        purchasePrice: row.length > 1 ? _cellToDouble(row[1]) : 0.0,
+        price: row.length > 2 ? _cellToDouble(row[2]) : 0.0,
+        taxRate: row.length > 3 ? _cellToDouble(row[3], fallback: 18.0) : 18.0,
+        hsnCode: row.length > 4 ? _cellToString(row[4]) : '',
+        unit: row.length > 5 ? _cellToString(row[5], fallback: 'pcs') : 'pcs',
+        stockQuantity: row.length > 6 ? _cellToInt(row[6]) : 0,
+        category: row.length > 7 ? _cellToString(row[7]) : '',
       ));
     }
     return items;
