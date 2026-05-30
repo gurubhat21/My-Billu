@@ -319,7 +319,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             return Column(children: staffList.map((s) => ListTile(
                               dense: true,
                               leading: CircleAvatar(radius: 16, backgroundColor: AppColors.accent.withValues(alpha: 0.2),
-                                child: Text((s['name'] as String)[0].toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent))),
+                                child: Text(((s['name'] as String?)?.isNotEmpty == true ? (s['name'] as String)[0] : '?').toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent))),
                               title: Text(s['name'] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                               subtitle: Text('Role: ${s['role']} • User: ${s['username']}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
                               trailing: IconButton(icon: const Icon(Icons.delete, size: 16, color: AppColors.error),
@@ -902,7 +902,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
                     backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                     child: user.photoURL == null ? Text(
-                      (user.displayName ?? user.email ?? '?')[0].toUpperCase(),
+                      ((user.displayName ?? user.email ?? '?').isNotEmpty ? (user.displayName ?? user.email ?? '?')[0] : '?').toUpperCase(),
                       style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary)) : null),
                   const SizedBox(width: 10),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
