@@ -12,6 +12,7 @@ class Item {
   int stockQuantity;
   String? category;
   double purchasePrice;
+  double marginPercent; // stored margin % for auto price adjustment
   DateTime createdAt;
   DateTime updatedAt;
 
@@ -27,6 +28,7 @@ class Item {
     this.stockQuantity = 0,
     this.category,
     this.purchasePrice = 0.0,
+    this.marginPercent = 0.0,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
@@ -46,6 +48,7 @@ class Item {
       'stockQuantity': stockQuantity,
       'category': category,
       'purchasePrice': purchasePrice,
+      'marginPercent': marginPercent,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -64,6 +67,7 @@ class Item {
       stockQuantity: (map['stockQuantity'] as num?)?.toInt() ?? 0,
       category: map['category'] as String?,
       purchasePrice: (map['purchasePrice'] as num?)?.toDouble() ?? 0.0,
+      marginPercent: (map['marginPercent'] as num?)?.toDouble() ?? 0.0,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
@@ -80,6 +84,7 @@ class Item {
     int? stockQuantity,
     String? category,
     double? purchasePrice,
+    double? marginPercent,
   }) {
     return Item(
       id: id,
@@ -93,6 +98,7 @@ class Item {
       stockQuantity: stockQuantity ?? this.stockQuantity,
       category: category ?? this.category,
       purchasePrice: purchasePrice ?? this.purchasePrice,
+      marginPercent: marginPercent ?? this.marginPercent,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
     );

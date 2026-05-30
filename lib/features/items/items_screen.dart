@@ -288,8 +288,10 @@ class _ItemsScreenState extends State<ItemsScreen> {
     bool marginIsPercent = true; // true = %, false = ₹
     bool _isUpdating = false; // prevent circular updates
 
-    // Initialize margin from existing data
-    if (item != null && item.purchasePrice > 0 && item.price > 0) {
+    // Initialize margin from stored margin % or calculate from prices
+    if (item != null && item.marginPercent > 0) {
+      marginCtrl.text = item.marginPercent.toStringAsFixed(1);
+    } else if (item != null && item.purchasePrice > 0 && item.price > 0) {
       final marginAmt = item.price - item.purchasePrice;
       if (marginAmt > 0) {
         final marginPct = (marginAmt / item.purchasePrice) * 100;
@@ -631,11 +633,19 @@ class _ItemsScreenState extends State<ItemsScreen> {
                       return;
                     }
                   }
+                  // Calculate margin % to store
+                  final ppSave = double.tryParse(purchasePriceCtrl.text) ?? 0;
+                  final spSave = double.tryParse(priceCtrl.text) ?? 0;
+                  double savedMarginPct = 0;
+                  if (ppSave > 0 && spSave > ppSave) {
+                    savedMarginPct = ((spSave - ppSave) / ppSave) * 100;
+                  }
                   final newItem = isEditing
                       ? item.copyWith(
                           name: nameCtrl.text.trim(),
-                          price: double.tryParse(priceCtrl.text) ?? 0,
-                          purchasePrice: double.tryParse(purchasePriceCtrl.text) ?? 0,
+                          price: spSave,
+                          purchasePrice: ppSave,
+                          marginPercent: savedMarginPct,
                           taxRate: double.tryParse(taxCtrl.text) ?? 18.0,
                           stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
                           hsnCode: hsnCtrl.text.trim(),
@@ -644,8 +654,9 @@ class _ItemsScreenState extends State<ItemsScreen> {
                         )
                       : Item(
                           name: nameCtrl.text.trim(),
-                          price: double.tryParse(priceCtrl.text) ?? 0,
-                          purchasePrice: double.tryParse(purchasePriceCtrl.text) ?? 0,
+                          price: spSave,
+                          purchasePrice: ppSave,
+                          marginPercent: savedMarginPct,
                           taxRate: double.tryParse(taxCtrl.text) ?? 18.0,
                           stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
                           hsnCode: hsnCtrl.text.trim(),

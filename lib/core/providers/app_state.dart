@@ -205,7 +205,7 @@ class AppState extends ChangeNotifier {
     await _db.insertPurchase(purchase);
     await logAudit(AuditAction.created, AuditEntity.purchase, purchase.purchaseNumber, details: '₹${purchase.totalAmount.toStringAsFixed(2)} from ${purchase.supplierName}');
 
-    // Update stock quantities for received purchases
+    // Update stock quantities and prices for received purchases
     if (purchase.status == PurchaseStatus.received) {
       for (final purchaseItem in purchase.items) {
         final item = _items.firstWhere(
@@ -214,6 +214,15 @@ class AppState extends ChangeNotifier {
         );
         if (item.name.isNotEmpty) {
           item.stockQuantity += purchaseItem.quantity;
+          // Auto-update purchase price and selling price based on margin
+          final newPurchasePrice = purchaseItem.unitCost;
+          if (newPurchasePrice > 0 && newPurchasePrice != item.purchasePrice) {
+            item.purchasePrice = newPurchasePrice;
+            // If margin % is set, auto-calculate new selling price
+            if (item.marginPercent > 0) {
+              item.price = newPurchasePrice + (newPurchasePrice * item.marginPercent / 100);
+            }
+          }
           await _db.updateItem(item);
         }
       }
