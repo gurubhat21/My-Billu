@@ -229,6 +229,20 @@ class _AuthGateState extends State<AuthGate> {
           Text('Your trial expires on $_expiryDateStr.\nContact us to purchase a full license.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6))),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF25D366).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.3))),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.phone, size: 16, color: Color(0xFF25D366)),
+              const SizedBox(width: 8),
+              const Text('9449831316 - Guruprasad Bhat',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF25D366))),
+            ]),
+          ),
           const SizedBox(height: 16),
           // WhatsApp Contact button
           SizedBox(width: double.infinity, child: ElevatedButton.icon(
