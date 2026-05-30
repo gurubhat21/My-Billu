@@ -70,6 +70,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _templateExpanded = false;
   bool _fakeQuoteExpanded = false;
   bool _fakeQuoteEnabled = false;
+  bool _unitsExpanded = false;
+  List<Map<String, dynamic>> _customUnits = [];
   final _fq1NameCtrl = TextEditingController();
   final _fq1PhoneCtrl = TextEditingController();
   final _fq1AddressCtrl = TextEditingController();
@@ -514,6 +516,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onToggle: () => setState(() => _templateExpanded = !_templateExpanded),
             children: [
               _buildPdfTemplateCard(context),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Units Management
+          _buildCollapsibleSection(
+            context,
+            icon: Icons.straighten,
+            title: 'Units Management',
+            color: const Color(0xFF8B5CF6),
+            isExpanded: _unitsExpanded,
+            onToggle: () => setState(() => _unitsExpanded = !_unitsExpanded),
+            children: [
+              _buildUnitsManagementCard(context),
             ],
           ),
           const SizedBox(height: 20),
@@ -3151,6 +3167,196 @@ class _SettingsScreenState extends State<SettingsScreen> {
           )),
         ]));
     });
+  }
+
+  Future<void> _loadCustomUnits(BuildContext context) async {
+    final appState = context.read<AppState>();
+    final json = await appState.getSetting('custom_units');
+    if (json != null && json.isNotEmpty) {
+      try {
+        _customUnits = List<Map<String, dynamic>>.from(jsonDecode(json) as List);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _saveCustomUnits(BuildContext context) async {
+    final appState = context.read<AppState>();
+    await appState.saveSetting('custom_units', jsonEncode(_customUnits));
+  }
+
+  Widget _buildUnitsManagementCard(BuildContext context) {
+    return FutureBuilder(
+      future: _loadCustomUnits(context),
+      builder: (context, snapshot) {
+        final defaultUnits = ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set'];
+        return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+                  borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.straighten, color: Colors.white, size: 22)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Unit Configuration', style: Theme.of(context).textTheme.titleLarge),
+                Text('Create composite units like box = 90 mtr',
+                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+              ])),
+              IconButton(
+                onPressed: () => _showAddUnitDialog(context),
+                icon: const Icon(Icons.add_circle, color: Color(0xFF8B5CF6), size: 28),
+                tooltip: 'Add Custom Unit',
+              ),
+            ]),
+            const SizedBox(height: 16),
+
+            // Default units
+            Text('Default Units', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.5))),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: defaultUnits.map((u) =>
+              Chip(
+                label: Text(u, style: const TextStyle(fontWeight: FontWeight.w600)),
+                backgroundColor: Colors.white.withValues(alpha: 0.06),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+            ).toList()),
+
+            if (_customUnits.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Text('Custom Units', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.5))),
+              const SizedBox(height: 8),
+              ..._customUnits.asMap().entries.map((entry) {
+                final i = entry.key;
+                final u = entry.value;
+                final name = u['name'] as String? ?? '';
+                final subUnit = u['subUnit'] as String? ?? '';
+                final factor = (u['factor'] as num?)?.toDouble() ?? 0;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.2)),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.straighten, size: 16, color: Color(0xFF8B5CF6)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      if (subUnit.isNotEmpty && factor > 0)
+                        Text('1 $name = ${factor.toStringAsFixed(factor == factor.roundToDouble() ? 0 : 2)} $subUnit',
+                          style: TextStyle(fontSize: 12, color: const Color(0xFF8B5CF6), fontWeight: FontWeight.w600)),
+                    ])),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFFEF4444)),
+                      onPressed: () async {
+                        _customUnits.removeAt(i);
+                        await _saveCustomUnits(context);
+                        setState(() {});
+                      },
+                    ),
+                  ]),
+                );
+              }),
+            ],
+          ],
+        ));
+      },
+    );
+  }
+
+  void _showAddUnitDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final subUnitCtrl = TextEditingController();
+    final factorCtrl = TextEditingController();
+
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        Container(padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10)),
+          child: const Icon(Icons.add, color: Color(0xFF8B5CF6), size: 20)),
+        const SizedBox(width: 10),
+        const Text('Add Custom Unit'),
+      ]),
+      content: SizedBox(width: 350, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: nameCtrl,
+          decoration: const InputDecoration(labelText: 'Unit Name *', hintText: 'e.g. bundle, roll, carton',
+            prefixIcon: Icon(Icons.label_outline))),
+        const SizedBox(height: 14),
+        Text('If this unit contains a sub-unit (optional):',
+          style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: TextField(controller: subUnitCtrl,
+            decoration: const InputDecoration(labelText: 'Contains (sub-unit)', hintText: 'e.g. mtr, pcs',
+              prefixIcon: Icon(Icons.straighten, size: 18), isDense: true))),
+          const SizedBox(width: 12),
+          Expanded(child: TextField(controller: factorCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Quantity per unit', hintText: 'e.g. 90',
+              prefixIcon: Icon(Icons.numbers, size: 18), isDense: true))),
+        ]),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10)),
+          child: Row(children: [
+            const Icon(Icons.info_outline, size: 16, color: Color(0xFF8B5CF6)),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Example: 1 box = 90 mtr\nPrice \u20b93200/box \u2192 \u20b935.55/mtr',
+              style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)))),
+          ]),
+        ),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () async {
+            if (nameCtrl.text.trim().isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Unit name is required')));
+              return;
+            }
+            // Check duplicate
+            final allUnits = ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set', ..._customUnits.map((u) => u['name'])];
+            if (allUnits.contains(nameCtrl.text.trim().toLowerCase())) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Unit already exists')));
+              return;
+            }
+            _customUnits.add({
+              'name': nameCtrl.text.trim().toLowerCase(),
+              'subUnit': subUnitCtrl.text.trim().toLowerCase(),
+              'factor': double.tryParse(factorCtrl.text) ?? 0,
+            });
+            await _saveCustomUnits(context);
+            setState(() {});
+            Navigator.pop(ctx);
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Row(children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('Unit "${nameCtrl.text.trim()}" added'),
+              ]),
+              backgroundColor: const Color(0xFF8B5CF6),
+            ));
+          },
+          child: const Text('Add Unit'),
+        ),
+      ],
+    ));
   }
 }
 

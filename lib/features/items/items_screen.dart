@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/item.dart';
@@ -268,7 +269,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
     );
   }
 
-  void _showItemDialog(BuildContext context, {Item? item}) {
+  void _showItemDialog(BuildContext context, {Item? item}) async {
     final isEditing = item != null;
     final nameCtrl = TextEditingController(text: item?.name ?? '');
     final priceCtrl =
@@ -282,6 +283,17 @@ class _ItemsScreenState extends State<ItemsScreen> {
     final hsnCtrl = TextEditingController(text: item?.hsnCode ?? '');
     final categoryCtrl = TextEditingController(text: item?.category ?? '');
     String unit = item?.unit ?? 'pcs';
+
+    // Load custom units
+    final appState = context.read<AppState>();
+    final unitsJson = await appState.getSetting('custom_units');
+    List<Map<String, dynamic>> customUnitsList = [];
+    if (unitsJson != null && unitsJson.isNotEmpty) {
+      try {
+        customUnitsList = List<Map<String, dynamic>>.from(jsonDecode(unitsJson) as List);
+      } catch (_) {}
+    }
+    final allUnits = ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set', ...customUnitsList.map((u) => u['name'] as String)];
 
     // Margin controllers
     final marginCtrl = TextEditingController();
@@ -555,12 +567,13 @@ class _ItemsScreenState extends State<ItemsScreen> {
                                   labelText: 'Unit',
                                   prefixIcon: Icon(Icons.straighten),
                                 ),
-                                items: ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set']
+                                items: allUnits
                                     .map((u) => DropdownMenuItem(
                                         value: u, child: Text(u)))
                                     .toList(),
                                 onChanged: (v) {
                                   setDropState(() => unit = v!);
+                                  setDialogState(() {});
                                 },
                               );
                             },
@@ -568,6 +581,36 @@ class _ItemsScreenState extends State<ItemsScreen> {
                         ),
                       ],
                     ),
+                    // Per-sub-unit price calculation
+                    Builder(builder: (context) {
+                      final matchingUnit = customUnitsList.where((u) => u['name'] == unit).toList();
+                      if (matchingUnit.isNotEmpty) {
+                        final subUnit = matchingUnit.first['subUnit'] as String? ?? '';
+                        final factor = (matchingUnit.first['factor'] as num?)?.toDouble() ?? 0;
+                        if (subUnit.isNotEmpty && factor > 0) {
+                          final sp = double.tryParse(priceCtrl.text) ?? 0;
+                          final perSubUnit = sp > 0 ? sp / factor : 0.0;
+                          return Container(
+                            margin: const EdgeInsets.only(top: 12),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.2)),
+                            ),
+                            child: Row(children: [
+                              const Icon(Icons.calculate, size: 16, color: Color(0xFF8B5CF6)),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(
+                                '1 $unit = ${factor.toStringAsFixed(factor == factor.roundToDouble() ? 0 : 2)} $subUnit  •  Per $subUnit: ₹${perSubUnit.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF8B5CF6)),
+                              )),
+                            ]),
+                          );
+                        }
+                      }
+                      return const SizedBox.shrink();
+                    }),
                     const SizedBox(height: 12),
                     TextField(
                       controller: hsnCtrl,
