@@ -283,199 +283,389 @@ class _ItemsScreenState extends State<ItemsScreen> {
     final categoryCtrl = TextEditingController(text: item?.category ?? '');
     String unit = item?.unit ?? 'pcs';
 
+    // Margin controllers
+    final marginCtrl = TextEditingController();
+    bool marginIsPercent = true; // true = %, false = ₹
+    bool _isUpdating = false; // prevent circular updates
+
+    // Initialize margin from existing data
+    if (item != null && item.purchasePrice > 0 && item.price > 0) {
+      final marginAmt = item.price - item.purchasePrice;
+      if (marginAmt > 0) {
+        final marginPct = (marginAmt / item.purchasePrice) * 100;
+        marginCtrl.text = marginPct.toStringAsFixed(1);
+      }
+    }
+
+    void recalcFromMargin(StateSetter setDialogState) {
+      if (_isUpdating) return;
+      _isUpdating = true;
+      final pp = double.tryParse(purchasePriceCtrl.text) ?? 0;
+      final marginVal = double.tryParse(marginCtrl.text) ?? 0;
+      if (pp > 0 && marginVal > 0) {
+        double sellingPrice;
+        if (marginIsPercent) {
+          sellingPrice = pp + (pp * marginVal / 100);
+        } else {
+          sellingPrice = pp + marginVal;
+        }
+        priceCtrl.text = sellingPrice.toStringAsFixed(2);
+      }
+      setDialogState(() {});
+      _isUpdating = false;
+    }
+
+    void recalcFromSellingPrice(StateSetter setDialogState) {
+      if (_isUpdating) return;
+      _isUpdating = true;
+      final pp = double.tryParse(purchasePriceCtrl.text) ?? 0;
+      final sp = double.tryParse(priceCtrl.text) ?? 0;
+      if (pp > 0 && sp > pp) {
+        final marginAmt = sp - pp;
+        if (marginIsPercent) {
+          marginCtrl.text = ((marginAmt / pp) * 100).toStringAsFixed(1);
+        } else {
+          marginCtrl.text = marginAmt.toStringAsFixed(2);
+        }
+      } else if (pp > 0 && sp <= pp) {
+        marginCtrl.text = '0';
+      }
+      setDialogState(() {});
+      _isUpdating = false;
+    }
+
+    void recalcFromPurchasePrice(StateSetter setDialogState) {
+      if (_isUpdating) return;
+      final marginVal = double.tryParse(marginCtrl.text) ?? 0;
+      if (marginVal > 0) {
+        recalcFromMargin(setDialogState);
+      } else {
+        recalcFromSellingPrice(setDialogState);
+      }
+    }
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isEditing ? 'Edit Item' : 'Add New Item'),
-        content: SingleChildScrollView(
-          child: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Item Name *',
-                    prefixIcon: Icon(Icons.label_outline),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          // Calculate live margin display
+          final pp = double.tryParse(purchasePriceCtrl.text) ?? 0;
+          final sp = double.tryParse(priceCtrl.text) ?? 0;
+          final marginAmt = sp > pp && pp > 0 ? sp - pp : 0.0;
+          final marginPct = pp > 0 && marginAmt > 0 ? (marginAmt / pp) * 100 : 0.0;
+
+          return AlertDialog(
+            title: Text(isEditing ? 'Edit Item' : 'Add New Item'),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: purchasePriceCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Purchase Price (₹)',
-                          prefixIcon: Icon(Icons.shopping_cart_outlined),
-                          hintText: 'Cost price',
-                        ),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Item Name *',
+                        prefixIcon: Icon(Icons.label_outline),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: priceCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Sales Price (₹) *',
-                          prefixIcon: Icon(Icons.currency_rupee),
-                          hintText: 'Selling price',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: taxCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'GST %',
-                          prefixIcon: Icon(Icons.percent),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: stockCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Stock Qty',
-                          prefixIcon: Icon(Icons.inventory),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: StatefulBuilder(
-                        builder: (context, setDropState) {
-                          return DropdownButtonFormField<String>(
-                            initialValue: unit,
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: purchasePriceCtrl,
+                            keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'Unit',
-                              prefixIcon: Icon(Icons.straighten),
+                              labelText: 'Purchase Price (₹)',
+                              prefixIcon: Icon(Icons.shopping_cart_outlined),
+                              hintText: 'Cost price',
                             ),
-                            items: ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set']
-                                .map((u) => DropdownMenuItem(
-                                    value: u, child: Text(u)))
-                                .toList(),
-                            onChanged: (v) {
-                              setDropState(() => unit = v!);
+                            onChanged: (_) => recalcFromPurchasePrice(setDialogState),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: priceCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Sales Price (₹) *',
+                              prefixIcon: Icon(Icons.currency_rupee),
+                              hintText: 'Selling price',
+                            ),
+                            onChanged: (_) => recalcFromSellingPrice(setDialogState),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Margin row
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.success.withValues(alpha: 0.2)),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.trending_up, size: 16, color: AppColors.success),
+                              const SizedBox(width: 6),
+                              const Text('Margin', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              const Spacer(),
+                              // Toggle button
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    InkWell(
+                                      onTap: () {
+                                        if (!marginIsPercent) {
+                                          // Convert amount to percent
+                                          final ppVal = double.tryParse(purchasePriceCtrl.text) ?? 0;
+                                          final amtVal = double.tryParse(marginCtrl.text) ?? 0;
+                                          marginIsPercent = true;
+                                          if (ppVal > 0 && amtVal > 0) {
+                                            marginCtrl.text = ((amtVal / ppVal) * 100).toStringAsFixed(1);
+                                          }
+                                          setDialogState(() {});
+                                        }
+                                      },
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: marginIsPercent ? AppColors.success.withValues(alpha: 0.2) : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text('%', style: TextStyle(
+                                          fontWeight: FontWeight.w700, fontSize: 14,
+                                          color: marginIsPercent ? AppColors.success : Colors.white54)),
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () {
+                                        if (marginIsPercent) {
+                                          // Convert percent to amount
+                                          final ppVal = double.tryParse(purchasePriceCtrl.text) ?? 0;
+                                          final pctVal = double.tryParse(marginCtrl.text) ?? 0;
+                                          marginIsPercent = false;
+                                          if (ppVal > 0 && pctVal > 0) {
+                                            marginCtrl.text = (ppVal * pctVal / 100).toStringAsFixed(2);
+                                          }
+                                          setDialogState(() {});
+                                        }
+                                      },
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: !marginIsPercent ? AppColors.success.withValues(alpha: 0.2) : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text('₹', style: TextStyle(
+                                          fontWeight: FontWeight.w700, fontSize: 14,
+                                          color: !marginIsPercent ? AppColors.success : Colors.white54)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: marginCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: marginIsPercent ? 'Margin %' : 'Margin ₹',
+                              prefixIcon: Icon(marginIsPercent ? Icons.percent : Icons.currency_rupee, size: 18),
+                              hintText: marginIsPercent ? 'e.g. 20' : 'e.g. 100',
+                              isDense: true,
+                            ),
+                            onChanged: (_) => recalcFromMargin(setDialogState),
+                          ),
+                          if (pp > 0 && sp > pp) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.success.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.info_outline, size: 14, color: AppColors.success),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Margin: ${marginPct.toStringAsFixed(1)}% = ${AppFormatters.currency(marginAmt)}',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: taxCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'GST %',
+                              prefixIcon: Icon(Icons.percent),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: stockCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Stock Qty',
+                              prefixIcon: Icon(Icons.inventory),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: StatefulBuilder(
+                            builder: (context, setDropState) {
+                              return DropdownButtonFormField<String>(
+                                initialValue: unit,
+                                decoration: const InputDecoration(
+                                  labelText: 'Unit',
+                                  prefixIcon: Icon(Icons.straighten),
+                                ),
+                                items: ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set']
+                                    .map((u) => DropdownMenuItem(
+                                        value: u, child: Text(u)))
+                                    .toList(),
+                                onChanged: (v) {
+                                  setDropState(() => unit = v!);
+                                },
+                              );
                             },
-                          );
-                        },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: hsnCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'HSN Code',
+                        prefixIcon: Icon(Icons.qr_code),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: categoryCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Category',
+                        prefixIcon: Icon(Icons.category),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: hsnCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'HSN Code',
-                    prefixIcon: Icon(Icons.qr_code),
-                  ),
+              ),
+            ),
+            actions: [
+              if (isEditing) ...[
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showItemPurchaseHistory(context, item);
+                  },
+                  icon: const Icon(Icons.history, size: 18),
+                  label: const Text('Purchase History'),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: categoryCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    prefixIcon: Icon(Icons.category),
-                  ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _confirmDelete(context, item);
+                  },
+                  child: const Text('Delete',
+                      style: TextStyle(color: AppColors.error)),
                 ),
               ],
-            ),
-          ),
-        ),
-        actions: [
-          if (isEditing) ...
-            [OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _showItemPurchaseHistory(context, item);
-              },
-              icon: const Icon(Icons.history, size: 18),
-              label: const Text('Purchase History'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _confirmDelete(context, item);
-              },
-              child: const Text('Delete',
-                  style: TextStyle(color: AppColors.error)),
-            ),],
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (nameCtrl.text.isEmpty || priceCtrl.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Name and price are required')),
-                );
-                return;
-              }
-              // Duplicate detection (only when adding new)
-              if (!isEditing) {
-                final appState = context.read<AppState>();
-                final existingNames = appState.items.map((i) => i.name).toList();
-                final dupError = Validators.checkDuplicateItem(nameCtrl.text, existingNames);
-                if (dupError != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Row(children: [
-                      const Icon(Icons.warning_amber, color: Colors.white), const SizedBox(width: 8),
-                      Expanded(child: Text(dupError)),
-                    ]), backgroundColor: AppColors.warning));
-                  return;
-                }
-              }
-              final newItem = isEditing
-                  ? item.copyWith(
-                      name: nameCtrl.text.trim(),
-                      price: double.tryParse(priceCtrl.text) ?? 0,
-                      purchasePrice: double.tryParse(purchasePriceCtrl.text) ?? 0,
-                      taxRate: double.tryParse(taxCtrl.text) ?? 18.0,
-                      stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
-                      hsnCode: hsnCtrl.text.trim(),
-                      category: categoryCtrl.text.trim(),
-                      unit: unit,
-                    )
-                  : Item(
-                      name: nameCtrl.text.trim(),
-                      price: double.tryParse(priceCtrl.text) ?? 0,
-                      purchasePrice: double.tryParse(purchasePriceCtrl.text) ?? 0,
-                      taxRate: double.tryParse(taxCtrl.text) ?? 18.0,
-                      stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
-                      hsnCode: hsnCtrl.text.trim(),
-                      category: categoryCtrl.text.trim(),
-                      unit: unit,
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (nameCtrl.text.isEmpty || priceCtrl.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Name and price are required')),
                     );
+                    return;
+                  }
+                  // Duplicate detection (only when adding new)
+                  if (!isEditing) {
+                    final appState = context.read<AppState>();
+                    final existingNames = appState.items.map((i) => i.name).toList();
+                    final dupError = Validators.checkDuplicateItem(nameCtrl.text, existingNames);
+                    if (dupError != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Row(children: [
+                          const Icon(Icons.warning_amber, color: Colors.white), const SizedBox(width: 8),
+                          Expanded(child: Text(dupError)),
+                        ]), backgroundColor: AppColors.warning));
+                      return;
+                    }
+                  }
+                  final newItem = isEditing
+                      ? item.copyWith(
+                          name: nameCtrl.text.trim(),
+                          price: double.tryParse(priceCtrl.text) ?? 0,
+                          purchasePrice: double.tryParse(purchasePriceCtrl.text) ?? 0,
+                          taxRate: double.tryParse(taxCtrl.text) ?? 18.0,
+                          stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
+                          hsnCode: hsnCtrl.text.trim(),
+                          category: categoryCtrl.text.trim(),
+                          unit: unit,
+                        )
+                      : Item(
+                          name: nameCtrl.text.trim(),
+                          price: double.tryParse(priceCtrl.text) ?? 0,
+                          purchasePrice: double.tryParse(purchasePriceCtrl.text) ?? 0,
+                          taxRate: double.tryParse(taxCtrl.text) ?? 18.0,
+                          stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
+                          hsnCode: hsnCtrl.text.trim(),
+                          category: categoryCtrl.text.trim(),
+                          unit: unit,
+                        );
 
-              final appState = context.read<AppState>();
-              if (isEditing) {
-                appState.updateItem(newItem);
-              } else {
-                appState.addItem(newItem);
-              }
-              Navigator.pop(ctx);
-            },
-            child: Text(isEditing ? 'Update' : 'Add'),
-          ),
-        ],
+                  final appState = context.read<AppState>();
+                  if (isEditing) {
+                    appState.updateItem(newItem);
+                  } else {
+                    appState.addItem(newItem);
+                  }
+                  Navigator.pop(ctx);
+                },
+                child: Text(isEditing ? 'Update' : 'Add'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
