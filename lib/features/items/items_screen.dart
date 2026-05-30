@@ -284,28 +284,16 @@ class _ItemsScreenState extends State<ItemsScreen> {
     final categoryCtrl = TextEditingController(text: item?.category ?? '');
     String unit = item?.unit ?? 'pcs';
 
-    // Load custom unit pairs
+    // Load custom units
     final appState = context.read<AppState>();
     final unitsJson = await appState.getSetting('custom_units');
-    List<Map<String, dynamic>> unitPairs = [];
+    List<Map<String, dynamic>> customUnitsList = [];
     if (unitsJson != null && unitsJson.isNotEmpty) {
       try {
-        unitPairs = List<Map<String, dynamic>>.from(jsonDecode(unitsJson) as List);
+        customUnitsList = List<Map<String, dynamic>>.from(jsonDecode(unitsJson) as List);
       } catch (_) {}
     }
-    final defaultUnits = ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set', 'nos', 'pair', 'dozen', 'roll', 'bundle', 'bag', 'can', 'bottle', 'packet'];
-    // Build unit list: plain units + unit pairs like "box / mtr"
-    final allUnits = <String>[...defaultUnits];
-    for (final p in unitPairs) {
-      final primary = p['primary'] as String? ?? '';
-      final secondary = p['secondary'] as String? ?? '';
-      if (primary.isNotEmpty && secondary.isNotEmpty) {
-        allUnits.add('$primary / $secondary');
-      }
-    }
-    // Ensure current unit is in the list
-    if (!allUnits.contains(unit)) allUnits.add(unit);
-    final conversionCtrl = TextEditingController();
+    final allUnits = ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set', ...customUnitsList.map((u) => u['name'] as String)];
 
     // Margin controllers
     final marginCtrl = TextEditingController();
@@ -593,59 +581,33 @@ class _ItemsScreenState extends State<ItemsScreen> {
                         ),
                       ],
                     ),
-                    // Unit pair conversion & auto-calculation
+                    // Per-sub-unit price calculation
                     Builder(builder: (context) {
-                      if (unit.contains(' / ')) {
-                        final parts = unit.split(' / ');
-                        final primary = parts[0].trim();
-                        final secondary = parts[1].trim();
-                        final sp = double.tryParse(priceCtrl.text) ?? 0;
-                        final factor = double.tryParse(conversionCtrl.text) ?? 0;
-                        final perSecondary = (sp > 0 && factor > 0) ? sp / factor : 0.0;
-                        return Container(
-                          margin: const EdgeInsets.only(top: 12),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.2)),
-                          ),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Row(children: [
-                              const Icon(Icons.swap_horiz, size: 16, color: Color(0xFF8B5CF6)),
-                              const SizedBox(width: 8),
-                              Text('1 $primary = ? $secondary', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF8B5CF6))),
-                            ]),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: conversionCtrl,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText: 'Qty per $primary',
-                                hintText: 'e.g. 90',
-                                prefixIcon: const Icon(Icons.numbers, size: 18),
-                                isDense: true,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              onChanged: (_) => setDialogState(() {}),
+                      final matchingUnit = customUnitsList.where((u) => u['name'] == unit).toList();
+                      if (matchingUnit.isNotEmpty) {
+                        final subUnit = matchingUnit.first['subUnit'] as String? ?? '';
+                        final factor = (matchingUnit.first['factor'] as num?)?.toDouble() ?? 0;
+                        if (subUnit.isNotEmpty && factor > 0) {
+                          final sp = double.tryParse(priceCtrl.text) ?? 0;
+                          final perSubUnit = sp > 0 ? sp / factor : 0.0;
+                          return Container(
+                            margin: const EdgeInsets.only(top: 12),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.2)),
                             ),
-                            if (factor > 0 && sp > 0) ...[
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8)),
-                                child: Row(children: [
-                                  const Icon(Icons.calculate, size: 16, color: Color(0xFF10B981)),
-                                  const SizedBox(width: 8),
-                                  Text('1 $primary = $factor $secondary  •  Per $secondary: ₹${perSecondary.toStringAsFixed(2)}',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF10B981))),
-                                ]),
-                              ),
-                            ],
-                          ]),
-                        );
+                            child: Row(children: [
+                              const Icon(Icons.calculate, size: 16, color: Color(0xFF8B5CF6)),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(
+                                '1 $unit = ${factor.toStringAsFixed(factor == factor.roundToDouble() ? 0 : 2)} $subUnit  •  Per $subUnit: ₹${perSubUnit.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF8B5CF6)),
+                              )),
+                            ]),
+                          );
+                        }
                       }
                       return const SizedBox.shrink();
                     }),

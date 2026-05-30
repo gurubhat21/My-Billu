@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/utils/input_formatters.dart';
@@ -166,7 +166,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: const Icon(Icons.inventory_2, color: AppColors.primary),
               title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
               subtitle: Text(
-                'Barcode: ${item.barcode ?? "â€”"} â€¢ HSN: ${item.hsnCode ?? "â€”"}\nâ‚¹${item.price.toStringAsFixed(2)} â€¢ Stock: ${item.stockQuantity} ${item.unit}'),
+                'Barcode: ${item.barcode ?? "—"} • HSN: ${item.hsnCode ?? "—"}\n₹${item.price.toStringAsFixed(2)} • Stock: ${item.stockQuantity} ${item.unit}'),
               isThreeLine: true,
             )).toList()))),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
@@ -183,9 +183,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text('Settings', style: Theme.of(context).textTheme.headlineLarge),
           const SizedBox(height: 24),
 
-          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          // ═══════════════════════════════════════════════════
           // FEATURES SECTION (collapsible)
-          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          // ═══════════════════════════════════════════════════
           _buildCollapsibleSection(
             context,
             icon: Icons.widgets,
@@ -213,7 +213,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const SizedBox(width: 12),
                           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text('Import & Export', style: Theme.of(context).textTheme.titleLarge),
-                            Text('JSON, Excel, CSV â€” bulk import & export all data',
+                            Text('JSON, Excel, CSV — bulk import & export all data',
                               style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
                           ])),
                         ]),
@@ -321,7 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               leading: CircleAvatar(radius: 16, backgroundColor: AppColors.accent.withValues(alpha: 0.2),
                                 child: Text(((s['name'] as String?)?.isNotEmpty == true ? (s['name'] as String)[0] : '?').toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent))),
                               title: Text(s['name'] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              subtitle: Text('Role: ${s['role']} â€¢ User: ${s['username']}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+                              subtitle: Text('Role: ${s['role']} • User: ${s['username']}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
                               trailing: IconButton(icon: const Icon(Icons.delete, size: 16, color: AppColors.error),
                                 onPressed: () async {
                                   staffList.removeWhere((x) => x['username'] == s['username']);
@@ -357,9 +357,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 32),
 
-          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          // ═══════════════════════════════════════════════════
           // SETTINGS SECTION
-          // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          // ═══════════════════════════════════════════════════
           _sectionHeader(context, Icons.settings, 'Settings', AppColors.primary),
           const SizedBox(height: 16),
 
@@ -1301,7 +1301,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final ok = await LanSyncService.startServer(backup);
     setState(() { _lanSharing = ok; _myIp = ip; });
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(ok ? 'ðŸ“¡ Sharing on $ip â€” Enter this IP on the other device' : 'âŒ Failed to start sharing'),
+      content: Text(ok ? '📡 Sharing on $ip — Enter this IP on the other device' : '❌ Failed to start sharing'),
       backgroundColor: ok ? AppColors.success : AppColors.error));
   }
 
@@ -1326,7 +1326,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!reachable) {
       setState(() => _lanSyncing = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Cannot reach $ip â€” Make sure both devices are on same WiFi and sharing is started'),
+        content: Text('Cannot reach $ip — Make sure both devices are on same WiFi and sharing is started'),
         backgroundColor: AppColors.error));
       return;
     }
@@ -1819,7 +1819,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: const Row(children: [
             Icon(Icons.fingerprint, color: Colors.white), SizedBox(width: 10),
-            Text('Biometric login enabled! ðŸ”')]),
+            Text('Biometric login enabled! 🔐')]),
           backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
       }
@@ -2755,9 +2755,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
             const SizedBox(height: 8),
             Row(children: [
-              _paperSizeChip('a4', 'A4 (210Ã—297mm)', Icons.description, currentSize, context),
+              _paperSizeChip('a4', 'A4 (210×297mm)', Icons.description, currentSize, context),
               const SizedBox(width: 10),
-              _paperSizeChip('a5', 'A5 (148Ã—210mm)', Icons.note, currentSize, context),
+              _paperSizeChip('a5', 'A5 (148×210mm)', Icons.note, currentSize, context),
             ]),
             const SizedBox(height: 20),
 
@@ -3064,7 +3064,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Data Storage Path', style: Theme.of(context).textTheme.titleLarge),
-              Text('Windows only â€” specify where database is stored',
+              Text('Windows only — specify where database is stored',
                 style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
             ])),
           ]),
@@ -3188,7 +3188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return FutureBuilder(
       future: _loadCustomUnits(context),
       builder: (context, snapshot) {
-        final defaultUnits = ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set', 'nos', 'pair', 'dozen', 'roll', 'bundle', 'bag', 'can', 'bottle', 'packet'];
+        final defaultUnits = ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set'];
         return GlassCard(padding: const EdgeInsets.all(20), child: Column(
           crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -3200,39 +3200,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Unit Configuration', style: Theme.of(context).textTheme.titleLarge),
-                Text('Create unit pairs (e.g. box â†’ mtr) for items',
+                Text('Create composite units like box = 90 mtr',
                   style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
               ])),
               IconButton(
                 onPressed: () => _showAddUnitDialog(context),
                 icon: const Icon(Icons.add_circle, color: Color(0xFF8B5CF6), size: 28),
-                tooltip: 'Add Item Unit',
+                tooltip: 'Add Custom Unit',
               ),
             ]),
             const SizedBox(height: 16),
 
-            // Available units
-            Text('Available Units', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.5))),
+            // Default units
+            Text('Default Units', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.5))),
             const SizedBox(height: 8),
-            Wrap(spacing: 6, runSpacing: 6, children: defaultUnits.map((u) =>
+            Wrap(spacing: 8, runSpacing: 8, children: defaultUnits.map((u) =>
               Chip(
-                label: Text(u, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                label: Text(u, style: const TextStyle(fontWeight: FontWeight.w600)),
                 backgroundColor: Colors.white.withValues(alpha: 0.06),
                 side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
               ),
             ).toList()),
 
             if (_customUnits.isNotEmpty) ...[
               const SizedBox(height: 20),
-              Text('Unit Pairs (Primary â†’ Secondary)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.5))),
+              Text('Custom Units', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.5))),
               const SizedBox(height: 8),
               ..._customUnits.asMap().entries.map((entry) {
                 final i = entry.key;
                 final u = entry.value;
-                final primary = u['primary'] as String? ?? u['name'] as String? ?? '';
-                final secondary = u['secondary'] as String? ?? u['subUnit'] as String? ?? '';
+                final name = u['name'] as String? ?? '';
+                final subUnit = u['subUnit'] as String? ?? '';
+                final factor = (u['factor'] as num?)?.toDouble() ?? 0;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),
@@ -3247,13 +3246,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.swap_horiz, size: 16, color: Color(0xFF8B5CF6)),
+                      child: const Icon(Icons.straighten, size: 16, color: Color(0xFF8B5CF6)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('$primary â†’ $secondary', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                      Text('Sell in $primary, bill per $secondary',
-                        style: TextStyle(fontSize: 11, color: const Color(0xFF8B5CF6), fontWeight: FontWeight.w500)),
+                      Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      if (subUnit.isNotEmpty && factor > 0)
+                        Text('1 $name = ${factor.toStringAsFixed(factor == factor.roundToDouble() ? 0 : 2)} $subUnit',
+                          style: TextStyle(fontSize: 12, color: const Color(0xFF8B5CF6), fontWeight: FontWeight.w600)),
                     ])),
                     IconButton(
                       icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFFEF4444)),
@@ -3267,20 +3267,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               }),
             ],
-
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF8B5CF6).withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(10)),
-              child: Row(children: [
-                const Icon(Icons.info_outline, size: 16, color: Color(0xFF8B5CF6)),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Create unit pairs here. In items, enter conversion (1 box = 90 mtr). In sales, price shows per secondary unit.',
-                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)))),
-              ]),
-            ),
           ],
         ));
       },
@@ -3288,94 +3274,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showAddUnitDialog(BuildContext context) {
-    final allUnits = ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set', 'nos', 'pair', 'dozen', 'roll', 'bundle', 'bag', 'can', 'bottle', 'packet'];
-    String? primaryUnit;
-    String? secondaryUnit;
+    final nameCtrl = TextEditingController();
+    final subUnitCtrl = TextEditingController();
+    final factorCtrl = TextEditingController();
 
-    showDialog(context: context, builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setDialogState) => AlertDialog(
-        title: Row(children: [
-          Container(padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.add, color: Color(0xFF8B5CF6), size: 20)),
-          const SizedBox(width: 10),
-          const Text('Add Item Unit'),
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        Container(padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10)),
+          child: const Icon(Icons.add, color: Color(0xFF8B5CF6), size: 20)),
+        const SizedBox(width: 10),
+        const Text('Add Custom Unit'),
+      ]),
+      content: SizedBox(width: 350, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: nameCtrl,
+          decoration: const InputDecoration(labelText: 'Unit Name *', hintText: 'e.g. bundle, roll, carton',
+            prefixIcon: Icon(Icons.label_outline))),
+        const SizedBox(height: 14),
+        Text('If this unit contains a sub-unit (optional):',
+          style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: TextField(controller: subUnitCtrl,
+            decoration: const InputDecoration(labelText: 'Contains (sub-unit)', hintText: 'e.g. mtr, pcs',
+              prefixIcon: Icon(Icons.straighten, size: 18), isDense: true))),
+          const SizedBox(width: 12),
+          Expanded(child: TextField(controller: factorCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Quantity per unit', hintText: 'e.g. 90',
+              prefixIcon: Icon(Icons.numbers, size: 18), isDense: true))),
         ]),
-        content: SizedBox(width: 350, child: Column(mainAxisSize: MainAxisSize.min, children: [
-          DropdownButtonFormField<String>(
-            value: primaryUnit,
-            decoration: const InputDecoration(
-              labelText: 'Primary Unit',
-              border: OutlineInputBorder(),
-            ),
-            items: allUnits.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
-            onChanged: (v) => setDialogState(() { primaryUnit = v; if (secondaryUnit == v) secondaryUnit = null; }),
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            key: ValueKey('secondary_$primaryUnit'),
-            value: secondaryUnit,
-            decoration: const InputDecoration(
-              labelText: 'Secondary Unit',
-              border: OutlineInputBorder(),
-            ),
-            items: allUnits.where((u) => u != primaryUnit).map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
-            onChanged: (v) => setDialogState(() => secondaryUnit = v),
-          ),
-          if (primaryUnit != null && secondaryUnit != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10)),
-              child: Row(children: [
-                const Icon(Icons.info_outline, size: 16, color: Color(0xFF8B5CF6)),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10)),
+          child: Row(children: [
+            const Icon(Icons.info_outline, size: 16, color: Color(0xFF8B5CF6)),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Example: 1 box = 90 mtr\nPrice \u20b93200/box \u2192 \u20b935.55/mtr',
+              style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)))),
+          ]),
+        ),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () async {
+            if (nameCtrl.text.trim().isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Unit name is required')));
+              return;
+            }
+            // Check duplicate
+            final allUnits = ['pcs', 'kg', 'ltr', 'mtr', 'box', 'set', ..._customUnits.map((u) => u['name'])];
+            if (allUnits.contains(nameCtrl.text.trim().toLowerCase())) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Unit already exists')));
+              return;
+            }
+            _customUnits.add({
+              'name': nameCtrl.text.trim().toLowerCase(),
+              'subUnit': subUnitCtrl.text.trim().toLowerCase(),
+              'factor': double.tryParse(factorCtrl.text) ?? 0,
+            });
+            await _saveCustomUnits(context);
+            setState(() {});
+            Navigator.pop(ctx);
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Row(children: [
+                const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
-                Expanded(child: Text(
-                  'In items: 1 $primaryUnit = ? $secondaryUnit\ne.g. 1 box = 90 mtr â†’ â‚¹3200/box = â‚¹35.55/mtr',
-                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)))),
+                Text('Unit "${nameCtrl.text.trim()}" added'),
               ]),
-            ),
-          ],
-        ])),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2196F3)),
-            onPressed: () async {
-              if (primaryUnit == null || secondaryUnit == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Select both primary and secondary units')));
-                return;
-              }
-              final exists = _customUnits.any((u) =>
-                u['primary'] == primaryUnit && u['secondary'] == secondaryUnit);
-              if (exists) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('This unit pair already exists')));
-                return;
-              }
-              _customUnits.add({ 'primary': primaryUnit, 'secondary': secondaryUnit });
-              await _saveCustomUnits(context);
-              setState(() {});
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Row(children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text('Unit pair "$primaryUnit â†’ $secondaryUnit" added'),
-                ]),
-                backgroundColor: const Color(0xFF8B5CF6),
-              ));
-            },
-            child: const Text('Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
+              backgroundColor: const Color(0xFF8B5CF6),
+            ));
+          },
+          child: const Text('Add Unit'),
+        ),
+      ],
     ));
   }
 }
+
 
