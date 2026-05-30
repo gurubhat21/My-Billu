@@ -436,6 +436,7 @@ class _MainShellState extends State<MainShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   List<ShortcutBinding> _customShortcuts = [];
   bool _shortcutsLoaded = false;
+  bool _fakeQuoteEnabled = false;
 
   // All screens indexed
   static const _allScreens = [
@@ -638,10 +639,20 @@ class _MainShellState extends State<MainShell> {
     return LayoutBuilder(builder: (context, constraints) {
       final isWide = constraints.maxWidth > 800;
 
+      // Load fake quote enabled setting
+      final appState = context.watch<AppState>();
+      appState.getSetting('fake_quote_enabled').then((v) {
+        final enabled = v == 'true';
+        if (enabled != _fakeQuoteEnabled) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _fakeQuoteEnabled = enabled);
+          });
+        }
+      });
+
       if (isWide) {
         // Desktop / Web wide layout - custom scrollable sidebar
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        final appState = context.watch<AppState>();
         return Scaffold(
           body: Row(children: [
             Container(
@@ -673,7 +684,7 @@ class _MainShellState extends State<MainShell> {
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Column(children: _drawerItems.map((item) {
+                    child: Column(children: _drawerItems.where((item) => item.index != 20 || _fakeQuoteEnabled).map((item) {
                       final isSelected = _currentIndex == item.index;
                       // Compute badges
                       int badge = 0;
@@ -959,7 +970,7 @@ class _MainShellState extends State<MainShell> {
 
         // Menu Items
         Expanded(child: ListView(padding: const EdgeInsets.symmetric(vertical: 8), children: [
-          ..._drawerItems.map((item) {
+          ..._drawerItems.where((item) => item.index != 20 || _fakeQuoteEnabled).map((item) {
             final isSelected = _currentIndex == item.index;
             final appState = context.watch<AppState>();
             // Compute badges

@@ -69,6 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _businessProfileExpanded = false;
   bool _templateExpanded = false;
   bool _fakeQuoteExpanded = false;
+  bool _fakeQuoteEnabled = false;
   final _fq1NameCtrl = TextEditingController();
   final _fq1PhoneCtrl = TextEditingController();
   final _fq1AddressCtrl = TextEditingController();
@@ -2531,6 +2532,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
               ])),
             ]),
+            const SizedBox(height: 16),
+
+            // Enable/Disable toggle
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: _fakeQuoteEnabled
+                    ? const Color(0xFFEF4444).withValues(alpha: 0.08)
+                    : Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _fakeQuoteEnabled
+                    ? const Color(0xFFEF4444).withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: Row(children: [
+                Icon(_fakeQuoteEnabled ? Icons.visibility : Icons.visibility_off,
+                  size: 20, color: _fakeQuoteEnabled ? const Color(0xFFEF4444) : Colors.white54),
+                const SizedBox(width: 10),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(_fakeQuoteEnabled ? 'Fake Quote Enabled' : 'Fake Quote Disabled',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13,
+                      color: _fakeQuoteEnabled ? const Color(0xFFEF4444) : Colors.white54)),
+                  Text(_fakeQuoteEnabled ? 'Visible in sidebar' : 'Hidden from sidebar',
+                    style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+                ])),
+                Switch(
+                  value: _fakeQuoteEnabled,
+                  activeColor: const Color(0xFFEF4444),
+                  onChanged: (v) async {
+                    final appState = context.read<AppState>();
+                    await appState.saveSetting('fake_quote_enabled', v ? 'true' : 'false');
+                    setState(() => _fakeQuoteEnabled = v);
+                  },
+                ),
+              ]),
+            ),
             const SizedBox(height: 20),
 
             // Company 1
@@ -2647,6 +2684,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<bool> _loadFakeQuoteSettings(BuildContext context) async {
     final appState = context.read<AppState>();
+    final enabled = await appState.getSetting('fake_quote_enabled');
+    _fakeQuoteEnabled = enabled == 'true';
     final n1 = await appState.getSetting('fake_company_1_name') ?? '';
     final p1 = await appState.getSetting('fake_company_1_phone') ?? '';
     final a1 = await appState.getSetting('fake_company_1_address') ?? '';
