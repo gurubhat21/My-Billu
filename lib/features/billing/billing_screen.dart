@@ -139,8 +139,18 @@ class _BillingScreenState extends State<BillingScreen> {
   }
 
   Widget _buildItemPicker(BuildContext context, AppState appState) {
-    final items = _itemSearch.isEmpty ? appState.items
+    var items = _itemSearch.isEmpty ? appState.items
         : appState.items.where((i) => i.name.toLowerCase().contains(_itemSearch.toLowerCase())).toList();
+    // Sort: in-cart items first (in cart order), then rest
+    final cartIds = _cart.map((c) => c.item.id).toList();
+    items = List<Item>.from(items)..sort((a, b) {
+      final aInCart = cartIds.contains(a.id);
+      final bInCart = cartIds.contains(b.id);
+      if (aInCart && !bInCart) return -1;
+      if (!aInCart && bInCart) return 1;
+      if (aInCart && bInCart) return cartIds.indexOf(a.id).compareTo(cartIds.indexOf(b.id));
+      return 0;
+    });
     return Column(children: [
       Padding(padding: const EdgeInsets.all(16), child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, children: [
