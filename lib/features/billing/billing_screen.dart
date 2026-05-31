@@ -52,6 +52,7 @@ class _BillingScreenState extends State<BillingScreen> {
   bool _showSerialNumber = false;
   final Map<String, FocusNode> _snFocusNodes = {};
   bool _gstInclusive = false;
+  final ScrollController _itemScrollController = ScrollController();
   // Credit advance payment
   double _creditPaidAmount = 0;
   PaymentMethod _creditPaymentMethod = PaymentMethod.cash;
@@ -186,6 +187,7 @@ class _BillingScreenState extends State<BillingScreen> {
 
   Widget _buildGridItems(List<Item> items) {
     return GridView.builder(
+      controller: _itemScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 200, childAspectRatio: 1.1, crossAxisSpacing: 10, mainAxisSpacing: 10),
@@ -224,6 +226,7 @@ class _BillingScreenState extends State<BillingScreen> {
 
   Widget _buildListItems(List<Item> items) {
     return ListView.builder(
+      controller: _itemScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: items.length,
       itemBuilder: (ctx, i) {
@@ -854,6 +857,10 @@ class _BillingScreenState extends State<BillingScreen> {
       final idx = _cart.indexWhere((c) => c.item.id == item.id);
       if (idx >= 0) _cart[idx].quantity++; else _cart.add(_CartItem(item: item, quantity: 1));
     });
+    // Scroll item list back to top
+    if (_itemScrollController.hasClients) {
+      _itemScrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
   }
 
   void _scanBarcode(BuildContext context, void Function(String code) onScanned) {
