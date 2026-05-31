@@ -867,10 +867,6 @@ class _BillingScreenState extends State<BillingScreen> {
       final idx = _cart.indexWhere((c) => c.item.id == item.id);
       if (idx >= 0) _cart[idx].quantity++; else _cart.add(_CartItem(item: item, quantity: 1));
     });
-    // Scroll item list back to top
-    if (_itemScrollController.hasClients) {
-      _itemScrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-    }
   }
 
   void _scanBarcode(BuildContext context, void Function(String code) onScanned) {
