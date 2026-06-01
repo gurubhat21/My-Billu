@@ -34,24 +34,28 @@ class _RecurringBillScreenState extends State<RecurringBillScreen> {
     final items = appState.recurringBills;
 
     return Column(children: [
-      Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 0), child: Row(children: [
-        Text('Recurring Bills', style: Theme.of(context).textTheme.headlineLarge),
-        const Spacer(),
-        OutlinedButton.icon(
-          onPressed: () async {
-            final count = await appState.processRecurringBills();
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(count > 0 ? '✅ $count bill(s) generated!' : 'No bills due yet'),
-                backgroundColor: count > 0 ? AppColors.success : AppColors.primary));
-            }
-          },
-          icon: const Icon(Icons.play_arrow, size: 18), label: const Text('Process Due')),
-        const SizedBox(width: 12),
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-          onPressed: () => _showCreateDialog(context, appState),
-          icon: const Icon(Icons.add, size: 18), label: const Text('New Recurring')),
+      Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 0), child: Wrap(
+        spacing: 8, runSpacing: 8, alignment: WrapAlignment.spaceBetween, children: [
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Text('Recurring Bills', style: Theme.of(context).textTheme.headlineLarge),
+        ]),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          OutlinedButton.icon(
+            onPressed: () async {
+              final count = await appState.processRecurringBills();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(count > 0 ? '✅ $count bill(s) generated!' : 'No bills due yet'),
+                  backgroundColor: count > 0 ? AppColors.success : AppColors.primary));
+              }
+            },
+            icon: const Icon(Icons.play_arrow, size: 18), label: const Text('Process Due')),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: () => _showCreateDialog(context, appState),
+            icon: const Icon(Icons.add, size: 18), label: const Text('New Recurring')),
+        ]),
       ])),
       const SizedBox(height: 16),
       Expanded(child: items.isEmpty

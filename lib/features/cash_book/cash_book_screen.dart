@@ -45,11 +45,12 @@ class _CashBookScreenState extends State<CashBookScreen> with SingleTickerProvid
 
       return Column(children: [
         Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 0), child: Column(children: [
-          Row(children: [
-            const Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 28),
-            const SizedBox(width: 10),
-            Text('Cash & Bank Book', style: Theme.of(context).textTheme.headlineLarge),
-            const Spacer(),
+          Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.spaceBetween, children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 28),
+              const SizedBox(width: 10),
+              Text('Cash & Bank Book', style: Theme.of(context).textTheme.headlineLarge),
+            ]),
             ElevatedButton.icon(
               onPressed: () => _showAddTransaction(context, appState),
               icon: const Icon(Icons.add, size: 18),

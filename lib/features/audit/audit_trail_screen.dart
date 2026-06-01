@@ -37,23 +37,26 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
 
       return Column(children: [
         Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 0), child: Column(children: [
-          Row(children: [
-            const Icon(Icons.history, color: AppColors.primary, size: 28),
-            const SizedBox(width: 10),
-            Text('Audit Trail', style: Theme.of(context).textTheme.headlineLarge),
-            const Spacer(),
-            Text('${entries.length} entries', style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4), fontSize: 13)),
-            const SizedBox(width: 12),
-            if (appState.auditLog.isNotEmpty)
-              OutlinedButton.icon(
-                onPressed: () => _confirmClear(context, appState),
-                icon: const Icon(Icons.delete_sweep, size: 16),
-                label: const Text('Clear Log'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.error,
-                  side: const BorderSide(color: AppColors.error)),
-              ),
+          Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.spaceBetween, children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.history, color: AppColors.primary, size: 28),
+              const SizedBox(width: 10),
+              Text('Audit Trail', style: Theme.of(context).textTheme.headlineLarge),
+            ]),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('${entries.length} entries', style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.4), fontSize: 13)),
+              const SizedBox(width: 12),
+              if (appState.auditLog.isNotEmpty)
+                OutlinedButton.icon(
+                  onPressed: () => _confirmClear(context, appState),
+                  icon: const Icon(Icons.delete_sweep, size: 16),
+                  label: const Text('Clear Log'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error)),
+                ),
+            ]),
           ]),
           const SizedBox(height: 14),
 

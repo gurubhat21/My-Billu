@@ -25,22 +25,26 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
             pr.supplierName.toLowerCase().contains(_search.toLowerCase())).toList();
 
     return Column(children: [
-      Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 0), child: Row(children: [
-        Text('Purchase Returns', style: Theme.of(context).textTheme.headlineLarge),
-        const Spacer(),
-        SizedBox(width: 220, child: TextField(
-          onChanged: (v) => setState(() => _search = v),
-          decoration: InputDecoration(
-            hintText: 'Search...', prefixIcon: const Icon(Icons.search, size: 18),
-            isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-        )),
-        const SizedBox(width: 12),
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-          onPressed: () => _showCreateDialog(context, appState),
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('New Return')),
+      Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 0), child: Wrap(
+        spacing: 8, runSpacing: 8, alignment: WrapAlignment.spaceBetween, children: [
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Text('Purchase Returns', style: Theme.of(context).textTheme.headlineLarge),
+        ]),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          SizedBox(width: 220, child: TextField(
+            onChanged: (v) => setState(() => _search = v),
+            decoration: InputDecoration(
+              hintText: 'Search...', prefixIcon: const Icon(Icons.search, size: 18),
+              isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+          )),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+            onPressed: () => _showCreateDialog(context, appState),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('New Return')),
+        ]),
       ])),
       const SizedBox(height: 16),
       Expanded(child: filtered.isEmpty

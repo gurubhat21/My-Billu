@@ -21,20 +21,24 @@ class _CustomerLedgerScreenState extends State<CustomerLedgerScreen> {
     final customers = appState.customers;
 
     return Column(children: [
-      Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 0), child: Row(children: [
-        Text('Customer Ledger', style: Theme.of(context).textTheme.headlineLarge),
-        const Spacer(),
-        SizedBox(width: 300, child: DropdownButtonFormField<Customer>(
-          decoration: InputDecoration(
-            hintText: 'Select Customer', isDense: true,
-            contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-          isExpanded: true,
-          value: _selectedCustomer,
-          items: customers.map((c) => DropdownMenuItem(value: c,
-            child: Text('${c.name}${c.phone != null ? " (${c.phone})" : ""}', overflow: TextOverflow.ellipsis))).toList(),
-          onChanged: (c) => setState(() => _selectedCustomer = c),
-        )),
+      Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 0), child: Wrap(
+        spacing: 8, runSpacing: 8, alignment: WrapAlignment.spaceBetween, children: [
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Text('Customer Ledger', style: Theme.of(context).textTheme.headlineLarge),
+        ]),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          SizedBox(width: 300, child: DropdownButtonFormField<Customer>(
+            decoration: InputDecoration(
+              hintText: 'Select Customer', isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+            isExpanded: true,
+            value: _selectedCustomer,
+            items: customers.map((c) => DropdownMenuItem(value: c,
+              child: Text('${c.name}${c.phone != null ? " (${c.phone})" : ""}', overflow: TextOverflow.ellipsis))).toList(),
+            onChanged: (c) => setState(() => _selectedCustomer = c),
+          )),
+        ]),
       ])),
       const SizedBox(height: 16),
       Expanded(child: _selectedCustomer == null
