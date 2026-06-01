@@ -147,7 +147,7 @@ class InvoiceGenerator {
       final file = File('${dir.path}/$fileName');
       await file.writeAsBytes(bytes);
       await Share.shareXFiles([XFile(file.path, mimeType: 'application/pdf')],
-        text: '${documentTitle ?? 'Invoice'} ${bill.billNumber} - ${_cur(bill.totalAmount)} from $businessName');
+        subject: '${documentTitle ?? 'Invoice'} ${bill.billNumber} - ${_cur(bill.totalAmount)} from $businessName');
     }
   }
 
@@ -312,7 +312,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       }
     }
 
-    // On mobile (non-web), try to share PDF via WhatsApp
+    // On mobile (non-web), share PDF + message
     if (!kIsWeb) {
       try {
         // Generate and save PDF
@@ -328,11 +328,11 @@ ${thankYouMessage ?? 'Thank you for your business!'}
         final file = File('${dir.path}/Invoice_${bill.billNumber}.pdf');
         await file.writeAsBytes(bytes);
 
-        // Try platform-specific WhatsApp intent (Android)
-        if (Platform.isAndroid) {
+        // Share PDF as primary content with message as subject
+        if (Platform.isAndroid || Platform.isIOS) {
           await Share.shareXFiles(
             [XFile(file.path, mimeType: 'application/pdf')],
-            text: message,
+            subject: 'Invoice ${bill.billNumber} from $businessName',
           );
           return;
         }
