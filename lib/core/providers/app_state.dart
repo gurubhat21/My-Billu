@@ -237,10 +237,29 @@ class AppState extends ChangeNotifier {
 
   Future<void> deletePurchase(String id) async {
     final p = _purchases.firstWhere((p) => p.id == id, orElse: () => Purchase(purchaseNumber: '?', supplierName: '?', items: [], subtotal: 0, totalTax: 0, totalAmount: 0));
+    
+    // Reverse stock changes for received purchases
+    if (p.status == PurchaseStatus.received) {
+      for (final purchaseItem in p.items) {
+        final item = _items.firstWhere(
+          (i) => i.id == purchaseItem.itemId,
+          orElse: () => Item(name: '', price: 0),
+        );
+        if (item.name.isNotEmpty) {
+          item.stockQuantity -= purchaseItem.quantity;
+          if (item.stockQuantity < 0) item.stockQuantity = 0;
+          await _db.updateItem(item);
+        }
+      }
+    }
+    
     await _db.deletePurchase(id);
-    await logAudit(AuditAction.deleted, AuditEntity.purchase, p.purchaseNumber);
-    await loadPurchases();
-    await loadDashboardStats();
+    await logAudit(AuditAction.deleted, AuditEntity.purchase, p.purchaseNumber, details: 'Stock reversed');
+    await Future.wait([
+      loadPurchases(),
+      loadItems(),
+      loadDashboardStats(),
+    ]);
   }
 
   Future<void> updatePurchase(Purchase purchase) async {

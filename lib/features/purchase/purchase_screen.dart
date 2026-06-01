@@ -281,7 +281,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                         FocusScope.of(context).unfocus();
                         setState(() {
                           _selectedItem = item;
-                          _costCtrl.text = item.price.toStringAsFixed(2);
+                          _costCtrl.text = item.purchasePrice.toStringAsFixed(2);
                         });
                       },
                       optionsViewBuilder: (ctx, onSelected, options) {
@@ -303,7 +303,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                                     child: Text(item.name[0].toUpperCase(),
                                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary))),
                                   title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                                  subtitle: Text('₹${item.price.toStringAsFixed(2)} · ${item.unit} · Stock: ${item.stockQuantity}',
+                                  subtitle: Text('₹${item.purchasePrice.toStringAsFixed(2)} · ${item.unit} · Stock: ${item.stockQuantity}',
                                     style: const TextStyle(fontSize: 11)),
                                   onTap: () => onSelected(item),
                                 );
@@ -389,8 +389,38 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                         Row(children: [
                           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text(e.item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                            Text('${e.qty} × ${AppFormatters.currency(e.costPrice)} + ${e.item.taxRate}% GST',
-                              style: Theme.of(context).textTheme.bodySmall),
+                            GestureDetector(
+                              onTap: () {
+                                final ctrl = TextEditingController(text: e.costPrice.toStringAsFixed(2));
+                                showDialog(context: context, builder: (ctx2) => AlertDialog(
+                                  title: const Text('Edit Price', style: TextStyle(fontSize: 16)),
+                                  content: TextField(
+                                    controller: ctrl, autofocus: true,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(prefixText: '₹ ', labelText: 'Cost Price'),
+                                    onSubmitted: (_) {
+                                      final p = double.tryParse(ctrl.text);
+                                      if (p != null && p >= 0) setState(() => _cart[i] = _CartEntry(item: e.item, qty: e.qty, costPrice: p, description: e.description, serialNumbers: e.serialNumbers));
+                                      Navigator.pop(ctx2);
+                                    },
+                                  ),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx2), child: const Text('Cancel')),
+                                    ElevatedButton(onPressed: () {
+                                      final p = double.tryParse(ctrl.text);
+                                      if (p != null && p >= 0) setState(() => _cart[i] = _CartEntry(item: e.item, qty: e.qty, costPrice: p, description: e.description, serialNumbers: e.serialNumbers));
+                                      Navigator.pop(ctx2);
+                                    }, child: const Text('Save')),
+                                  ],
+                                ));
+                              },
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Text('${e.qty} × ${AppFormatters.currency(e.costPrice)} + ${e.item.taxRate}% GST',
+                                  style: Theme.of(context).textTheme.bodySmall),
+                                const SizedBox(width: 4),
+                                Icon(Icons.edit, size: 11, color: Colors.white.withValues(alpha: 0.25)),
+                              ]),
+                            ),
                           ])),
                           Text(AppFormatters.currency(e.total), style: const TextStyle(fontWeight: FontWeight.w700)),
                           IconButton(icon: const Icon(Icons.close, size: 18, color: AppColors.error),
@@ -795,7 +825,7 @@ class _PurchaseHistoryTab extends StatelessWidget {
           Navigator.pop(ctx);
           final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
             title: const Text('Delete Purchase?'),
-            content: const Text('This will not reverse stock changes.'),
+            content: const Text('This will reverse stock changes and reduce item quantities.'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
               ElevatedButton(onPressed: () => Navigator.pop(c, true),
@@ -1039,18 +1069,18 @@ class _PurchaseHistoryTab extends StatelessWidget {
                 dense: true,
                 leading: const Icon(Icons.inventory_2, size: 20, color: AppColors.accent),
                 title: Text(item.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                subtitle: Text('₹${item.price.toStringAsFixed(2)} • Tax: ${item.taxRate}%', style: const TextStyle(fontSize: 11)),
+                subtitle: Text('₹${item.purchasePrice.toStringAsFixed(2)} • Tax: ${item.taxRate}%', style: const TextStyle(fontSize: 11)),
                 trailing: const Icon(Icons.add_circle, color: AppColors.success),
                 onTap: () {
                   Navigator.pop(dCtx);
                   setEditState(() {
                     editItems.add({
-                      'itemId': item.id, 'itemName': item.name, 'unitCost': item.price,
+                      'itemId': item.id, 'itemName': item.name, 'unitCost': item.purchasePrice,
                       'quantity': 1, 'taxRate': item.taxRate, 'unit': item.unit,
                       'description': item.description, 'serialNumber': null,
                     });
                     itemCtrls.add({
-                      'cost': TextEditingController(text: item.price.toStringAsFixed(2)),
+                      'cost': TextEditingController(text: item.purchasePrice.toStringAsFixed(2)),
                       'qty': TextEditingController(text: '1'),
                       'tax': TextEditingController(text: item.taxRate.toStringAsFixed(1)),
                     });

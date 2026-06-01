@@ -42,12 +42,13 @@ class _QuotationScreenState extends State<QuotationScreen> {
       return LayoutBuilder(builder: (context, constraints) {
         final isWide = constraints.maxWidth > 700;
         return Column(children: [
-          Padding(padding: EdgeInsets.all(isWide ? 24 : 16), child: Row(children: [
+          Padding(padding: EdgeInsets.all(isWide ? 24 : 12), child: Row(children: [
             Expanded(child: Text('Quotations / Estimates', style: Theme.of(context).textTheme.headlineLarge)),
             ElevatedButton.icon(
               onPressed: () => _showCreateQuotation(context, appState),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('New Quotation'),
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+              icon: const Icon(Icons.add, size: 16),
+              label: Text(isWide ? 'New Quotation' : 'New', style: const TextStyle(fontSize: 13)),
             ),
           ])),
           // Filters

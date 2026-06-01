@@ -25,21 +25,25 @@ class _SupplierScreenState extends State<SupplierScreen> {
         : appState.suppliers.where((s) => s.name.toLowerCase().contains(_search.toLowerCase()) ||
             (s.phone ?? '').contains(_search)).toList();
 
+    return LayoutBuilder(builder: (context, constraints) {
+    final isWide = constraints.maxWidth > 500;
     return Column(children: [
-      Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 0), child: Row(children: [
-        Text('Suppliers', style: Theme.of(context).textTheme.headlineLarge),
-        const Spacer(),
-        SizedBox(width: 220, child: TextField(
-          onChanged: (v) => setState(() => _search = v),
-          decoration: InputDecoration(hintText: 'Search...', prefixIcon: const Icon(Icons.search, size: 18),
-            isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))))),
-        const SizedBox(width: 12),
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-          onPressed: () => _showDialog(context, appState),
-          icon: const Icon(Icons.add, size: 18), label: const Text('Add Supplier')),
-      ])),
+      Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 0), child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text('Suppliers', style: Theme.of(context).textTheme.headlineLarge)),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+              onPressed: () => _showDialog(context, appState),
+              icon: const Icon(Icons.add, size: 18), label: const Text('Add Supplier')),
+          ]),
+          const SizedBox(height: 12),
+          TextField(
+            onChanged: (v) => setState(() => _search = v),
+            decoration: InputDecoration(hintText: 'Search...', prefixIcon: const Icon(Icons.search, size: 18),
+              isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
+        ])),
       const SizedBox(height: 16),
       Expanded(child: filtered.isEmpty
         ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -79,6 +83,7 @@ class _SupplierScreenState extends State<SupplierScreen> {
                 ])));
             })),
     ]);
+    });
   }
 
   void _showDialog(BuildContext context, AppState appState, {Supplier? supplier}) {
