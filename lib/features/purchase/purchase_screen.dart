@@ -506,13 +506,21 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                         // Dynamic serial number fields — Enter/scan adds next field
                         if (_showSerialNumber)
                           ...List.generate(e.serialNumbers.length, (si) {
-                            final isLastEmpty = si == e.serialNumbers.length - 1 && e.serialNumbers[si].isEmpty && e.serialNumbers.length > 1;
+                            final focusKey = 'pserial_${e.item.id}_${si}_${e.serialNumbers.length}';
                             return Padding(
                             padding: const EdgeInsets.only(top: 6),
-                            child: TextFormField(
-                              key: ValueKey('pserial_${e.item.id}_${si}_${e.serialNumbers.length}'),
+                            child: Builder(builder: (fieldContext) {
+                              final focusNode = FocusNode();
+                              // Auto-focus the last empty field (newly added)
+                              if (si == e.serialNumbers.length - 1 && e.serialNumbers[si].isEmpty && e.serialNumbers.length > 1) {
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (fieldContext.mounted) focusNode.requestFocus();
+                                });
+                              }
+                              return TextFormField(
+                              key: ValueKey(focusKey),
                               initialValue: e.serialNumbers[si],
-                              autofocus: isLastEmpty,
+                              focusNode: focusNode,
                               onChanged: (v) => e.serialNumbers[si] = v,
                               textInputAction: TextInputAction.next,
                               onFieldSubmitted: (val) {
@@ -554,7 +562,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                                     ),
                                 ]),
                               ),
-                            ));
+                            );}));
                           }),
                       ]),
                     ));
