@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:typed_data';
-import 'dart:io' show File, Platform, Directory;
+import 'dart:io' show File, Platform, Directory, Process;
 import 'dart:convert';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -143,8 +143,17 @@ class InvoiceGenerator {
     final fileName = '${partyName}_${bill.billNumber}.pdf';
     if (kIsWeb) {
       await Printing.sharePdf(bytes: bytes, filename: fileName);
+    } else if (Platform.isWindows) {
+      // Windows: Save PDF to Documents and open folder with file selected
+      final docsDir = await getApplicationDocumentsDirectory();
+      final invoiceDir = Directory('${docsDir.path}/My Billu Invoices');
+      if (!await invoiceDir.exists()) await invoiceDir.create(recursive: true);
+      final file = File('${invoiceDir.path}/$fileName');
+      await file.writeAsBytes(bytes);
+      // Open Explorer with the file selected
+      await Process.run('explorer.exe', ['/select,', file.path]);
     } else {
-      // Save PDF to temp and share via system share dialog
+      // Mobile: share as file attachment
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/$fileName');
       await file.writeAsBytes(bytes);
