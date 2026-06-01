@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/input_formatters.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onComplete;
@@ -61,7 +63,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       await appState.saveSetting('businessPhone', _businessPhoneCtrl.text.trim());
     }
     if (_businessGstinCtrl.text.trim().isNotEmpty) {
-      await appState.saveSetting('businessGstin', _businessGstinCtrl.text.trim());
+      await appState.saveSetting('businessGstin', _businessGstinCtrl.text.trim().toUpperCase());
     }
     await appState.saveSetting('businessType', _businessType);
 
@@ -245,7 +247,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         const SizedBox(height: 8),
         Text('Optional - you can add this later in Settings', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 13)),
         const SizedBox(height: 28),
-        _styledField(_businessGstinCtrl, 'GSTIN Number', Icons.badge_outlined, 'e.g. 29ABCDE1234F1ZK'),
+        _buildGstinField(),
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(20),
@@ -333,6 +335,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
         hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
         prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.4)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.04),
+      ),
+    );
+  }
+
+  Widget _buildGstinField() {
+    return TextField(
+      controller: _businessGstinCtrl,
+      textCapitalization: TextCapitalization.characters,
+      inputFormatters: [UpperCaseTextFormatter()],
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: 'GSTIN Number',
+        hintText: 'e.g. 29ABCDE1234F1ZK',
+        labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
+        prefixIcon: Icon(Icons.badge_outlined, color: Colors.white.withValues(alpha: 0.4)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
