@@ -341,10 +341,15 @@ class AppState extends ChangeNotifier {
 
   Future<void> deleteBill(String id) async {
     final bill = _bills.firstWhere((b) => b.id == id, orElse: () => Bill(billNumber: '?', items: [], subtotal: 0, totalTax: 0, totalAmount: 0));
+
+    // Reverse all cash/bank book entries linked to this bill
+    if (bill.billNumber != '?') {
+      await _reverseCashBookEntriesForBill(bill.billNumber);
+    }
+
     await _db.deleteBill(id);
     await logAudit(AuditAction.deleted, AuditEntity.bill, bill.billNumber);
-    await loadBills();
-    await loadDashboardStats();
+    await Future.wait([loadBills(), loadDashboardStats()]);
   }
 
   Future<void> collectPayment(String billId, double amount, {String paymentType = 'cash', String? bankAccountId}) async {
@@ -390,14 +395,54 @@ class AppState extends ChangeNotifier {
 
     await Future.wait([loadBills(), loadCustomers(), loadDashboardStats()]);
   }
-
   Future<List<Bill>> getBillsByDate(DateTime date) async {
     return await _db.getBillsByDate(date);
   }
 
   Future<void> updateBillRecord(Bill bill) async {
+    // Reverse old cash/bank entries for this bill, then re-add based on new paid amount
+    await _reverseCashBookEntriesForBill(bill.billNumber);
+
+    // Re-create entry for the new paid amount
+    if (bill.paidAmount > 0) {
+      final isCash = bill.paymentMethod == PaymentMethod.cash;
+      await addCashBookEntry(CashBookEntry(
+        type: isCash ? TransactionType.cashIn : TransactionType.bankIn,
+        amount: bill.paidAmount,
+        description: 'Sales (Edited) - ${bill.billNumber} (${bill.customerName ?? "Walk-in"})',
+        reference: bill.billNumber,
+        bankAccountId: !isCash && _bankAccounts.isNotEmpty ? _bankAccounts.first.id : null,
+        category: 'Sales',
+      ));
+    }
+
     await _db.updateBill(bill);
     await Future.wait([loadBills(), loadDashboardStats()]);
+  }
+
+  /// Remove all cash/bank book entries that reference the given bill number
+  /// and reverse any bank balance changes they caused.
+  Future<void> _reverseCashBookEntriesForBill(String billNumber) async {
+    final toRemove = _cashBookEntries.where((e) => e.reference == billNumber).toList();
+    for (final entry in toRemove) {
+      // Reverse bank balance if it was a bank transaction
+      if (entry.bankAccountId != null) {
+        final idx = _bankAccounts.indexWhere((a) => a.id == entry.bankAccountId);
+        if (idx >= 0) {
+          if (entry.type == TransactionType.bankIn) {
+            _bankAccounts[idx].balance -= entry.amount;
+          } else if (entry.type == TransactionType.bankOut) {
+            _bankAccounts[idx].balance += entry.amount;
+          }
+        }
+      }
+      _cashBookEntries.removeWhere((e) => e.id == entry.id);
+    }
+    if (toRemove.isNotEmpty) {
+      await _saveCashBook();
+      await _saveBankAccounts();
+      notifyListeners();
+    }
   }
 
   // ===== DASHBOARD =====
