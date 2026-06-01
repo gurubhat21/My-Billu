@@ -415,12 +415,54 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
                                 ));
                               },
                               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                Text('${e.qty} × ${AppFormatters.currency(e.costPrice)} + ${e.item.taxRate}% GST',
+                                Text('${AppFormatters.currency(e.costPrice)}',
                                   style: Theme.of(context).textTheme.bodySmall),
-                                const SizedBox(width: 4),
-                                Icon(Icons.edit, size: 11, color: Colors.white.withValues(alpha: 0.25)),
+                                const SizedBox(width: 2),
+                                Icon(Icons.edit, size: 10, color: Colors.white.withValues(alpha: 0.25)),
                               ]),
                             ),
+                            const SizedBox(height: 2),
+                            Row(mainAxisSize: MainAxisSize.min, children: [
+                              GestureDetector(
+                                onTap: () {
+                                  final ctrl = TextEditingController(text: e.qty.toString());
+                                  showDialog(context: context, builder: (ctx2) => AlertDialog(
+                                    title: const Text('Edit Quantity', style: TextStyle(fontSize: 16)),
+                                    content: TextField(
+                                      controller: ctrl, autofocus: true,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(labelText: 'Quantity'),
+                                      onSubmitted: (_) {
+                                        final q = int.tryParse(ctrl.text);
+                                        if (q != null && q > 0) setState(() => _cart[i] = _CartEntry(item: e.item, qty: q, costPrice: e.costPrice, description: e.description, serialNumbers: e.serialNumbers));
+                                        Navigator.pop(ctx2);
+                                      },
+                                    ),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx2), child: const Text('Cancel')),
+                                      ElevatedButton(onPressed: () {
+                                        final q = int.tryParse(ctrl.text);
+                                        if (q != null && q > 0) setState(() => _cart[i] = _CartEntry(item: e.item, qty: q, costPrice: e.costPrice, description: e.description, serialNumbers: e.serialNumbers));
+                                        Navigator.pop(ctx2);
+                                      }, child: const Text('Save')),
+                                    ],
+                                  ));
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6)),
+                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    Text('Qty: ${e.qty}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                                    const SizedBox(width: 2),
+                                    Icon(Icons.edit, size: 10, color: AppColors.primary.withValues(alpha: 0.5)),
+                                  ]),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text('+ ${e.item.taxRate}% GST', style: Theme.of(context).textTheme.bodySmall),
+                            ]),
                           ])),
                           Text(AppFormatters.currency(e.total), style: const TextStyle(fontWeight: FontWeight.w700)),
                           IconButton(icon: const Icon(Icons.close, size: 18, color: AppColors.error),
