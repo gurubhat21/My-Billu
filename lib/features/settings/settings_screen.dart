@@ -56,6 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _bizBankNameCtrl = TextEditingController();
   final _bizBankAccountCtrl = TextEditingController();
   final _bizBankIfscCtrl = TextEditingController();
+  final _bizUpiIdCtrl = TextEditingController();
   final _barcodeCtrl = TextEditingController();
   final _thankYouMsgCtrl = TextEditingController();
   final _termsConditionsCtrl = TextEditingController();
@@ -102,6 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _bizBankNameCtrl.text = settings['businessBankName'] ?? '';
       _bizBankAccountCtrl.text = settings['businessBankAccount'] ?? '';
       _bizBankIfscCtrl.text = settings['businessBankIfsc'] ?? '';
+      _bizUpiIdCtrl.text = settings['businessUpiId'] ?? '';
       _lanIpCtrl.text = settings['lan_sync_ip'] ?? '';
       _biometricEnabled = settings['biometric_enabled'] == 'true';
       _showItemDescription = settings['billing_show_description'] == 'true';
@@ -135,6 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await appState.saveSetting('businessBankName', _bizBankNameCtrl.text.trim());
     await appState.saveSetting('businessBankAccount', _bizBankAccountCtrl.text.trim());
     await appState.saveSetting('businessBankIfsc', _bizBankIfscCtrl.text.trim().toUpperCase());
+    await appState.saveSetting('businessUpiId', _bizUpiIdCtrl.text.trim());
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: const Row(children: [
@@ -415,6 +418,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     TextField(controller: _bizBankIfscCtrl, textCapitalization: TextCapitalization.characters,
                       decoration: const InputDecoration(labelText: 'IFSC Code', prefixIcon: Icon(Icons.pin_outlined),
                         hintText: 'e.g. UTIB0006083')),
+                    const SizedBox(height: 14),
+                    TextField(controller: _bizUpiIdCtrl,
+                      decoration: const InputDecoration(labelText: 'UPI ID (for QR on invoice)', prefixIcon: Icon(Icons.qr_code),
+                        hintText: 'e.g. business@upi')),
                     const SizedBox(height: 20),
 
                     // Logo section
@@ -2023,6 +2030,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _bizBankNameCtrl.dispose();
     _bizBankAccountCtrl.dispose();
     _bizBankIfscCtrl.dispose();
+    _bizUpiIdCtrl.dispose();
     _thankYouMsgCtrl.dispose();
     _termsConditionsCtrl.dispose();
     _pdfSavePathCtrl.dispose();
@@ -3002,6 +3010,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       businessBankName: settings['businessBankName'] ?? 'AXIS BANK, Branch: YELLAPUR',
       businessBankAccount: settings['businessBankAccount'] ?? '925020007361962',
       businessBankIfsc: settings['businessBankIfsc'] ?? 'UTIB0006083',
+      businessUpiId: settings['businessUpiId'] ?? '',
       logoBytes: logoBytes,
       template: template,
       paperSize: paperSize,

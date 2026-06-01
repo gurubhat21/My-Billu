@@ -197,6 +197,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   businessBankName: s['businessBankName'] ?? '',
                   businessBankAccount: s['businessBankAccount'] ?? '',
                   businessBankIfsc: s['businessBankIfsc'] ?? '',
+              businessUpiId: s['businessUpiId'] ?? '',
                   logoBytes: logoBytes,
                   template: template,
                   paperSize: paperSize,
@@ -224,6 +225,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               businessBankName: s['businessBankName'] ?? '',
               businessBankAccount: s['businessBankAccount'] ?? '',
               businessBankIfsc: s['businessBankIfsc'] ?? '',
+              businessUpiId: s['businessUpiId'] ?? '',
               logoBytes: logoBytes,
               template: template, paperSize: paperSize,
               thankYouMessage: s['pdf_thank_you_message'],
@@ -249,6 +251,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 businessBankName: s['businessBankName'] ?? '',
                 businessBankAccount: s['businessBankAccount'] ?? '',
                 businessBankIfsc: s['businessBankIfsc'] ?? '',
+              businessUpiId: s['businessUpiId'] ?? '',
                 logoBytes: logoBytes,
                 template: template, paperSize: paperSize,
                 thankYouMessage: s['pdf_thank_you_message'],
@@ -292,6 +295,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 businessBankName: s['businessBankName'] ?? '',
                 businessBankAccount: s['businessBankAccount'] ?? '',
                 businessBankIfsc: s['businessBankIfsc'] ?? '',
+              businessUpiId: s['businessUpiId'] ?? '',
                 logoBytes: logoBytes,
                 template: template, paperSize: paperSize,
                 thankYouMessage: s['pdf_thank_you_message'],
@@ -325,6 +329,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 businessBankName: s['businessBankName'] ?? '',
                 businessBankAccount: s['businessBankAccount'] ?? '',
                 businessBankIfsc: s['businessBankIfsc'] ?? '',
+              businessUpiId: s['businessUpiId'] ?? '',
                 logoBytes: logoBytes,
                 template: template, paperSize: paperSize,
                 thankYouMessage: s['pdf_thank_you_message'],
@@ -821,6 +826,7 @@ class _HistoryBillPreviewPage extends StatefulWidget {
   final String businessBankName;
   final String businessBankAccount;
   final String businessBankIfsc;
+  final String businessUpiId;
   final Uint8List? logoBytes;
   final InvoiceTemplate template;
   final PaperSize paperSize;
@@ -836,6 +842,7 @@ class _HistoryBillPreviewPage extends StatefulWidget {
     required this.businessBankName,
     required this.businessBankAccount,
     required this.businessBankIfsc,
+    this.businessUpiId = '',
     this.logoBytes,
     required this.template,
     required this.paperSize,
@@ -867,6 +874,7 @@ class _HistoryBillPreviewPageState extends State<_HistoryBillPreviewPage> {
       businessBankName: widget.businessBankName,
       businessBankAccount: widget.businessBankAccount,
       businessBankIfsc: widget.businessBankIfsc,
+      businessUpiId: widget.businessUpiId,
       logoBytes: widget.logoBytes,
       template: widget.template,
       paperSize: widget.paperSize,
@@ -896,6 +904,7 @@ class _HistoryBillPreviewPageState extends State<_HistoryBillPreviewPage> {
                   businessBankName: widget.businessBankName,
                   businessBankAccount: widget.businessBankAccount,
                   businessBankIfsc: widget.businessBankIfsc,
+                  businessUpiId: widget.businessUpiId,
                   logoBytes: widget.logoBytes,
                   template: widget.template,
                   paperSize: widget.paperSize,

@@ -33,6 +33,7 @@ class InvoiceGenerator {
     String businessBankName = '',
     String businessBankAccount = '',
     String businessBankIfsc = '',
+    String businessUpiId = '',
     Uint8List? logoBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
@@ -44,7 +45,7 @@ class InvoiceGenerator {
       businessName: businessName, businessAddress: businessAddress,
       businessPhone: businessPhone, businessGstin: businessGstin,
       businessBankName: businessBankName, businessBankAccount: businessBankAccount,
-      businessBankIfsc: businessBankIfsc, logoBytes: logoBytes,
+      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes,
       template: template, paperSize: paperSize, documentTitle: documentTitle,
       thankYouMessage: thankYouMessage, termsConditions: termsConditions);
     await Printing.layoutPdf(onLayout: (format) async => bytes);
@@ -59,6 +60,7 @@ class InvoiceGenerator {
     String businessBankName = '',
     String businessBankAccount = '',
     String businessBankIfsc = '',
+    String businessUpiId = '',
     Uint8List? logoBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
@@ -84,6 +86,7 @@ class InvoiceGenerator {
     final isA5 = paperSize == PaperSize.a5;
     final margin = isA5 ? const pw.EdgeInsets.all(20) : const pw.EdgeInsets.all(32);
     final bk = _BankInfo(businessBankName, businessBankAccount, businessBankIfsc);
+    final upiId = businessUpiId;
     final logoImage = logoBytes != null ? pw.MemoryImage(logoBytes) : null;
 
     pdf.addPage(pw.Page(
@@ -95,15 +98,15 @@ class InvoiceGenerator {
         final tc = termsConditions;
         switch (template) {
           case InvoiceTemplate.modern:
-            return _buildModernTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc);
+            return _buildModernTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId);
           case InvoiceTemplate.classic:
-            return _buildClassicTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc);
+            return _buildClassicTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId);
           case InvoiceTemplate.minimal:
-            return _buildMinimalTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc);
+            return _buildMinimalTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId);
           case InvoiceTemplate.gstInvoice:
-            return _buildGstInvoiceTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc);
+            return _buildGstInvoiceTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId);
           case InvoiceTemplate.simple:
-            return _buildSimpleTemplate(bill, businessName, businessAddress, businessPhone, isA5, bk, logoImage, docTitle, tyMsg, tc);
+            return _buildSimpleTemplate(bill, businessName, businessAddress, businessPhone, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId);
         }
       },
     ));
@@ -119,6 +122,7 @@ class InvoiceGenerator {
     String businessBankName = '',
     String businessBankAccount = '',
     String businessBankIfsc = '',
+    String businessUpiId = '',
     Uint8List? logoBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
@@ -130,7 +134,7 @@ class InvoiceGenerator {
       businessName: businessName, businessAddress: businessAddress,
       businessPhone: businessPhone, businessGstin: businessGstin,
       businessBankName: businessBankName, businessBankAccount: businessBankAccount,
-      businessBankIfsc: businessBankIfsc, logoBytes: logoBytes,
+      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes,
       template: template, paperSize: paperSize, documentTitle: documentTitle,
       thankYouMessage: thankYouMessage, termsConditions: termsConditions);
 
@@ -157,6 +161,7 @@ class InvoiceGenerator {
     String businessBankName = '',
     String businessBankAccount = '',
     String businessBankIfsc = '',
+    String businessUpiId = '',
     Uint8List? logoBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
@@ -169,7 +174,7 @@ class InvoiceGenerator {
       businessName: businessName, businessAddress: businessAddress,
       businessPhone: businessPhone, businessGstin: businessGstin,
       businessBankName: businessBankName, businessBankAccount: businessBankAccount,
-      businessBankIfsc: businessBankIfsc, logoBytes: logoBytes,
+      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes,
       template: template, paperSize: paperSize, documentTitle: documentTitle,
       thankYouMessage: thankYouMessage, termsConditions: termsConditions);
 
@@ -211,6 +216,7 @@ class InvoiceGenerator {
     String businessBankName = '',
     String businessBankAccount = '',
     String businessBankIfsc = '',
+    String businessUpiId = '',
     Uint8List? logoBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
@@ -219,7 +225,7 @@ class InvoiceGenerator {
       businessName: businessName, businessAddress: businessAddress,
       businessPhone: businessPhone, businessGstin: businessGstin,
       businessBankName: businessBankName, businessBankAccount: businessBankAccount,
-      businessBankIfsc: businessBankIfsc, logoBytes: logoBytes,
+      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes,
       template: template, paperSize: paperSize);
 
     final itemsList = bill.items.map((i) =>
@@ -267,6 +273,7 @@ Generated by My Billu - Smart Billing Software''';
     String businessBankName = '',
     String businessBankAccount = '',
     String businessBankIfsc = '',
+    String businessUpiId = '',
     Uint8List? logoBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
@@ -313,7 +320,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           businessName: businessName, businessAddress: businessAddress,
           businessPhone: businessPhone, businessGstin: businessGstin,
           businessBankName: businessBankName, businessBankAccount: businessBankAccount,
-          businessBankIfsc: businessBankIfsc, logoBytes: logoBytes,
+          businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes,
           template: template, paperSize: paperSize,
           thankYouMessage: thankYouMessage, termsConditions: termsConditions);
 
@@ -347,6 +354,38 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       // Last resort: try direct share
       await Share.share(message, subject: 'Invoice ${bill.billNumber}');
     }
+  }
+
+  // ===== UPI QR HELPER =====
+
+  static pw.Widget _upiQrBlock(String upiId, String businessName, double amount, String billNumber, double fs) {
+    final upiUri = 'upi://pay?pa=${Uri.encodeComponent(upiId)}&pn=${Uri.encodeComponent(businessName)}&am=${amount.toStringAsFixed(2)}&cu=INR&tn=${Uri.encodeComponent('Payment for $billNumber')}';
+    return pw.Container(
+      margin: pw.EdgeInsets.only(top: 8 * fs, bottom: 8 * fs),
+      padding: pw.EdgeInsets.all(10 * fs),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: pw.BorderRadius.circular(6),
+      ),
+      child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.center, children: [
+        pw.BarcodeWidget(
+          barcode: pw.Barcode.qrCode(),
+          data: upiUri,
+          width: 75 * fs,
+          height: 75 * fs,
+        ),
+        pw.SizedBox(width: 12 * fs),
+        pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          pw.Text('Scan to Pay', style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 4 * fs),
+          pw.Text('UPI: $upiId', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey700)),
+          pw.SizedBox(height: 2 * fs),
+          pw.Text('Amount: \u20b9${amount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 2 * fs),
+          pw.Text('Ref: $billNumber', style: pw.TextStyle(fontSize: 7 * fs, color: PdfColors.grey500)),
+        ]),
+      ]),
+    );
   }
 
   // ===== BANK INFO HELPER =====
@@ -395,7 +434,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
 
   // ===== TEMPLATE 1: MODERN (Indigo accent, colored header) =====
 
-  static pw.Widget _buildModernTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText) {
+  static pw.Widget _buildModernTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId) {
     final isQuotation = docTitle != null;
     final fs = isA5 ? 0.8 : 1.0;
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -459,6 +498,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       pw.SizedBox(height: 8 * fs),
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
+      if (upiId.isNotEmpty) _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
       pw.SizedBox(height: 14 * fs),
       pw.Divider(color: PdfColors.grey300),
       pw.SizedBox(height: 6 * fs),
@@ -470,7 +510,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
 
   // ===== TEMPLATE 2: CLASSIC (Professional, bordered, black & gold) =====
 
-  static pw.Widget _buildClassicTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText) {
+  static pw.Widget _buildClassicTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId) {
     final isQuotation = docTitle != null;
     final fs = isA5 ? 0.8 : 1.0;
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -530,6 +570,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       pw.SizedBox(height: 8 * fs),
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
+      if (upiId.isNotEmpty) _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
       pw.SizedBox(height: 18 * fs),
       // Signature line
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
@@ -553,7 +594,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
 
   // ===== TEMPLATE 3: MINIMAL (Clean, lightweight, blue accent) =====
 
-  static pw.Widget _buildMinimalTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText) {
+  static pw.Widget _buildMinimalTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId) {
     final isQuotation = docTitle != null;
     final fs = isA5 ? 0.8 : 1.0;
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -629,6 +670,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       pw.SizedBox(height: 8 * fs),
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
+      if (upiId.isNotEmpty) _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
       pw.Spacer(),
       pw.Container(height: 1, color: PdfColors.grey200),
       pw.SizedBox(height: 6),
@@ -853,7 +895,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
 
   // ===== TEMPLATE 5: SIMPLE (No GST) =====
 
-  static pw.Widget _buildSimpleTemplate(Bill bill, String bName, String bAddr, String bPhone, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText) {
+  static pw.Widget _buildSimpleTemplate(Bill bill, String bName, String bAddr, String bPhone, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId) {
     final isQuotation = docTitle != null;
     final fs = isA5 ? 0.8 : 1.0;
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -948,6 +990,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       pw.SizedBox(height: 8 * fs),
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
+      if (upiId.isNotEmpty) _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
       pw.SizedBox(height: 14 * fs),
       pw.Divider(color: PdfColors.grey300),
       pw.SizedBox(height: 6 * fs),
@@ -1015,7 +1058,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
 
   // ===== TEMPLATE 4: GST INVOICE (Traditional Indian Tax Invoice) =====
 
-  static pw.Widget _buildGstInvoiceTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText) {
+  static pw.Widget _buildGstInvoiceTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId) {
     final isQuotation = docTitle != null;
     final fs = isA5 ? 0.78 : 1.0;
     final bdr = pw.BorderSide(color: PdfColors.black, width: 0.8);
@@ -1204,6 +1247,12 @@ ${thankYouMessage ?? 'Thank you for your business!'}
               pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs)),
             ])),
           ]),
+        ),
+
+        // ---- UPI QR ----
+        if (upiId.isNotEmpty) pw.Padding(
+          padding: pw.EdgeInsets.symmetric(horizontal: 8 * fs),
+          child: _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
         ),
 
         // ---- Footer ----
