@@ -1205,6 +1205,7 @@ class _BillingScreenState extends State<BillingScreen> {
           final template = _parseTemplate(s['pdf_template']);
           final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
           final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+          final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
           final tyMsg = s['pdf_thank_you_message'];
           final tc = s['pdf_terms_conditions'];
           if (action == 'preview') {
@@ -1220,7 +1221,7 @@ class _BillingScreenState extends State<BillingScreen> {
                 businessBankAccount: s['businessBankAccount'] ?? '',
                 businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-                logoBytes: logoBytes,
+                logoBytes: logoBytes, sealBytes: sealBytes,
                 template: template,
                 paperSize: paperSize,
                 thankYouMessage: tyMsg,
@@ -1237,7 +1238,7 @@ class _BillingScreenState extends State<BillingScreen> {
               businessBankAccount: s['businessBankAccount'] ?? '',
               businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-              logoBytes: logoBytes,
+              logoBytes: logoBytes, sealBytes: sealBytes,
               template: template, paperSize: paperSize,
               thankYouMessage: tyMsg, termsConditions: tc,
             );
@@ -1251,7 +1252,7 @@ class _BillingScreenState extends State<BillingScreen> {
               businessBankAccount: s['businessBankAccount'] ?? '',
               businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-              logoBytes: logoBytes,
+              logoBytes: logoBytes, sealBytes: sealBytes,
               template: template, paperSize: paperSize,
               thankYouMessage: tyMsg, termsConditions: tc,
             );
@@ -1266,7 +1267,7 @@ class _BillingScreenState extends State<BillingScreen> {
                 businessBankAccount: s['businessBankAccount'] ?? '',
                 businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-                logoBytes: logoBytes,
+                logoBytes: logoBytes, sealBytes: sealBytes,
                 template: template, paperSize: paperSize,
                 thankYouMessage: tyMsg, termsConditions: tc,
                 savePath: s['pdf_save_path'],
@@ -1298,7 +1299,7 @@ class _BillingScreenState extends State<BillingScreen> {
               businessBankAccount: s['businessBankAccount'] ?? '',
               businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-              logoBytes: logoBytes,
+              logoBytes: logoBytes, sealBytes: sealBytes,
               template: template, paperSize: paperSize,
               thankYouMessage: tyMsg, termsConditions: tc,
             );
@@ -1413,6 +1414,7 @@ class _BillPreviewPage extends StatefulWidget {
   final String businessBankIfsc;
   final String businessUpiId;
   final Uint8List? logoBytes;
+  final Uint8List? sealBytes;
   final InvoiceTemplate template;
   final PaperSize paperSize;
   final String? thankYouMessage;
@@ -1429,6 +1431,7 @@ class _BillPreviewPage extends StatefulWidget {
     required this.businessBankIfsc,
     this.businessUpiId = '',
     this.logoBytes,
+    this.sealBytes,
     required this.template,
     required this.paperSize,
     this.thankYouMessage,
@@ -1460,7 +1463,7 @@ class _BillPreviewPageState extends State<_BillPreviewPage> {
       businessBankAccount: widget.businessBankAccount,
       businessBankIfsc: widget.businessBankIfsc,
       businessUpiId: widget.businessUpiId,
-      logoBytes: widget.logoBytes,
+      logoBytes: widget.logoBytes, sealBytes: widget.sealBytes,
       template: widget.template,
       paperSize: widget.paperSize,
       thankYouMessage: widget.thankYouMessage,
@@ -1490,7 +1493,7 @@ class _BillPreviewPageState extends State<_BillPreviewPage> {
                   businessBankAccount: widget.businessBankAccount,
                   businessBankIfsc: widget.businessBankIfsc,
                   businessUpiId: widget.businessUpiId,
-                  logoBytes: widget.logoBytes,
+                  logoBytes: widget.logoBytes, sealBytes: widget.sealBytes,
                   template: widget.template,
                   paperSize: widget.paperSize,
                   thankYouMessage: widget.thankYouMessage,

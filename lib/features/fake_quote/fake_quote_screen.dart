@@ -269,6 +269,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
                   final template = _parseTemplate(s['pdf_template']);
                   final paperSize = (s['pdf_paper_size'] ?? 'a4') == 'a5' ? PaperSize.a5 : PaperSize.a4;
                   final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+                  final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
                   await InvoiceGenerator.shareInvoice(bill,
                     businessName: record.companyName,
                     businessAddress: _currentCompanyAddress,
@@ -278,7 +279,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
                     businessBankAccount: s['businessBankAccount'] ?? '',
                     businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-                    logoBytes: logoBytes,
+                    logoBytes: logoBytes, sealBytes: sealBytes,
                     template: template, paperSize: paperSize,
                     documentTitle: 'QUOTATION',
                     thankYouMessage: s['pdf_thank_you_message'],
@@ -1208,6 +1209,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
     final template = _parseTemplate(s['pdf_template']);
     final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
     final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+    final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
 
     // Use FAKE company details instead of real ones
     final businessName = _currentCompanyName.isNotEmpty ? _currentCompanyName : 'Company';
@@ -1226,7 +1228,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
         businessBankAccount: s['businessBankAccount'] ?? '',
         businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-        logoBytes: logoBytes,
+        logoBytes: logoBytes, sealBytes: sealBytes,
         template: template, paperSize: paperSize,
         documentTitle: 'QUOTATION',
         thankYouMessage: s['pdf_thank_you_message'],
@@ -1243,7 +1245,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
           businessBankAccount: s['businessBankAccount'] ?? '',
           businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-          logoBytes: logoBytes,
+          logoBytes: logoBytes, sealBytes: sealBytes,
           template: template, paperSize: paperSize,
           documentTitle: 'QUOTATION',
           thankYouMessage: s['pdf_thank_you_message'],
@@ -1266,7 +1268,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
           businessBankAccount: s['businessBankAccount'] ?? '',
           businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-          logoBytes: logoBytes,
+          logoBytes: logoBytes, sealBytes: sealBytes,
           template: template, paperSize: paperSize,
           documentTitle: 'QUOTATION',
           thankYouMessage: s['pdf_thank_you_message'],

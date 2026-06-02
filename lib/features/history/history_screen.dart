@@ -206,6 +206,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             final template = _parseTemplate(s['pdf_template']);
             final paperSize = _parsePaperSize(selectedSize);
             final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+            final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
             if (context.mounted) {
               Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => _HistoryBillPreviewPage(
@@ -218,7 +219,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   businessBankAccount: s['businessBankAccount'] ?? '',
                   businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-                  logoBytes: logoBytes,
+                  logoBytes: logoBytes, sealBytes: sealBytes,
                   template: template,
                   paperSize: paperSize,
                   thankYouMessage: s['pdf_thank_you_message'],
@@ -237,6 +238,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             final template = _parseTemplate(s['pdf_template']);
             final paperSize = _parsePaperSize(selectedSize);
             final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+            final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
             await InvoiceGenerator.generateAndPrint(bill,
               businessName: s['businessName'] ?? 'My Billu',
               businessAddress: s['businessAddress'] ?? '',
@@ -246,7 +248,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               businessBankAccount: s['businessBankAccount'] ?? '',
               businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-              logoBytes: logoBytes,
+              logoBytes: logoBytes, sealBytes: sealBytes,
               template: template, paperSize: paperSize,
               thankYouMessage: s['pdf_thank_you_message'],
               termsConditions: s['pdf_terms_conditions'],
@@ -262,6 +264,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             final template = _parseTemplate(s['pdf_template']);
             final paperSize = _parsePaperSize(selectedSize);
             final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+            final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
             try {
               final savedPath = await InvoiceGenerator.savePdfToFile(bill,
                 businessName: s['businessName'] ?? 'My Billu',
@@ -272,7 +275,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 businessBankAccount: s['businessBankAccount'] ?? '',
                 businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-                logoBytes: logoBytes,
+                logoBytes: logoBytes, sealBytes: sealBytes,
                 template: template, paperSize: paperSize,
                 thankYouMessage: s['pdf_thank_you_message'],
                 termsConditions: s['pdf_terms_conditions'],
@@ -306,6 +309,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             final template = _parseTemplate(s['pdf_template']);
             final paperSize = _parsePaperSize(selectedSize);
             final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+            final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
             try {
               await InvoiceGenerator.shareInvoice(bill,
                 businessName: s['businessName'] ?? 'My Billu',
@@ -316,7 +320,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 businessBankAccount: s['businessBankAccount'] ?? '',
                 businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-                logoBytes: logoBytes,
+                logoBytes: logoBytes, sealBytes: sealBytes,
                 template: template, paperSize: paperSize,
                 thankYouMessage: s['pdf_thank_you_message'],
                 termsConditions: s['pdf_terms_conditions'],
@@ -339,6 +343,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             final template = _parseTemplate(s['pdf_template']);
             final paperSize = _parsePaperSize(selectedSize);
             final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+            final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
             try {
               await InvoiceGenerator.shareViaWhatsApp(bill,
                 customerPhone: bill.customerPhone,
@@ -350,7 +355,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 businessBankAccount: s['businessBankAccount'] ?? '',
                 businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-                logoBytes: logoBytes,
+                logoBytes: logoBytes, sealBytes: sealBytes,
                 template: template, paperSize: paperSize,
                 thankYouMessage: s['pdf_thank_you_message'],
                 termsConditions: s['pdf_terms_conditions'],
@@ -848,6 +853,7 @@ class _HistoryBillPreviewPage extends StatefulWidget {
   final String businessBankIfsc;
   final String businessUpiId;
   final Uint8List? logoBytes;
+  final Uint8List? sealBytes;
   final InvoiceTemplate template;
   final PaperSize paperSize;
   final String? thankYouMessage;
@@ -864,6 +870,7 @@ class _HistoryBillPreviewPage extends StatefulWidget {
     required this.businessBankIfsc,
     this.businessUpiId = '',
     this.logoBytes,
+    this.sealBytes,
     required this.template,
     required this.paperSize,
     this.thankYouMessage,
@@ -895,7 +902,7 @@ class _HistoryBillPreviewPageState extends State<_HistoryBillPreviewPage> {
       businessBankAccount: widget.businessBankAccount,
       businessBankIfsc: widget.businessBankIfsc,
       businessUpiId: widget.businessUpiId,
-      logoBytes: widget.logoBytes,
+      logoBytes: widget.logoBytes, sealBytes: widget.sealBytes,
       template: widget.template,
       paperSize: widget.paperSize,
       thankYouMessage: widget.thankYouMessage,
@@ -925,7 +932,7 @@ class _HistoryBillPreviewPageState extends State<_HistoryBillPreviewPage> {
                   businessBankAccount: widget.businessBankAccount,
                   businessBankIfsc: widget.businessBankIfsc,
                   businessUpiId: widget.businessUpiId,
-                  logoBytes: widget.logoBytes,
+                  logoBytes: widget.logoBytes, sealBytes: widget.sealBytes,
                   template: widget.template,
                   paperSize: widget.paperSize,
                   thankYouMessage: widget.thankYouMessage,

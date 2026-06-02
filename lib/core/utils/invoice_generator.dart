@@ -35,6 +35,7 @@ class InvoiceGenerator {
     String businessBankIfsc = '',
     String businessUpiId = '',
     Uint8List? logoBytes,
+    Uint8List? sealBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
     String? documentTitle,
@@ -45,7 +46,7 @@ class InvoiceGenerator {
       businessName: businessName, businessAddress: businessAddress,
       businessPhone: businessPhone, businessGstin: businessGstin,
       businessBankName: businessBankName, businessBankAccount: businessBankAccount,
-      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes,
+      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes, sealBytes: sealBytes,
       template: template, paperSize: paperSize, documentTitle: documentTitle,
       thankYouMessage: thankYouMessage, termsConditions: termsConditions);
     await Printing.layoutPdf(onLayout: (format) async => bytes);
@@ -62,6 +63,7 @@ class InvoiceGenerator {
     String businessBankIfsc = '',
     String businessUpiId = '',
     Uint8List? logoBytes,
+    Uint8List? sealBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
     String? documentTitle,
@@ -88,6 +90,7 @@ class InvoiceGenerator {
     final bk = _BankInfo(businessBankName, businessBankAccount, businessBankIfsc);
     final upiId = businessUpiId;
     final logoImage = logoBytes != null ? pw.MemoryImage(logoBytes) : null;
+    final sealImage = sealBytes;
 
     pdf.addPage(pw.Page(
       pageFormat: pageFormat,
@@ -98,15 +101,15 @@ class InvoiceGenerator {
         final tc = termsConditions;
         switch (template) {
           case InvoiceTemplate.modern:
-            return _buildModernTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId);
+            return _buildModernTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
           case InvoiceTemplate.classic:
-            return _buildClassicTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId);
+            return _buildClassicTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
           case InvoiceTemplate.minimal:
-            return _buildMinimalTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId);
+            return _buildMinimalTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
           case InvoiceTemplate.gstInvoice:
-            return _buildGstInvoiceTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId);
+            return _buildGstInvoiceTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
           case InvoiceTemplate.simple:
-            return _buildSimpleTemplate(bill, businessName, businessAddress, businessPhone, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId);
+            return _buildSimpleTemplate(bill, businessName, businessAddress, businessPhone, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
         }
       },
     ));
@@ -124,6 +127,7 @@ class InvoiceGenerator {
     String businessBankIfsc = '',
     String businessUpiId = '',
     Uint8List? logoBytes,
+    Uint8List? sealBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
     String? documentTitle,
@@ -134,7 +138,7 @@ class InvoiceGenerator {
       businessName: businessName, businessAddress: businessAddress,
       businessPhone: businessPhone, businessGstin: businessGstin,
       businessBankName: businessBankName, businessBankAccount: businessBankAccount,
-      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes,
+      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes, sealBytes: sealBytes,
       template: template, paperSize: paperSize, documentTitle: documentTitle,
       thankYouMessage: thankYouMessage, termsConditions: termsConditions);
 
@@ -173,6 +177,7 @@ class InvoiceGenerator {
     String businessBankIfsc = '',
     String businessUpiId = '',
     Uint8List? logoBytes,
+    Uint8List? sealBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
     String? documentTitle,
@@ -184,7 +189,7 @@ class InvoiceGenerator {
       businessName: businessName, businessAddress: businessAddress,
       businessPhone: businessPhone, businessGstin: businessGstin,
       businessBankName: businessBankName, businessBankAccount: businessBankAccount,
-      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes,
+      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes, sealBytes: sealBytes,
       template: template, paperSize: paperSize, documentTitle: documentTitle,
       thankYouMessage: thankYouMessage, termsConditions: termsConditions);
 
@@ -229,6 +234,7 @@ class InvoiceGenerator {
     String businessBankIfsc = '',
     String businessUpiId = '',
     Uint8List? logoBytes,
+    Uint8List? sealBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
   }) async {
@@ -236,7 +242,7 @@ class InvoiceGenerator {
       businessName: businessName, businessAddress: businessAddress,
       businessPhone: businessPhone, businessGstin: businessGstin,
       businessBankName: businessBankName, businessBankAccount: businessBankAccount,
-      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes,
+      businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes, sealBytes: sealBytes,
       template: template, paperSize: paperSize);
 
     final itemsList = bill.items.map((i) =>
@@ -287,6 +293,7 @@ Generated by My Billu - Smart Billing Software''';
     String businessBankIfsc = '',
     String businessUpiId = '',
     Uint8List? logoBytes,
+    Uint8List? sealBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
     String? thankYouMessage,
@@ -332,7 +339,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           businessName: businessName, businessAddress: businessAddress,
           businessPhone: businessPhone, businessGstin: businessGstin,
           businessBankName: businessBankName, businessBankAccount: businessBankAccount,
-          businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes,
+          businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes, sealBytes: sealBytes,
           template: template, paperSize: paperSize,
           thankYouMessage: thankYouMessage, termsConditions: termsConditions);
 
@@ -447,7 +454,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
 
   // ===== TEMPLATE 1: MODERN (Indigo accent, colored header) =====
 
-  static pw.Widget _buildModernTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId) {
+  static pw.Widget _buildModernTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId, Uint8List? sealBytes) {
     final isQuotation = docTitle != null;
     final fs = isA5 ? 0.8 : 1.0;
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -523,7 +530,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
 
   // ===== TEMPLATE 2: CLASSIC (Professional, bordered, black & gold) =====
 
-  static pw.Widget _buildClassicTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId) {
+  static pw.Widget _buildClassicTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId, Uint8List? sealBytes) {
     final isQuotation = docTitle != null;
     final fs = isA5 ? 0.8 : 1.0;
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -607,7 +614,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
 
   // ===== TEMPLATE 3: MINIMAL (Clean, lightweight, blue accent) =====
 
-  static pw.Widget _buildMinimalTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId) {
+  static pw.Widget _buildMinimalTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId, Uint8List? sealBytes) {
     final isQuotation = docTitle != null;
     final fs = isA5 ? 0.8 : 1.0;
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -916,7 +923,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
 
   // ===== TEMPLATE 5: SIMPLE (No GST) =====
 
-  static pw.Widget _buildSimpleTemplate(Bill bill, String bName, String bAddr, String bPhone, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId) {
+  static pw.Widget _buildSimpleTemplate(Bill bill, String bName, String bAddr, String bPhone, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId, Uint8List? sealBytes) {
     final isQuotation = docTitle != null;
     final fs = isA5 ? 0.8 : 1.0;
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -1079,7 +1086,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
 
   // ===== TEMPLATE 4: GST INVOICE (Traditional Indian Tax Invoice) =====
 
-  static pw.Widget _buildGstInvoiceTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId) {
+  static pw.Widget _buildGstInvoiceTemplate(Bill bill, String bName, String bAddr, String bPhone, String bGstin, bool isA5, _BankInfo bk, pw.ImageProvider? logo, String? docTitle, String? thankYouMsg, String? termsText, String upiId, Uint8List? sealBytes) {
     final isQuotation = docTitle != null;
     final fs = isA5 ? 0.78 : 1.0;
     final bdr = pw.BorderSide(color: PdfColors.black, width: 0.8);
@@ -1263,7 +1270,13 @@ ${thankYouMessage ?? 'Thank you for your business!'}
             // Right: Signature
             pw.Expanded(flex: 2, child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
               pw.Text('FOR ${bName.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 24 * fs),
+              if (sealBytes != null)
+                pw.Padding(
+                  padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
+                  child: pw.Image(pw.MemoryImage(sealBytes), width: 100 * fs, height: 50 * fs, fit: pw.BoxFit.contain),
+                )
+              else
+                pw.SizedBox(height: 24 * fs),
               pw.Container(width: 120 * fs, child: pw.Divider(color: PdfColors.black)),
               pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs)),
             ])),

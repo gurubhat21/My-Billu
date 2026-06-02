@@ -839,6 +839,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
       final template = _parseTemplate(s['pdf_template']);
       final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
       final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+      final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
       await InvoiceGenerator.generateAndPrint(bill,
         businessName: s['businessName'] ?? 'My Billu',
         businessAddress: s['businessAddress'] ?? '',
@@ -848,7 +849,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
         businessBankAccount: s['businessBankAccount'] ?? '',
         businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-        logoBytes: logoBytes,
+        logoBytes: logoBytes, sealBytes: sealBytes,
         template: template, paperSize: paperSize,
         documentTitle: 'SALES QUOTATION',
         thankYouMessage: s['pdf_thank_you_message'],
@@ -860,6 +861,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
       final template = _parseTemplate(s['pdf_template']);
       final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
       final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+      final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
       try {
         final savedPath = await InvoiceGenerator.savePdfToFile(bill,
           businessName: s['businessName'] ?? 'My Billu',
@@ -870,7 +872,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
           businessBankAccount: s['businessBankAccount'] ?? '',
           businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-          logoBytes: logoBytes,
+          logoBytes: logoBytes, sealBytes: sealBytes,
           template: template, paperSize: paperSize,
           documentTitle: 'SALES QUOTATION',
           thankYouMessage: s['pdf_thank_you_message'],
@@ -902,6 +904,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
     final template = _parseTemplate(s['pdf_template']);
     final paperSize = (s['pdf_paper_size'] ?? 'a4') == 'a5' ? PaperSize.a5 : PaperSize.a4;
     final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+    final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
     try {
       final savedPath = await InvoiceGenerator.savePdfToFile(bill,
         businessName: s['businessName'] ?? 'My Billu',
@@ -912,7 +915,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
         businessBankAccount: s['businessBankAccount'] ?? '',
         businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-        logoBytes: logoBytes,
+        logoBytes: logoBytes, sealBytes: sealBytes,
         template: template, paperSize: paperSize,
         documentTitle: 'SALES QUOTATION',
         thankYouMessage: s['pdf_thank_you_message'],
@@ -996,6 +999,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
       final template = _parseTemplate(s['pdf_template']);
       final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
       final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+      final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
       try {
         await InvoiceGenerator.shareInvoice(bill,
           businessName: s['businessName'] ?? 'My Billu',
@@ -1006,7 +1010,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
           businessBankAccount: s['businessBankAccount'] ?? '',
           businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-          logoBytes: logoBytes,
+          logoBytes: logoBytes, sealBytes: sealBytes,
           template: template, paperSize: paperSize,
           documentTitle: 'SALES QUOTATION',
           thankYouMessage: s['pdf_thank_you_message'],
@@ -1024,6 +1028,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
       final template = _parseTemplate(s['pdf_template']);
       final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
       final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+      final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
       try {
         final savedPath = await InvoiceGenerator.savePdfToFile(bill,
           businessName: s['businessName'] ?? 'My Billu',
@@ -1034,7 +1039,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
           businessBankAccount: s['businessBankAccount'] ?? '',
           businessBankIfsc: s['businessBankIfsc'] ?? '',
               businessUpiId: s['businessUpiId'] ?? '',
-          logoBytes: logoBytes,
+          logoBytes: logoBytes, sealBytes: sealBytes,
           template: template, paperSize: paperSize,
           documentTitle: 'SALES QUOTATION',
           thankYouMessage: s['pdf_thank_you_message'],

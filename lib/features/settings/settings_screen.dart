@@ -500,6 +500,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       )),
                     const SizedBox(height: 20),
 
+                    // Seal & Signature section
+                    Row(children: [
+                      Container(padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.draw, size: 22, color: AppColors.accent)),
+                      const SizedBox(width: 12),
+                      Text('Seal & Signature', style: Theme.of(context).textTheme.titleMedium),
+                    ]),
+                    const SizedBox(height: 8),
+                    Text('This will appear on your invoices in the signature area', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+                    const SizedBox(height: 12),
+                    FutureBuilder<String?>(
+                      future: context.read<AppState>().getSetting('businessSealData'),
+                      builder: (ctx, snap) {
+                        final sealData = snap.data;
+                        return Column(children: [
+                          if (sealData != null && sealData.isNotEmpty)
+                            Center(child: Container(
+                              width: 120, height: 80, margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2)),
+                              child: ClipRRect(borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(
+                                  Uri.parse(sealData).data!.contentAsBytes(),
+                                  fit: BoxFit.contain)),
+                            )),
+                          Row(children: [
+                            Expanded(child: OutlinedButton.icon(
+                              onPressed: () async {
+                                final dataUrl = await web_helper.triggerImageUpload();
+                                if (dataUrl != null) {
+                                  final appState = context.read<AppState>();
+                                  await appState.saveSetting('businessSealData', dataUrl);
+                                  setState(() {});
+                                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    content: const Row(children: [
+                                      Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+                                      Text('Seal/Signature uploaded!')]),
+                                    backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+                                }
+                              },
+                              icon: const Icon(Icons.upload_file, size: 20),
+                              label: const Text('Upload Seal/Signature (PNG/JPEG)'),
+                            )),
+                            if (sealData != null && sealData.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              IconButton(
+                                tooltip: 'Remove Seal/Signature',
+                                icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                                onPressed: () async {
+                                  await context.read<AppState>().saveSetting('businessSealData', '');
+                                  setState(() {});
+                                }),
+                            ],
+                          ]),
+                        ]);
+                      }),
+                    const SizedBox(height: 20),
+
                     SizedBox(width: double.infinity,
                       child: ElevatedButton.icon(onPressed: _save,
                         icon: const Icon(Icons.save, size: 20), label: const Text('Save Settings'))),
@@ -3001,6 +3062,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     final logoBytes = InvoiceGenerator.parseLogoData(settings['businessLogoData']);
+    final sealBytes = InvoiceGenerator.parseLogoData(settings['businessSealData']);
     final bytes = await InvoiceGenerator.generatePdfBytes(
       sampleBill,
       businessName: settings['businessName'] ?? 'My Billu',
@@ -3011,7 +3073,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       businessBankAccount: settings['businessBankAccount'] ?? '925020007361962',
       businessBankIfsc: settings['businessBankIfsc'] ?? 'UTIB0006083',
       businessUpiId: settings['businessUpiId'] ?? '',
-      logoBytes: logoBytes,
+      logoBytes: logoBytes, sealBytes: sealBytes,
       template: template,
       paperSize: paperSize,
     );
