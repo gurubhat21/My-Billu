@@ -482,9 +482,12 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
               Navigator.pop(ctx);
               final billItems = cart.map((c) {
                 final serials = c.serialNumbers.where((s) => s.isNotEmpty).toList();
+                final basePrice = gstInclusive
+                    ? c.price / (1 + c.item.taxRate / 100)
+                    : c.price;
                 return BillItem(
                   itemId: c.item.id, itemName: c.item.name,
-                  unitPrice: c.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit,
+                  unitPrice: basePrice, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit,
                   description: c.description.isNotEmpty ? c.description : null,
                   serialNumber: serials.isNotEmpty ? serials.join(', ') : null,
                 );
@@ -780,9 +783,12 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
               // Build the bill from cart
               final billItems = cart.map((c) {
                 final serials = c.serialNumbers.where((s) => s.isNotEmpty).toList();
+                final basePrice = gstInclusive
+                    ? c.price / (1 + c.item.taxRate / 100)
+                    : c.price;
                 return BillItem(
                   itemId: c.item.id, itemName: c.item.name,
-                  unitPrice: c.price, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit,
+                  unitPrice: basePrice, quantity: c.quantity, taxRate: c.item.taxRate, unit: c.item.unit,
                   description: c.description.isNotEmpty ? c.description : null,
                   serialNumber: serials.isNotEmpty ? serials.join(', ') : null,
                 );
