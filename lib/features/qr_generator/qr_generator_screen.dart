@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/invoice_generator.dart';
 
 class QrGeneratorScreen extends StatefulWidget {
   const QrGeneratorScreen({super.key});
@@ -27,6 +28,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
 
   String _upiId = '';
   String _businessName = '';
+  Uint8List? _logoBytes;
   bool _loading = true;
   bool _sharing = false;
 
@@ -50,6 +52,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
       setState(() {
         _upiId = s['businessUpiId'] ?? '';
         _businessName = s['businessName'] ?? 'My Billu';
+        _logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
         _loading = false;
       });
     }
@@ -298,6 +301,14 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                     ],
                   ),
                   child: Column(children: [
+                    // Business logo
+                    if (_logoBytes != null) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.memory(_logoBytes!, width: 70, height: 70, fit: BoxFit.contain),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     // Business name header
                     Text(_businessName, style: const TextStyle(
                       fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E),
