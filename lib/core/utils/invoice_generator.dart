@@ -519,6 +519,21 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
       if (upiId.isNotEmpty) _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
+      // Signature with Seal
+      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
+        pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+          pw.Text('FOR ${bName.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo)),
+          if (sealBytes != null)
+            pw.Padding(
+              padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
+              child: pw.Image(pw.MemoryImage(sealBytes), width: 100 * fs, height: 50 * fs, fit: pw.BoxFit.contain),
+            )
+          else
+            pw.SizedBox(height: 24 * fs),
+          pw.Container(width: 120 * fs, child: pw.Divider(color: PdfColors.grey400)),
+          pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
+        ]),
+      ]),
       pw.SizedBox(height: 14 * fs),
       pw.Divider(color: PdfColors.grey300),
       pw.SizedBox(height: 6 * fs),
@@ -599,8 +614,16 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           pw.Text("Customer's Signature", style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
         ]),
         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+          pw.Text('FOR ${bName.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold)),
+          if (sealBytes != null)
+            pw.Padding(
+              padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
+              child: pw.Image(pw.MemoryImage(sealBytes), width: 100 * fs, height: 50 * fs, fit: pw.BoxFit.contain),
+            )
+          else
+            pw.SizedBox(height: 24 * fs),
           pw.Container(width: 150, child: pw.Divider(color: PdfColors.grey400)),
-          pw.Text('Authorized Signature', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
+          pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
         ]),
       ]),
       if (thankYouMsg != null && thankYouMsg.isNotEmpty) ...[
@@ -691,6 +714,22 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
       if (upiId.isNotEmpty) _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
+      pw.SizedBox(height: 14 * fs),
+      // Signature with Seal
+      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
+        pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+          pw.Text('FOR ${bName.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
+          if (sealBytes != null)
+            pw.Padding(
+              padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
+              child: pw.Image(pw.MemoryImage(sealBytes), width: 100 * fs, height: 50 * fs, fit: pw.BoxFit.contain),
+            )
+          else
+            pw.SizedBox(height: 24 * fs),
+          pw.Container(width: 120 * fs, child: pw.Divider(color: PdfColors.grey400)),
+          pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
+        ]),
+      ]),
       pw.Spacer(),
       pw.Container(height: 1, color: PdfColors.grey200),
       pw.SizedBox(height: 6),
@@ -1019,6 +1058,22 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
       if (upiId.isNotEmpty) _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
+      // Signature with Seal
+      pw.SizedBox(height: 14 * fs),
+      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
+        pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+          pw.Text('FOR ${bName.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.teal700)),
+          if (sealBytes != null)
+            pw.Padding(
+              padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
+              child: pw.Image(pw.MemoryImage(sealBytes), width: 100 * fs, height: 50 * fs, fit: pw.BoxFit.contain),
+            )
+          else
+            pw.SizedBox(height: 24 * fs),
+          pw.Container(width: 120 * fs, child: pw.Divider(color: PdfColors.grey400)),
+          pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
+        ]),
+      ]),
       pw.SizedBox(height: 14 * fs),
       pw.Divider(color: PdfColors.grey300),
       pw.SizedBox(height: 6 * fs),
