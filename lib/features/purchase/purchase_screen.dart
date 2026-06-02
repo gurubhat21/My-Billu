@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
@@ -71,6 +72,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
   bool _showDescription = false;
   bool _showSerialNumber = false;
   bool _gstInclusive = false;
+  DateTime _purchaseDate = DateTime.now();
 
   @override
   void initState() {
@@ -214,7 +216,36 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
         return SingleChildScrollView(
           padding: EdgeInsets.all(isWide ? 24 : 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('New Purchase Entry', style: Theme.of(context).textTheme.headlineLarge),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('New Purchase Entry', style: Theme.of(context).textTheme.headlineLarge),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context, initialDate: _purchaseDate,
+                      firstDate: DateTime(2020), lastDate: DateTime(2030),
+                    );
+                    if (picked != null) setState(() => _purchaseDate = picked);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3))),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.calendar_today, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Text('Date: ${DateFormat('dd MMM yyyy').format(_purchaseDate)}',
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      const SizedBox(width: 4),
+                      Icon(Icons.edit, size: 12, color: Colors.white.withValues(alpha: 0.4)),
+                    ]),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 20),
 
             // Supplier Info
@@ -704,6 +735,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
         subtotal: _subtotal, totalTax: _totalTax, totalAmount: _total,
         paidAmount: 0, status: PurchaseStatus.received,
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+        createdAt: _purchaseDate,
       );
       await appState.createPurchase(purchase);
       if (mounted) {
@@ -715,7 +747,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
           backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
-        setState(() { _cart.clear(); _supplierCtrl.clear(); _supplierPhoneCtrl.clear(); _invoiceCtrl.clear(); _notesCtrl.clear(); });
+        setState(() { _cart.clear(); _supplierCtrl.clear(); _supplierPhoneCtrl.clear(); _invoiceCtrl.clear(); _notesCtrl.clear(); _purchaseDate = DateTime.now(); });
         widget.onSaved();
       }
     } catch (e) {

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import '../../core/utils/input_formatters.dart';
 import 'package:provider/provider.dart';
@@ -83,6 +84,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
   String _company2Gstin = '';
 
   List<_FakeQuoteRecord> _history = [];
+  DateTime _fakeQuoteDate = DateTime.now();
 
   @override
   void initState() {
@@ -649,6 +651,31 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
         title: const Text('New Fake Quotation'),
         content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context, initialDate: _fakeQuoteDate,
+                  firstDate: DateTime(2020), lastDate: DateTime(2030),
+                );
+                if (picked != null) setDialogState(() => _fakeQuoteDate = picked);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3))),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.calendar_today, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text('Date: ${DateFormat('dd MMM yyyy').format(_fakeQuoteDate)}',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(width: 4),
+                  Icon(Icons.edit, size: 12, color: Colors.white.withValues(alpha: 0.4)),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 14),
             // --- Customer picker ---
             InkWell(
               onTap: () => _showCustomerPicker(ctx, appState, customerCtrl, phoneCtrl, (cust) {
@@ -775,10 +802,12 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
                 paymentMethod: PaymentMethod.cash,
                 status: BillStatus.unpaid,
                 notes: notesCtrl.text.isEmpty ? null : notesCtrl.text,
+                createdAt: _fakeQuoteDate,
               );
 
               // Save to history and show print/share/save dialog
               await _addToHistory(bill, _currentCompanyName);
+              setState(() => _fakeQuoteDate = DateTime.now());
               if (context.mounted) {
                 _showPrintShareDialog(context, appState, bill);
               }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/bill.dart';
 import '../../core/models/item.dart';
@@ -30,6 +31,7 @@ class QuotationScreen extends StatefulWidget {
 
 class _QuotationScreenState extends State<QuotationScreen> {
   String _filter = 'All';
+  DateTime _quoteDate = DateTime.now();
 
   @override
   Widget build(BuildContext context) {
@@ -288,6 +290,31 @@ class _QuotationScreenState extends State<QuotationScreen> {
         title: Text(isEdit ? 'Edit Quotation' : 'New Quotation'),
         content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context, initialDate: _quoteDate,
+                  firstDate: DateTime(2020), lastDate: DateTime(2030),
+                );
+                if (picked != null) setDialogState(() => _quoteDate = picked);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3))),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.calendar_today, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text('Date: ${DateFormat('dd MMM yyyy').format(_quoteDate)}',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(width: 4),
+                  Icon(Icons.edit, size: 12, color: Colors.white.withValues(alpha: 0.4)),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 14),
             // --- Customer picker (same as billing) ---
             InkWell(
               onTap: () => _showQuotCustomerPicker(ctx, appState, customerCtrl, phoneCtrl, (cust) {
@@ -411,13 +438,14 @@ class _QuotationScreenState extends State<QuotationScreen> {
                 totalAmount: totalAmount,
                 status: existing?.status ?? QuotationStatus.draft,
                 notes: notesCtrl.text.isEmpty ? null : notesCtrl.text,
-                createdAt: existing?.createdAt,
+                createdAt: existing?.createdAt ?? _quoteDate,
               );
               if (isEdit) {
                 await appState.updateQuotation(q);
               } else {
                 await appState.addQuotation(q);
               }
+              setState(() => _quoteDate = DateTime.now());
               Navigator.pop(ctx);
             },
             icon: const Icon(Icons.save, size: 18),

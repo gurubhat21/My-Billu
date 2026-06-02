@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:typed_data';
 import 'package:printing/printing.dart';
@@ -56,6 +57,7 @@ class _BillingScreenState extends State<BillingScreen> {
   // Credit advance payment
   double _creditPaidAmount = 0;
   PaymentMethod _creditPaymentMethod = PaymentMethod.cash;
+  DateTime _billDate = DateTime.now();
 
   @override
   void initState() {
@@ -166,6 +168,31 @@ class _BillingScreenState extends State<BillingScreen> {
               ]),
             ),
           ]),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context, initialDate: _billDate,
+                firstDate: DateTime(2020), lastDate: DateTime(2030),
+              );
+              if (picked != null) setState(() => _billDate = picked);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3))),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.calendar_today, size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text('Date: ${DateFormat('dd MMM yyyy').format(_billDate)}',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(width: 4),
+                Icon(Icons.edit, size: 12, color: Colors.white.withValues(alpha: 0.4)),
+              ]),
+            ),
+          ),
           const SizedBox(height: 12),
           TextField(onChanged: (v) => setState(() => _itemSearch = v),
             decoration: const InputDecoration(hintText: 'Search items...', prefixIcon: Icon(Icons.search, color: AppColors.primary))),
@@ -980,6 +1007,7 @@ class _BillingScreenState extends State<BillingScreen> {
         items: billItems, subtotal: _subtotal,
         discount: _discount,
         totalTax: _totalTax, totalAmount: _totalAmount,
+        createdAt: _billDate,
         paidAmount: _isPartial ? _totalAmount : (_paymentMethod == PaymentMethod.credit ? _creditPaidAmount : _totalAmount),
         paymentMethod: _isPartial ? _partialMethod1 : (_paymentMethod == PaymentMethod.credit && _creditPaidAmount > 0 ? _creditPaymentMethod : _paymentMethod),
         status: _isPartial ? BillStatus.paid : (_paymentMethod == PaymentMethod.credit ? (_creditPaidAmount >= _totalAmount ? BillStatus.paid : BillStatus.unpaid) : BillStatus.paid));
@@ -1093,7 +1121,8 @@ class _BillingScreenState extends State<BillingScreen> {
         setState(() { _cart.clear(); _selectedCustomer = null; _paymentMethod = PaymentMethod.cash;
           _isPartial = false; _partialAmount1Ctrl.text = '';
           _creditPaidAmount = 0; _creditPaymentMethod = PaymentMethod.cash;
-          _discountCtrl.text = '0'; _walkInNameCtrl.clear(); _walkInPhoneCtrl.clear(); });
+          _discountCtrl.text = '0'; _walkInNameCtrl.clear(); _walkInPhoneCtrl.clear();
+          _billDate = DateTime.now(); });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10), Text('Bill $billNumber created!')]),
           backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
