@@ -46,15 +46,19 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
   }
 
   Future<void> _loadSettings() async {
-    final appState = context.read<AppState>();
-    final s = await appState.getAllSettings();
-    if (mounted) {
-      setState(() {
-        _upiId = s['businessUpiId'] ?? '';
-        _businessName = s['businessName'] ?? 'My Billu';
-        _logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
-        _loading = false;
-      });
+    try {
+      final appState = context.read<AppState>();
+      final s = await appState.getAllSettings();
+      if (mounted) {
+        setState(() {
+          _upiId = s['businessUpiId'] ?? '';
+          _businessName = s['businessName'] ?? 'My Billu';
+          _logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

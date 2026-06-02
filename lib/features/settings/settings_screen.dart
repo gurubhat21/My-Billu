@@ -110,30 +110,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    final appState = context.read<AppState>();
-    final settings = await appState.getAllSettings();
-    setState(() {
-      _bizNameCtrl.text = settings['businessName'] ?? '';
-      _bizAddressCtrl.text = settings['businessAddress'] ?? '';
-      _bizPhoneCtrl.text = settings['businessPhone'] ?? '';
-      _bizGstinCtrl.text = settings['businessGstin'] ?? '';
-      _bizLogoCtrl.text = settings['businessLogo'] ?? '';
-      _bizBankNameCtrl.text = settings['businessBankName'] ?? '';
-      _bizBankAccountCtrl.text = settings['businessBankAccount'] ?? '';
-      _bizBankIfscCtrl.text = settings['businessBankIfsc'] ?? '';
-      _bizUpiIdCtrl.text = settings['businessUpiId'] ?? '';
-      _lanIpCtrl.text = settings['lan_sync_ip'] ?? '';
-      _biometricEnabled = settings['biometric_enabled'] == 'true';
-      _showItemDescription = settings['billing_show_description'] == 'true';
-      _showSerialNumber = settings['billing_show_serial_number'] == 'true';
-      _thankYouMsgCtrl.text = settings['pdf_thank_you_message'] ?? '';
-      _termsConditionsCtrl.text = settings['pdf_terms_conditions'] ?? '';
-    _pdfSavePathCtrl.text = settings['pdf_save_path'] ?? '';
-      _invPrefixCtrl.text = settings['invoice_prefix'] ?? 'INV';
-      _invPatternCtrl.text = settings['invoice_pattern'] ?? '';
-      _invStartCtrl.text = settings['invoice_start_number'] ?? '1';
-      _loaded = true;
-    });
+    try {
+      final appState = context.read<AppState>();
+      final settings = await appState.getAllSettings();
+      if (!mounted) return;
+      setState(() {
+        _bizNameCtrl.text = settings['businessName'] ?? '';
+        _bizAddressCtrl.text = settings['businessAddress'] ?? '';
+        _bizPhoneCtrl.text = settings['businessPhone'] ?? '';
+        _bizGstinCtrl.text = settings['businessGstin'] ?? '';
+        _bizLogoCtrl.text = settings['businessLogo'] ?? '';
+        _bizBankNameCtrl.text = settings['businessBankName'] ?? '';
+        _bizBankAccountCtrl.text = settings['businessBankAccount'] ?? '';
+        _bizBankIfscCtrl.text = settings['businessBankIfsc'] ?? '';
+        _bizUpiIdCtrl.text = settings['businessUpiId'] ?? '';
+        _lanIpCtrl.text = settings['lan_sync_ip'] ?? '';
+        _biometricEnabled = settings['biometric_enabled'] == 'true';
+        _showItemDescription = settings['billing_show_description'] == 'true';
+        _showSerialNumber = settings['billing_show_serial_number'] == 'true';
+        _thankYouMsgCtrl.text = settings['pdf_thank_you_message'] ?? '';
+        _termsConditionsCtrl.text = settings['pdf_terms_conditions'] ?? '';
+        _pdfSavePathCtrl.text = settings['pdf_save_path'] ?? '';
+        _invPrefixCtrl.text = settings['invoice_prefix'] ?? 'INV';
+        _invPatternCtrl.text = settings['invoice_pattern'] ?? '';
+        _invStartCtrl.text = settings['invoice_start_number'] ?? '1';
+        _loaded = true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loaded = true);
+    }
     // Check biometric availability
     _checkBiometricAvailability();
   }
@@ -477,7 +482,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         final logoData = snap.data;
                         final logoUrl = _bizLogoCtrl.text;
                         return Column(children: [
-                          if (logoData != null && logoData.isNotEmpty)
+                          if (logoData != null && logoData.isNotEmpty && _decodeDataUrl(logoData).isNotEmpty)
                             Center(child: Container(
                               width: 80, height: 80, margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
@@ -486,7 +491,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               child: ClipRRect(borderRadius: BorderRadius.circular(12),
                                 child: Image.memory(
                                   _decodeDataUrl(logoData),
-                                  fit: BoxFit.cover)),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40))),
                             ))
                           else if (logoUrl.isNotEmpty)
                             Center(child: Container(
@@ -554,7 +560,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       builder: (ctx, snap) {
                         final sealData = snap.data;
                         return Column(children: [
-                          if (sealData != null && sealData.isNotEmpty)
+                          if (sealData != null && sealData.isNotEmpty && _decodeDataUrl(sealData).isNotEmpty)
                             Center(child: Container(
                               width: 120, height: 80, margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
@@ -563,7 +569,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               child: ClipRRect(borderRadius: BorderRadius.circular(12),
                                 child: Image.memory(
                                   _decodeDataUrl(sealData),
-                                  fit: BoxFit.contain)),
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40))),
                             )),
                           Row(children: [
                             Expanded(child: OutlinedButton.icon(
