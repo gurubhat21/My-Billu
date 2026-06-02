@@ -378,11 +378,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 32),
 
-          // ═══════════════════════════════════════════════════
-          // SETTINGS SECTION
-          // ═══════════════════════════════════════════════════
-          _sectionHeader(context, Icons.settings, 'Settings', AppColors.primary),
-          const SizedBox(height: 16),
+
 
           // LAN Sync Section (Collapsible)
           _buildCollapsibleSection(
