@@ -281,9 +281,21 @@ class AppState extends ChangeNotifier {
     final pattern = await getSetting('invoice_pattern');
     final prefix = await getSetting('invoice_prefix') ?? 'INV';
     final startNum = int.tryParse(await getSetting('invoice_start_number') ?? '1') ?? 1;
-    final count = _bills.length;
-    final num = count + startNum;
     final now = DateTime.now();
+
+    // Find the highest existing bill number to avoid conflicts after sync
+    int maxExisting = 0;
+    for (final bill in _bills) {
+      // Extract numeric part from bill number (e.g. "INV2606-0003" -> 3)
+      final numMatch = RegExp(r'(\d+)$').firstMatch(bill.billNumber);
+      if (numMatch != null) {
+        final n = int.tryParse(numMatch.group(1)!) ?? 0;
+        if (n > maxExisting) maxExisting = n;
+      }
+    }
+    // Next number is max(maxExisting + 1, count + startNum)
+    final num = maxExisting >= startNum ? maxExisting + 1 : _bills.length + startNum;
+
     if (pattern == null || pattern.isEmpty) {
       return '$prefix${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}-${num.toString().padLeft(4, '0')}';
     }

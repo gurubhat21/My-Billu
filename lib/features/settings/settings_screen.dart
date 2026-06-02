@@ -1560,35 +1560,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final appState = context.read<AppState>();
       final db = appState.dbHelper;
 
-      // 1. Restore items (direct insert/replace)
+      // Keys that are handled separately (not via settings restore)
+      const skipSettingsKeys = {
+        'quotations_data', 'expenses_data', 'credit_notes_data',
+        'purchase_returns_data', 'suppliers_data', 'recurring_bills_data',
+        'cash_book_entries', 'bank_accounts', 'audit_log',
+      };
+
+      // 1. Restore settings FIRST (includes business profile data)
+      if (data['settings'] != null) {
+        final settings = (data['settings'] as Map<String, dynamic>);
+        for (final entry in settings.entries) {
+          // Skip keys that we'll restore separately as JSON blobs
+          if (skipSettingsKeys.contains(entry.key)) continue;
+          await db.setSetting(entry.key, entry.value.toString());
+        }
+      }
+
+      // 2. Restore items (direct insert/replace)
       if (data['items'] != null) {
         for (final m in data['items']) {
           try { await db.insertItem(Item.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
         }
       }
 
-      // 2. Restore customers (direct insert/replace)
+      // 3. Restore customers (direct insert/replace)
       if (data['customers'] != null) {
         for (final m in data['customers']) {
           try { await db.insertCustomer(Customer.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
         }
       }
 
-      // 3. Restore bills (direct insert/replace - no stock changes)
+      // 4. Restore bills (merge by createdAt - keep both devices' bills)
       if (data['bills'] != null) {
         for (final m in data['bills']) {
           try { await db.insertBill(Bill.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
         }
       }
 
-      // 4. Restore purchases (direct insert/replace - no stock changes)
+      // 5. Restore purchases (direct insert/replace)
       if (data['purchases'] != null) {
         for (final m in data['purchases']) {
           try { await db.insertPurchase(Purchase.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
         }
       }
 
-      // 5. Restore settings-based data (quotations, expenses, etc.)
+      // 6. Restore settings-based data (quotations, expenses, etc.)
       if (data['quotations'] != null) {
         final json = jsonEncode(data['quotations']);
         await db.setSetting('quotations_data', json);
@@ -1620,14 +1637,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (data['bankAccounts'] != null) {
         final json = jsonEncode(data['bankAccounts']);
         await db.setSetting('bank_accounts', json);
-      }
-
-      // 6. Restore settings
-      if (data['settings'] != null) {
-        final settings = (data['settings'] as Map<String, dynamic>);
-        for (final entry in settings.entries) {
-          await db.setSetting(entry.key, entry.value.toString());
-        }
       }
 
       // 7. Reload everything
