@@ -94,6 +94,9 @@ void main() async {
     );
   };
 
+  // Load saved theme before running app
+  await MyBilluApp.loadSavedTheme();
+
   runApp(const MyBilluApp());
 }
 
@@ -101,6 +104,19 @@ class MyBilluApp extends StatelessWidget {
   const MyBilluApp({super.key});
 
   static final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
+
+  static Future<void> loadSavedTheme() async {
+    try {
+      final db = DatabaseHelper.instance;
+      final settings = await db.getAllSettings();
+      final saved = settings['app_theme'] ?? 'dark';
+      switch (saved) {
+        case 'light': themeNotifier.value = ThemeMode.light;
+        case 'system': themeNotifier.value = ThemeMode.system;
+        default: themeNotifier.value = ThemeMode.dark;
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {

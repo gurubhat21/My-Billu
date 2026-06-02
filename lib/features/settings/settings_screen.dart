@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/utils/input_formatters.dart';
@@ -70,8 +71,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _businessProfileExpanded = false;
   bool _templateExpanded = false;
   bool _fakeQuoteExpanded = false;
-  bool _fakeQuoteEnabled = false;
+  bool _lanSyncExpanded = false;
+  bool _themeExpanded = false;
   bool _unitsExpanded = false;
+  bool _fakeQuoteEnabled = false;
   List<Map<String, dynamic>> _customUnits = [];
   final _fq1NameCtrl = TextEditingController();
   final _fq1PhoneCtrl = TextEditingController();
@@ -381,8 +384,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _sectionHeader(context, Icons.settings, 'Settings', AppColors.primary),
           const SizedBox(height: 16),
 
-          // LAN Sync Section
-          _buildLanSyncCard(context),
+          // LAN Sync Section (Collapsible)
+          _buildCollapsibleSection(
+            context,
+            icon: Icons.wifi,
+            title: 'LAN Sync',
+            color: const Color(0xFFFF6B6B),
+            isExpanded: _lanSyncExpanded,
+            onToggle: () => setState(() => _lanSyncExpanded = !_lanSyncExpanded),
+            children: [
+              _buildLanSyncCard(context),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // App Theme Section
+          _buildCollapsibleSection(
+            context,
+            icon: Icons.dark_mode,
+            title: 'App Theme',
+            color: const Color(0xFFF59E0B),
+            isExpanded: _themeExpanded,
+            onToggle: () => setState(() => _themeExpanded = !_themeExpanded),
+            children: [
+              _buildThemeCard(context),
+            ],
+          ),
           const SizedBox(height: 16),
 
           _buildCollapsibleSection(
@@ -1221,45 +1248,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildLanSyncCard(BuildContext context) {
     if (kIsWeb) {
-      return GlassCard(padding: const EdgeInsets.all(20), child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)]),
-                borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.wifi, size: 22, color: Colors.white)),
-            const SizedBox(width: 12),
-            Text('LAN Sync', style: Theme.of(context).textTheme.titleLarge),
-          ]),
-          const SizedBox(height: 12),
-          Text('LAN Sync is available on Android & Windows only.',
-            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
-        ]));
+      return GlassCard(padding: const EdgeInsets.all(20), child: Text(
+        'LAN Sync is available on Android & Windows only.',
+        style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))));
     }
 
     return GlassCard(padding: const EdgeInsets.all(20), child: Column(
       crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)]),
-              borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.wifi, size: 22, color: Colors.white)),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('LAN Sync', style: Theme.of(context).textTheme.titleLarge),
-            Text('Sync over WiFi without internet', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
-          ])),
-          if (_lanSharing)
-            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.circle, size: 8, color: AppColors.success), SizedBox(width: 4),
-                Text('Sharing', style: TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.w600)),
-              ])),
-        ]),
-        const SizedBox(height: 16),
+        if (_lanSharing)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.circle, size: 8, color: AppColors.success), SizedBox(width: 4),
+              Text('Sharing Active', style: TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.w600)),
+            ])),
 
         // This Device section
         Container(padding: const EdgeInsets.all(14),
@@ -1348,6 +1352,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Both devices must be on same WiFi.\n1. Start Sharing on Device A\n2. Enter Device A\'s IP on Device B\n3. Tap Sync Now',
               style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.35), height: 1.5))),
           ])),
+      ]));
+  }
+
+  Widget _buildThemeCard(BuildContext context) {
+    final currentMode = MyBilluApp.themeNotifier.value;
+
+    Widget _themeOption(String label, IconData icon, ThemeMode mode, Color color) {
+      final isSelected = currentMode == mode;
+      return Expanded(child: GestureDetector(
+        onTap: () async {
+          MyBilluApp.themeNotifier.value = mode;
+          final appState = context.read<AppState>();
+          await appState.saveSetting('app_theme', mode.name);
+          setState(() {});
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected ? color : Colors.white.withValues(alpha: 0.08),
+              width: isSelected ? 2 : 1),
+          ),
+          child: Column(children: [
+            Icon(icon, size: 28, color: isSelected ? color : Colors.white.withValues(alpha: 0.4)),
+            const SizedBox(height: 8),
+            Text(label, style: TextStyle(
+              fontSize: 13, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? color : Colors.white.withValues(alpha: 0.5))),
+            if (isSelected) ...[
+              const SizedBox(height: 4),
+              Icon(Icons.check_circle, size: 16, color: color),
+            ],
+          ]),
+        ),
+      ));
+    }
+
+    return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Choose your preferred theme', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+        const SizedBox(height: 16),
+        Row(spacing: 12, children: [
+          _themeOption('Dark', Icons.dark_mode, ThemeMode.dark, const Color(0xFF6366F1)),
+          _themeOption('Light', Icons.light_mode, ThemeMode.light, const Color(0xFFF59E0B)),
+          _themeOption('System', Icons.settings_brightness, ThemeMode.system, const Color(0xFF10B981)),
+        ]),
       ]));
   }
 
