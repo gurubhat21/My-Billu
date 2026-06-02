@@ -103,18 +103,14 @@ void main() async {
 class MyBilluApp extends StatelessWidget {
   const MyBilluApp({super.key});
 
-  static final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
+  static final ValueNotifier<String> themeNotifier = ValueNotifier('default_purple');
 
   static Future<void> loadSavedTheme() async {
     try {
       final db = DatabaseHelper.instance;
       final settings = await db.getAllSettings();
-      final saved = settings['app_theme'] ?? 'dark';
-      switch (saved) {
-        case 'light': themeNotifier.value = ThemeMode.light;
-        case 'system': themeNotifier.value = ThemeMode.system;
-        default: themeNotifier.value = ThemeMode.dark;
-      }
+      final saved = settings['app_theme'] ?? 'default_purple';
+      themeNotifier.value = saved;
     } catch (_) {}
   }
 
@@ -122,15 +118,17 @@ class MyBilluApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppState()..loadAll(),
-      child: ValueListenableBuilder<ThemeMode>(
+      child: ValueListenableBuilder<String>(
         valueListenable: themeNotifier,
-        builder: (_, mode, __) {
+        builder: (_, themeId, __) {
+          final palette = AppTheme.getPalette(themeId);
+          final theme = AppTheme.buildTheme(palette);
           return MaterialApp(
             title: 'My Billu',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: mode,
+            theme: theme,
+            darkTheme: theme,
+            themeMode: ThemeMode.dark, // Always use our custom theme
             home: const AuthGate(),
           );
         },
@@ -829,14 +827,17 @@ class _MainShellState extends State<MainShell> {
               }),
             IconButton(
               icon: Icon(
-                MyBilluApp.themeNotifier.value == ThemeMode.dark
+                AppTheme.getPalette(MyBilluApp.themeNotifier.value).isDark
                     ? Icons.light_mode
                     : Icons.dark_mode,
                 size: 22),
-              tooltip: 'Toggle Theme',
+              tooltip: 'Next Theme',
               onPressed: () {
-                final isDark = MyBilluApp.themeNotifier.value == ThemeMode.dark;
-                MyBilluApp.themeNotifier.value = isDark ? ThemeMode.light : ThemeMode.dark;
+                final themes = AppTheme.allThemes;
+                final currentIdx = themes.indexWhere((t) => t.id == MyBilluApp.themeNotifier.value);
+                final nextIdx = (currentIdx + 1) % themes.length;
+                MyBilluApp.themeNotifier.value = themes[nextIdx].id;
+                context.read<AppState>().saveSetting('app_theme', themes[nextIdx].id);
                 setState(() {});
               }),
           ],

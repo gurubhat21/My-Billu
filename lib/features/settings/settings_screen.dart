@@ -1352,53 +1352,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildThemeCard(BuildContext context) {
-    final currentMode = MyBilluApp.themeNotifier.value;
-
-    Widget _themeOption(String label, IconData icon, ThemeMode mode, Color color) {
-      final isSelected = currentMode == mode;
-      return Expanded(child: GestureDetector(
-        onTap: () async {
-          MyBilluApp.themeNotifier.value = mode;
-          final appState = context.read<AppState>();
-          await appState.saveSetting('app_theme', mode.name);
-          setState(() {});
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.03),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isSelected ? color : Colors.white.withValues(alpha: 0.08),
-              width: isSelected ? 2 : 1),
-          ),
-          child: Column(children: [
-            Icon(icon, size: 28, color: isSelected ? color : Colors.white.withValues(alpha: 0.4)),
-            const SizedBox(height: 8),
-            Text(label, style: TextStyle(
-              fontSize: 13, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? color : Colors.white.withValues(alpha: 0.5))),
-            if (isSelected) ...[
-              const SizedBox(height: 4),
-              Icon(Icons.check_circle, size: 16, color: color),
-            ],
-          ]),
-        ),
-      ));
-    }
+    final currentThemeId = MyBilluApp.themeNotifier.value;
+    final themes = AppTheme.allThemes;
+    final palette = AppTheme.getPalette(currentThemeId);
+    final isDark = palette.isDark;
 
     return GlassCard(padding: const EdgeInsets.all(20), child: Column(
       crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Choose your preferred theme', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+        Text('Choose your preferred color theme',
+          style: TextStyle(fontSize: 12, color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5))),
         const SizedBox(height: 16),
-        Row(spacing: 12, children: [
-          _themeOption('Dark', Icons.dark_mode, ThemeMode.dark, const Color(0xFF6366F1)),
-          _themeOption('Light', Icons.light_mode, ThemeMode.light, const Color(0xFFF59E0B)),
-          _themeOption('System', Icons.settings_brightness, ThemeMode.system, const Color(0xFF10B981)),
-        ]),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 5,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.72,
+          ),
+          itemCount: themes.length,
+          itemBuilder: (ctx, i) {
+            final t = themes[i];
+            final isSelected = currentThemeId == t.id;
+            return GestureDetector(
+              onTap: () async {
+                MyBilluApp.themeNotifier.value = t.id;
+                final appState = context.read<AppState>();
+                await appState.saveSetting('app_theme', t.id);
+                setState(() {});
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                decoration: BoxDecoration(
+                  color: isSelected ? t.previewColor.withValues(alpha: 0.12) : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.03)),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isSelected ? t.previewColor : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
+                    width: isSelected ? 2.5 : 1),
+                ),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  // Color preview circle
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [t.previewColor, t.accent],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: isSelected ? [
+                        BoxShadow(color: t.previewColor.withValues(alpha: 0.4), blurRadius: 10, spreadRadius: 1),
+                      ] : [],
+                    ),
+                    child: isSelected
+                        ? Icon(Icons.check, size: 18, color: AppTheme.contrastText(t.previewColor))
+                        : null,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(t.name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? t.previewColor : (isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5)))),
+                ]),
+              ),
+            );
+          },
+        ),
       ]));
   }
+
 
   Future<void> _startSharing(BuildContext context) async {
     final ip = await LanSyncService.getLocalIp();
