@@ -91,6 +91,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadSettings();
   }
 
+  /// Safely decode a data URL (data:image/...;base64,...) to bytes
+  Uint8List _decodeDataUrl(String dataUrl) {
+    try {
+      if (dataUrl.startsWith('data:')) {
+        final commaIdx = dataUrl.indexOf(',');
+        if (commaIdx != -1) {
+          return base64Decode(dataUrl.substring(commaIdx + 1));
+        }
+      }
+      return Uint8List(0);
+    } catch (_) {
+      return Uint8List(0);
+    }
+  }
+
   Future<void> _loadSettings() async {
     final appState = context.read<AppState>();
     final settings = await appState.getAllSettings();
@@ -447,7 +462,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2)),
                               child: ClipRRect(borderRadius: BorderRadius.circular(12),
                                 child: Image.memory(
-                                  Uri.parse(logoData).data!.contentAsBytes(),
+                                  _decodeDataUrl(logoData),
                                   fit: BoxFit.cover)),
                             ))
                           else if (logoUrl.isNotEmpty)
@@ -524,7 +539,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2)),
                               child: ClipRRect(borderRadius: BorderRadius.circular(12),
                                 child: Image.memory(
-                                  Uri.parse(sealData).data!.contentAsBytes(),
+                                  _decodeDataUrl(sealData),
                                   fit: BoxFit.contain)),
                             )),
                           Row(children: [
