@@ -16,6 +16,7 @@ import 'dart:convert';
 
 class AppState extends ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
+  DatabaseHelper get dbHelper => _db;
 
   List<Item> _items = [];
   List<Customer> _customers = [];

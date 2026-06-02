@@ -1516,11 +1516,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Text('Items: ${(data['items'] as List?)?.length ?? 0}'),
         Text('Customers: ${(data['customers'] as List?)?.length ?? 0}'),
         Text('Bills: ${(data['bills'] as List?)?.length ?? 0}'),
+        Text('Purchases: ${(data['purchases'] as List?)?.length ?? 0}'),
         Text('Settings: ${(data['settings'] as Map?)?.length ?? 0} keys'),
         if (data['timestamp'] != null) ...[
           const SizedBox(height: 8),
           Text('Backup time: ${data['timestamp']}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
         ],
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          child: const Row(children: [
+            Icon(Icons.warning_amber, size: 16, color: AppColors.warning),
+            SizedBox(width: 8),
+            Expanded(child: Text('This will replace ALL existing data', style: TextStyle(fontSize: 12, color: AppColors.warning))),
+          ]),
+        ),
       ]),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -1531,31 +1542,110 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ));
     if (confirm != true || !mounted) return;
 
-    // Restore all data
-    final appState = context.read<AppState>();
-    if (data['items'] != null) { for (final m in data['items']) { try { await appState.addItem(Item.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-    if (data['customers'] != null) { for (final m in data['customers']) { try { await appState.addCustomer(Customer.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-    if (data['bills'] != null) { for (final m in data['bills']) { try { await appState.createBill(Bill.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-    if (data['purchases'] != null) { for (final m in data['purchases']) { try { await appState.createPurchase(Purchase.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-    if (data['quotations'] != null) { for (final m in data['quotations']) { try { await appState.addQuotation(Quotation.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-    if (data['expenses'] != null) { for (final m in data['expenses']) { try { await appState.addExpense(Expense.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-    if (data['creditNotes'] != null) { for (final m in data['creditNotes']) { try { await appState.addCreditNote(CreditNote.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-    if (data['purchaseReturns'] != null) { for (final m in data['purchaseReturns']) { try { await appState.addPurchaseReturn(PurchaseReturn.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-    if (data['suppliers'] != null) { for (final m in data['suppliers']) { try { await appState.addSupplier(Supplier.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-    if (data['cashBookEntries'] != null) { for (final m in data['cashBookEntries']) { try { await appState.addCashBookEntry(CashBookEntry.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-    if (data['bankAccounts'] != null) { for (final m in data['bankAccounts']) { try { await appState.addBankAccount(BankAccount.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-    if (data['settings'] != null) {
-      final settings = (data['settings'] as Map<String, dynamic>);
-      for (final entry in settings.entries) { await appState.saveSetting(entry.key, entry.value.toString()); }
+    // Show progress
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Row(children: [
+          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+          SizedBox(width: 12),
+          Text('Restoring data...'),
+        ]),
+        backgroundColor: Color(0xFFFF8E53),
+        duration: Duration(seconds: 30),
+      ));
     }
-    await appState.loadAll();
 
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: const Row(children: [
-        Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
-        Text('LAN Sync complete! All data restored.')]),
-      backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+    // Restore using direct DB access
+    try {
+      final appState = context.read<AppState>();
+      final db = appState.dbHelper;
+
+      // 1. Restore items (direct insert/replace)
+      if (data['items'] != null) {
+        for (final m in data['items']) {
+          try { await db.insertItem(Item.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+
+      // 2. Restore customers (direct insert/replace)
+      if (data['customers'] != null) {
+        for (final m in data['customers']) {
+          try { await db.insertCustomer(Customer.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+
+      // 3. Restore bills (direct insert/replace - no stock changes)
+      if (data['bills'] != null) {
+        for (final m in data['bills']) {
+          try { await db.insertBill(Bill.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+
+      // 4. Restore purchases (direct insert/replace - no stock changes)
+      if (data['purchases'] != null) {
+        for (final m in data['purchases']) {
+          try { await db.insertPurchase(Purchase.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+
+      // 5. Restore settings-based data (quotations, expenses, etc.)
+      if (data['quotations'] != null) {
+        final json = jsonEncode(data['quotations']);
+        await db.setSetting('quotations_data', json);
+      }
+      if (data['expenses'] != null) {
+        final json = jsonEncode(data['expenses']);
+        await db.setSetting('expenses_data', json);
+      }
+      if (data['creditNotes'] != null) {
+        final json = jsonEncode(data['creditNotes']);
+        await db.setSetting('credit_notes_data', json);
+      }
+      if (data['purchaseReturns'] != null) {
+        final json = jsonEncode(data['purchaseReturns']);
+        await db.setSetting('purchase_returns_data', json);
+      }
+      if (data['suppliers'] != null) {
+        final json = jsonEncode(data['suppliers']);
+        await db.setSetting('suppliers_data', json);
+      }
+      if (data['recurringBills'] != null) {
+        final json = jsonEncode(data['recurringBills']);
+        await db.setSetting('recurring_bills_data', json);
+      }
+      if (data['cashBookEntries'] != null) {
+        final json = jsonEncode(data['cashBookEntries']);
+        await db.setSetting('cash_book_entries', json);
+      }
+      if (data['bankAccounts'] != null) {
+        final json = jsonEncode(data['bankAccounts']);
+        await db.setSetting('bank_accounts', json);
+      }
+
+      // 6. Restore settings
+      if (data['settings'] != null) {
+        final settings = (data['settings'] as Map<String, dynamic>);
+        for (final entry in settings.entries) {
+          await db.setSetting(entry.key, entry.value.toString());
+        }
+      }
+
+      // 7. Reload everything
+      await appState.loadAll();
+      await _loadSettings();
+    } catch (e) {
+      debugPrint('LAN restore error: $e');
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Row(children: [
+          Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+          Text('LAN Sync complete! All data restored.')]),
+        backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+    }
   }
 
   // ===== INVOICE NUMBER PATTERN =====
