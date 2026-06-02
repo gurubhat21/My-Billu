@@ -75,7 +75,7 @@ class Bill {
   final PaymentMethod paymentMethod;
   BillStatus status;
   String? notes;
-  final DateTime createdAt;
+  DateTime createdAt;
 
   Bill({
     String? id,

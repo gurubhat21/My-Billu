@@ -110,7 +110,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
       content: SizedBox(width: 450, child: SingleChildScrollView(child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           _detailRow('Customer', bill.customerName ?? 'Walk-in'),
-          _detailRow('Date', AppFormatters.dateTime(bill.createdAt)),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: ctx, initialDate: bill.createdAt,
+                firstDate: DateTime(2020), lastDate: DateTime(2030),
+              );
+              if (picked != null) {
+                bill.createdAt = DateTime(picked.year, picked.month, picked.day, bill.createdAt.hour, bill.createdAt.minute);
+                await context.read<AppState>().updateBillRecord(bill);
+                setDialogState(() {});
+              }
+            },
+            child: Padding(padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(children: [
+                Text('Date: ', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+                Text(AppFormatters.dateTime(bill.createdAt), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(width: 6),
+                Icon(Icons.edit_calendar, size: 16, color: AppColors.primary.withValues(alpha: 0.7)),
+              ]),
+            ),
+          ),
           _detailRow('Payment', AppFormatters.paymentMethod(bill.paymentMethod.name)),
           const Divider(height: 20),
           const Text('Items', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),

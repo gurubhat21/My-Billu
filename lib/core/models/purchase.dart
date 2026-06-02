@@ -66,7 +66,7 @@ class Purchase {
   PurchaseStatus status;
   PaymentMethod paymentMethod;
   String? notes;
-  final DateTime createdAt;
+  DateTime createdAt;
 
   Purchase({
     String? id,

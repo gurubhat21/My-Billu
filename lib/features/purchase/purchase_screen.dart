@@ -826,7 +826,7 @@ class _PurchaseHistoryTab extends StatelessWidget {
   }
 
   void _showPurchaseDetail(BuildContext context, Purchase purchase, AppState appState) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) => AlertDialog(
       title: Row(children: [
         const Icon(Icons.shopping_bag, color: AppColors.accent),
         const SizedBox(width: 10),
@@ -837,7 +837,27 @@ class _PurchaseHistoryTab extends StatelessWidget {
           _detailRow('Supplier', purchase.supplierName),
           if (purchase.supplierPhone != null) _detailRow('Phone', purchase.supplierPhone!),
           if (purchase.invoiceNumber != null) _detailRow('Invoice #', purchase.invoiceNumber!),
-          _detailRow('Date', AppFormatters.dateTime(purchase.createdAt)),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: ctx, initialDate: purchase.createdAt,
+                firstDate: DateTime(2020), lastDate: DateTime(2030),
+              );
+              if (picked != null) {
+                purchase.createdAt = DateTime(picked.year, picked.month, picked.day, purchase.createdAt.hour, purchase.createdAt.minute);
+                await appState.updatePurchase(purchase);
+                setDialogState(() {});
+              }
+            },
+            child: Padding(padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(children: [
+                Text('Date: ', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+                Text(AppFormatters.dateTime(purchase.createdAt), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(width: 6),
+                Icon(Icons.edit_calendar, size: 16, color: AppColors.primary.withValues(alpha: 0.7)),
+              ]),
+            ),
+          ),
           _detailRow('Status', purchase.status.name.toUpperCase()),
           if (purchase.notes != null && purchase.notes!.isNotEmpty) _detailRow('Notes', purchase.notes!),
           const Divider(height: 20),
@@ -927,7 +947,7 @@ class _PurchaseHistoryTab extends StatelessWidget {
         ),
         ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
       ],
-    ));
+    )));
   }
 
   Widget _detailRow(String label, String value) {
