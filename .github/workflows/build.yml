@@ -57,7 +57,15 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
-      - run: flutter build apk --release
+      - name: Generate debug keystore and print SHA
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore ~/.android/debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
+          echo "=========================================="
+          echo "ADD THESE TO FIREBASE CONSOLE:"
+          keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android | grep -E "SHA1|SHA256"
+          echo "=========================================="
+      - run: flutter build apk --debug
       - uses: actions/upload-artifact@v4
         if: success()
         with:
