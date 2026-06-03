@@ -253,6 +253,9 @@ class SubscriptionService {
         'appVersion': '6.0.0',
       });
 
+      // Log app open to activity_log subcollection
+      await logAppOpen(email);
+
       final result = SubscriptionResult(
         status: status,
         email: email,
@@ -272,6 +275,21 @@ class SubscriptionService {
         email: email,
         message: 'Could not verify subscription. Check internet.',
       );
+    }
+  }
+
+  /// Log an app open event to the activity_log subcollection
+  Future<void> logAppOpen(String email) async {
+    try {
+      final deviceService = DeviceIdService();
+      await _subsCollection.doc(email).collection('activity_log').add({
+        'type': 'app_open',
+        'timestamp': FieldValue.serverTimestamp(),
+        'deviceId': deviceService.deviceId ?? 'unknown',
+        'deviceName': deviceService.deviceName ?? 'unknown',
+      });
+    } catch (e) {
+      debugPrint('Failed to log app open: $e');
     }
   }
 

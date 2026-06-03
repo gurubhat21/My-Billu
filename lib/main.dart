@@ -234,8 +234,35 @@ class _AuthGateState extends State<AuthGate> {
         setState(() {
           _subChecking = false;
           _needsGmailRegistration = false;
-          _expired = true;
         });
+        // Show blocking dialog and force-exit
+        if (mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              title: const Row(children: [
+                Icon(Icons.block, color: AppColors.error),
+                SizedBox(width: 8),
+                Expanded(child: Text('Access Revoked')),
+              ]),
+              content: const Text(
+                'Your access has been revoked by admin. Contact support.',
+                style: TextStyle(fontSize: 14),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    SystemNavigator.pop();
+                    exit(0);
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
         break;
 
       case SubscriptionStatus.deviceMismatch:
