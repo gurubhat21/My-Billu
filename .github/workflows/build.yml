@@ -70,7 +70,7 @@ jobs:
         if: success()
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
 
   build-windows:
     runs-on: windows-latest
