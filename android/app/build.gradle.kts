@@ -6,6 +6,12 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+val keystoreProperties = java.util.Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.mybillu.my_billu"
     compileSdk = flutter.compileSdkVersion
@@ -30,17 +36,17 @@ android {
     }
 
     signingConfigs {
-        getByName("debug") {
-            storeFile = file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+        create("release") {
+            storeFile = file(keystoreProperties["storeFile"] as String? ?: "debug.keystore")
+            storePassword = keystoreProperties["storePassword"] as String? ?: "android"
+            keyAlias = keystoreProperties["keyAlias"] as String? ?: "androiddebugkey"
+            keyPassword = keystoreProperties["keyPassword"] as String? ?: "android"
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
