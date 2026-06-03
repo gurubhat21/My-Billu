@@ -1,26 +1,82 @@
 {
   "project_info": {
     "project_number": "348057118012",
+    "firebase_url": "https://my-billu-default-rtdb.asia-southeast1.firebasedatabase.app",
     "project_id": "my-billu",
     "storage_bucket": "my-billu.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:348057118012:android:cac50e0ab8dd30c6276a39",
+        "mobilesdk_app_id": "1:348057118012:android:90f1dc0285c573fa276a39",
         "android_client_info": {
           "package_name": "com.mybillu.my_billu"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "348057118012-roqat4eg4t87em07cu940m06k7nm0est.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mybillu.my_billu",
+            "certificate_hash": "bf5ce71f6a08d37f1a0f22029e3898fef907e5ee"
+          }
+        },
+        {
+          "client_id": "348057118012-dpdk6o8smrjg15k1vl3h0hfc21qiq7dj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyApUwLMqrRzltnYFcVInJjr2Jeyws0ZOKo"
+          "current_key": "AIzaSyA-YWmr8E_D-s1khuNGzs9IXl4Ie6jey-c"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "348057118012-dpdk6o8smrjg15k1vl3h0hfc21qiq7dj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:348057118012:android:52e97e426d961418276a39",
+        "android_client_info": {
+          "package_name": "com.mybillu.my_billu_control"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "348057118012-hv05srvtb624742jguusj0t8qlr72d3h.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mybillu.my_billu_control",
+            "certificate_hash": "8e17679c82d40d16a361d779a2e7489e1473a01d"
+          }
+        },
+        {
+          "client_id": "348057118012-dpdk6o8smrjg15k1vl3h0hfc21qiq7dj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-YWmr8E_D-s1khuNGzs9IXl4Ie6jey-c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "348057118012-dpdk6o8smrjg15k1vl3h0hfc21qiq7dj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
