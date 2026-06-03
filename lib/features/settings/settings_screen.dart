@@ -41,6 +41,7 @@ import 'import_export_screen.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/services/firebase_sync_service.dart';
+import '../admin/admin_panel_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -733,6 +734,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   label: const Text('Change Password'),
                 )),
               ]),
+              const SizedBox(height: 12),
+              // Admin Panel (master password protected)
+              SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                onPressed: () => _openAdminPanel(context),
+                icon: const Icon(Icons.admin_panel_settings, size: 20, color: AppColors.error),
+                label: const Text('Admin Panel (Subscriptions)'),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: AppColors.error.withValues(alpha: 0.3)),
+                ),
+              )),
             ])),
           const SizedBox(height: 20),
           // Backup & Restore
@@ -2363,6 +2374,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
     LanSyncService.stopServer();
     super.dispose();
   }
+  void _openAdminPanel(BuildContext context) {
+    final pwdCtrl = TextEditingController();
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.admin_panel_settings, color: AppColors.error),
+        SizedBox(width: 8),
+        Text('Admin Access'),
+      ]),
+      content: TextField(
+        controller: pwdCtrl,
+        obscureText: true,
+        decoration: InputDecoration(
+          labelText: 'Master Password',
+          prefixIcon: const Icon(Icons.lock),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+          onPressed: () {
+            if (pwdCtrl.text == AppConstants.masterPassword) {
+              Navigator.pop(ctx);
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => const AdminPanelScreen(),
+              ));
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Invalid password'), backgroundColor: AppColors.error));
+            }
+          },
+          child: const Text('Open Admin Panel'),
+        ),
+      ],
+    ));
+  }
+
   void _showChangeUsername(BuildContext context) {
     final currentPassCtrl = TextEditingController();
     final newUsernameCtrl = TextEditingController();

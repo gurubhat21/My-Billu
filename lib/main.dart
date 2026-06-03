@@ -37,8 +37,12 @@ import 'features/settings/keyboard_shortcuts_screen.dart';
 import 'features/serial_tracker/serial_tracker_screen.dart';
 import 'features/supplier_payments/supplier_payment_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'features/fake_quote/fake_quote_screen.dart';
 import 'features/qr_generator/qr_generator_screen.dart';
+import 'core/services/device_id_service.dart';
+import 'core/services/subscription_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,6 +69,13 @@ void main() async {
     }
   } catch (e) {
     debugPrint('Firebase init error: $e');
+  }
+
+  // Initialize Device ID service
+  try {
+    await DeviceIdService().init();
+  } catch (e) {
+    debugPrint('DeviceId init error: $e');
   }
   // Override default error widget to prevent grey/red screens
   ErrorWidget.builder = (FlutterErrorDetails details) {
@@ -137,7 +148,7 @@ class MyBilluApp extends StatelessWidget {
   }
 }
 
-/// Gate that shows Onboarding → Login → MainShell
+/// Gate that shows Gmail Registration → Subscription Check → Onboarding → Login → MainShell
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
   @override
@@ -151,50 +162,217 @@ class _AuthGateState extends State<AuthGate> {
   String _expiryDateStr = '';
   int _trialDaysLeft = -1; // -1 = not trial, 0+ = days remaining
 
+  // Subscription state
+  bool _subChecking = true;
+  bool _needsGmailRegistration = false;
+  SubscriptionResult? _subResult;
+  bool _signingIn = false;
+
+  final _subService = SubscriptionService();
+
   @override
   void initState() {
     super.initState();
-    _checkOnboarding();
+    _checkSubscription();
+  }
+
+  Future<void> _checkSubscription() async {
+    setState(() => _subChecking = true);
+
+    // Skip subscription check on web
+    if (kIsWeb) {
+      setState(() {
+        _subChecking = false;
+        _needsGmailRegistration = false;
+      });
+      _checkOnboarding();
+      return;
+    }
+
+    final cachedEmail = await _subService.getCachedEmail();
+
+    if (cachedEmail == null || cachedEmail.isEmpty) {
+      // Not registered yet — show Gmail sign-in
+      setState(() {
+        _subChecking = false;
+        _needsGmailRegistration = true;
+      });
+      return;
+    }
+
+    // Check subscription status
+    final result = await _subService.checkSubscription(cachedEmail);
+    _subResult = result;
+
+    switch (result.status) {
+      case SubscriptionStatus.active:
+      case SubscriptionStatus.trial:
+      case SubscriptionStatus.grace:
+        // Good to go — check trial days
+        _expiryDateStr = result.expiryDate?.toIso8601String().split('T').first ?? '';
+        if (result.daysLeft != null && result.daysLeft! <= 7) {
+          _trialDaysLeft = result.daysLeft!;
+        }
+        setState(() {
+          _subChecking = false;
+          _needsGmailRegistration = false;
+        });
+        _checkOnboarding();
+        break;
+
+      case SubscriptionStatus.expired:
+        _expiryDateStr = result.expiryDate?.toIso8601String().split('T').first ?? '';
+        setState(() {
+          _subChecking = false;
+          _needsGmailRegistration = false;
+          _expired = true;
+        });
+        break;
+
+      case SubscriptionStatus.revoked:
+        _expiryDateStr = '';
+        setState(() {
+          _subChecking = false;
+          _needsGmailRegistration = false;
+          _expired = true;
+        });
+        break;
+
+      case SubscriptionStatus.deviceMismatch:
+        setState(() {
+          _subChecking = false;
+          _needsGmailRegistration = false;
+          _expired = true;
+        });
+        break;
+
+      case SubscriptionStatus.unregistered:
+        setState(() {
+          _subChecking = false;
+          _needsGmailRegistration = true;
+        });
+        break;
+
+      case SubscriptionStatus.error:
+        // Network error — try offline cache
+        setState(() {
+          _subChecking = false;
+          _needsGmailRegistration = false;
+          // If we have cached email, allow access (grace period handled in service)
+        });
+        _checkOnboarding();
+        break;
+    }
+  }
+
+  Future<void> _signInWithGmail() async {
+    setState(() => _signingIn = true);
+    try {
+      User? user;
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider();
+        provider.addScope('email');
+        final result = await FirebaseAuth.instance.signInWithPopup(provider);
+        user = result.user;
+      } else {
+        final googleUser = await GoogleSignIn(scopes: ['email']).signIn();
+        if (googleUser == null) {
+          setState(() => _signingIn = false);
+          return;
+        }
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+        user = userCredential.user;
+      }
+
+      if (user == null || user.email == null) {
+        setState(() => _signingIn = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Failed to get email from Google'),
+            backgroundColor: AppColors.error));
+        }
+        return;
+      }
+
+      // Register device with this email
+      final result = await _subService.registerDevice(
+        user.email!,
+        user.displayName ?? user.email!,
+      );
+
+      if (result.status == SubscriptionStatus.deviceMismatch) {
+        setState(() => _signingIn = false);
+        if (mounted) {
+          showDialog(context: context, builder: (ctx) => AlertDialog(
+            title: const Row(children: [
+              Icon(Icons.warning, color: AppColors.warning),
+              SizedBox(width: 8),
+              Expanded(child: Text('Device Already Registered')),
+            ]),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('This Gmail (${user!.email}) is already linked to another device.',
+                style: const TextStyle(fontSize: 14)),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                ),
+                child: const Column(children: [
+                  Text('Contact admin for device migration:',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  SizedBox(height: 8),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.phone, size: 16, color: Color(0xFF25D366)),
+                    SizedBox(width: 8),
+                    Text('9449831316 - Guruprasad Bhat',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF25D366))),
+                  ]),
+                ]),
+              ),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+            ],
+          ));
+        }
+        return;
+      }
+
+      if (result.status == SubscriptionStatus.error) {
+        setState(() => _signingIn = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Registration failed: ${result.message}'),
+            backgroundColor: AppColors.error));
+        }
+        return;
+      }
+
+      // Success — re-check subscription
+      setState(() => _signingIn = false);
+      _checkSubscription();
+    } catch (e) {
+      setState(() => _signingIn = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Sign-in error: $e'),
+          backgroundColor: AppColors.error));
+      }
+    }
   }
 
   Future<void> _checkOnboarding() async {
     final appState = context.read<AppState>();
     final result = await appState.getSetting('onboarding_complete');
-
-    // Check expiry on Windows & Android only
-    if (!kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.windows ||
-         defaultTargetPlatform == TargetPlatform.android)) {
-      await _checkExpiry(appState);
-    }
-
     setState(() => _onboardingDone = result == 'true');
-  }
-
-  Future<void> _checkExpiry(AppState appState) async {
-    String? expiryStr = await appState.getSetting('app_expiry_date');
-    if (expiryStr == null || expiryStr.isEmpty) {
-      // First launch — set expiry to 7 days from now (trial period)
-      final defaultExpiry = DateTime.now().add(const Duration(days: 7));
-      expiryStr = defaultExpiry.toIso8601String().split('T').first;
-      await appState.saveSetting('app_expiry_date', expiryStr);
-    }
-    _expiryDateStr = expiryStr;
-    final expiryDate = DateTime.tryParse(expiryStr);
-    if (expiryDate != null) {
-      if (DateTime.now().isAfter(expiryDate)) {
-        _expired = true;
-      } else {
-        // Check if within trial period
-        final daysLeft = expiryDate.difference(DateTime.now()).inDays;
-        if (daysLeft <= 0) {
-          // Last day or same day — block completely
-          _expired = true;
-        } else if (daysLeft <= 7) {
-          _trialDaysLeft = daysLeft;
-        }
-      }
-    }
   }
 
   void _onExpiryExtended() {
@@ -202,7 +380,7 @@ class _AuthGateState extends State<AuthGate> {
       _expired = false;
       _trialDaysLeft = -1;
     });
-    _checkOnboarding();
+    _checkSubscription();
   }
 
   void _showTrialPopup() {
@@ -291,19 +469,46 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    // Loading state
+    // Loading / checking subscription
+    if (_subChecking) {
+      return Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter, end: Alignment.bottomCenter,
+              colors: [Color(0xFF1A1A2E), Color(0xFF0F0F1A)],
+            ),
+          ),
+          child: const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            CircularProgressIndicator(color: AppColors.primary),
+            SizedBox(height: 16),
+            Text('Checking subscription...', style: TextStyle(color: Colors.white54)),
+          ])),
+        ),
+      );
+    }
+
+    // Gmail registration screen
+    if (_needsGmailRegistration) {
+      return _buildGmailRegistrationScreen();
+    }
+
+    // Expired / Revoked / Device Mismatch
+    if (_expired) {
+      return ExpiredScreen(
+        expiryDate: _expiryDateStr,
+        subResult: _subResult,
+        onExtended: _onExpiryExtended,
+      );
+    }
+
+    // Loading onboarding check
     if (_onboardingDone == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
     }
-    // Expired state (Windows/Android only)
-    if (_expired) {
-      return ExpiredScreen(
-        expiryDate: _expiryDateStr,
-        onExtended: _onExpiryExtended,
-      );
-    }
+
     // Show onboarding for first-time users
     if (!_onboardingDone!) {
       return OnboardingScreen(onComplete: () => setState(() => _onboardingDone = true));
@@ -317,16 +522,9 @@ class _AuthGateState extends State<AuthGate> {
     }
     return MainShell(onLogout: () => setState(() => _loggedIn = false));
   }
-}
 
-/// Blocking screen shown when the app license has expired
-class ExpiredScreen extends StatelessWidget {
-  final String expiryDate;
-  final VoidCallback onExtended;
-  const ExpiredScreen({super.key, required this.expiryDate, required this.onExtended});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildGmailRegistrationScreen() {
+    final deviceService = DeviceIdService();
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -341,65 +539,248 @@ class ExpiredScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
             ),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.lock_clock, size: 64, color: AppColors.error),
+                child: const Icon(Icons.app_registration, size: 64, color: AppColors.primary),
               ),
               const SizedBox(height: 24),
-              const Text('License Expired', style: TextStyle(
-                fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.error)),
-              const SizedBox(height: 12),
-              Text('Your app license expired on $expiryDate.',
+              const Text('Welcome to My Billu', style: TextStyle(
+                fontSize: 26, fontWeight: FontWeight.w800, color: AppColors.primary)),
+              const SizedBox(height: 8),
+              Text('Register your device to get started',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.6))),
-              const SizedBox(height: 8),
-              Text('Please contact the developer to renew.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.4))),
+              const SizedBox(height: 32),
+
+              // Gmail Sign-in Button
+              SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 2,
+                ),
+                onPressed: _signingIn ? null : _signInWithGmail,
+                icon: _signingIn
+                  ? const SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.mail, color: Colors.red, size: 22),
+                label: Text(_signingIn ? 'Signing in...' : 'Sign in with Gmail',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              )),
+
               const SizedBox(height: 24),
               const Divider(),
               const SizedBox(height: 12),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Icon(Icons.phone, size: 16, color: AppColors.primary),
-                const SizedBox(width: 8),
-                const Text('9449831316', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
-              ]),
-              const SizedBox(height: 8),
-              const Text('Sumukha Tech Solutions',
-                style: TextStyle(fontSize: 12, color: Colors.white54)),
+
+              // Device info
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                child: Column(children: [
+                  Row(children: [
+                    Icon(Icons.phone_android, size: 14, color: Colors.white.withValues(alpha: 0.4)),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(
+                      'Device: ${deviceService.deviceName ?? "Unknown"}',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)))),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    Icon(Icons.fingerprint, size: 14, color: Colors.white.withValues(alpha: 0.4)),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(
+                      'ID: ${deviceService.deviceId ?? "Generating..."}',
+                      style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.3)))),
+                  ]),
+                ]),
+              ),
+
               const SizedBox(height: 16),
-              SizedBox(width: double.infinity, child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                onPressed: () async {
-                  final uri = Uri.parse('https://wa.me/919449831316?text=${Uri.encodeComponent("Hi Guruprasad I Want to buy this.....")}');
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
-                icon: const Icon(Icons.chat, size: 18),
-                label: const Text('WhatsApp Us'),
-              )),
-              const SizedBox(height: 24),
-              SizedBox(width: double.infinity, child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                onPressed: () => _showMasterPasswordDialog(context),
-                icon: const Icon(Icons.key, size: 18),
-                label: const Text('Enter Activation Code'),
-              )),
+              Text('One Gmail = One Device',
+                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3))),
+              Text('7-day free trial included',
+                style: TextStyle(fontSize: 11, color: AppColors.success.withValues(alpha: 0.6))),
             ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Blocking screen shown when the app license has expired
+class ExpiredScreen extends StatelessWidget {
+  final String expiryDate;
+  final SubscriptionResult? subResult;
+  final VoidCallback onExtended;
+  const ExpiredScreen({super.key, required this.expiryDate, this.subResult, required this.onExtended});
+
+  String get _title {
+    switch (subResult?.status) {
+      case SubscriptionStatus.revoked:
+        return 'Access Revoked';
+      case SubscriptionStatus.deviceMismatch:
+        return 'Device Mismatch';
+      default:
+        return 'License Expired';
+    }
+  }
+
+  String get _subtitle {
+    switch (subResult?.status) {
+      case SubscriptionStatus.revoked:
+        return 'Your subscription has been revoked by admin.';
+      case SubscriptionStatus.deviceMismatch:
+        return 'This account is registered to a different device.\nContact admin for device migration.';
+      default:
+        return expiryDate.isNotEmpty
+          ? 'Your app license expired on $expiryDate.'
+          : 'Your subscription has expired.';
+    }
+  }
+
+  IconData get _icon {
+    switch (subResult?.status) {
+      case SubscriptionStatus.revoked:
+        return Icons.block;
+      case SubscriptionStatus.deviceMismatch:
+        return Icons.devices;
+      default:
+        return Icons.lock_clock;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final deviceService = DeviceIdService();
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter, end: Alignment.bottomCenter,
+            colors: [Color(0xFF1A1A2E), Color(0xFF0F0F1A)],
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            child: Container(
+              width: 420, padding: const EdgeInsets.all(40),
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+              ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(_icon, size: 64, color: AppColors.error),
+                ),
+                const SizedBox(height: 24),
+                Text(_title, style: const TextStyle(
+                  fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.error)),
+                const SizedBox(height: 12),
+                Text(_subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.6))),
+                const SizedBox(height: 8),
+                Text('Please contact the developer to renew.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.4))),
+
+                // Subscription details
+                if (subResult?.email != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    child: Column(children: [
+                      Row(children: [
+                        Icon(Icons.email, size: 14, color: Colors.white.withValues(alpha: 0.4)),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(
+                          'Email: ${subResult!.email}',
+                          style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)))),
+                      ]),
+                      const SizedBox(height: 4),
+                      Row(children: [
+                        Icon(Icons.phone_android, size: 14, color: Colors.white.withValues(alpha: 0.4)),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(
+                          'Device: ${deviceService.deviceName ?? "Unknown"}',
+                          style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)))),
+                      ]),
+                      const SizedBox(height: 4),
+                      Row(children: [
+                        Icon(Icons.fingerprint, size: 14, color: Colors.white.withValues(alpha: 0.4)),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(
+                          'ID: ${deviceService.deviceId ?? "Unknown"}',
+                          style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.3)))),
+                      ]),
+                    ]),
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 12),
+                const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.phone, size: 16, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Text('9449831316', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                ]),
+                const SizedBox(height: 8),
+                const Text('Sumukha Tech Solutions',
+                  style: TextStyle(fontSize: 12, color: Colors.white54)),
+                const SizedBox(height: 16),
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  onPressed: () async {
+                    final uri = Uri.parse('https://wa.me/919449831316?text=${Uri.encodeComponent("Hi Guruprasad I Want to buy this.....")}');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  icon: const Icon(Icons.chat, size: 18),
+                  label: const Text('WhatsApp Us'),
+                )),
+                const SizedBox(height: 24),
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  onPressed: () => _showMasterPasswordDialog(context),
+                  icon: const Icon(Icons.key, size: 18),
+                  label: const Text('Enter Activation Code'),
+                )),
+              ]),
+            ),
           ),
         ),
       ),
@@ -421,10 +802,15 @@ class ExpiredScreen extends StatelessWidget {
       actions: [
         TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel')),
         ElevatedButton(
-          onPressed: () {
+          onPressed: () async {
             if (pwdCtrl.text == AppConstants.masterPassword) {
               Navigator.pop(dCtx);
-              _showDatePickerDialog(context);
+              // Activate subscription in Firestore if email available
+              if (subResult?.email != null) {
+                await _showDatePickerAndActivate(context);
+              } else {
+                _showLocalDatePicker(context);
+              }
             } else {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 content: Text('Invalid password'), backgroundColor: AppColors.error));
@@ -436,7 +822,28 @@ class ExpiredScreen extends StatelessWidget {
     ));
   }
 
-  void _showDatePickerDialog(BuildContext context) async {
+  Future<void> _showDatePickerAndActivate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 365)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2099),
+      helpText: 'SET NEW EXPIRY DATE',
+    );
+    if (picked != null && context.mounted) {
+      try {
+        await SubscriptionService().activateSubscription(subResult!.email!, picked);
+        onExtended();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Activation error: $e'), backgroundColor: AppColors.error));
+        }
+      }
+    }
+  }
+
+  void _showLocalDatePicker(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now().add(const Duration(days: 365)),
