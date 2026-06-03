@@ -15,11 +15,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "348057118012-roqat4eg4t87em07cu940m06k7nm0est.apps.googleusercontent.com",
+          "client_id": "348057118012-ahpusv5964mcetbnfhahtc4cit5jb2eq.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.mybillu.my_billu",
-            "certificate_hash": "bf5ce71f6a08d37f1a0f22029e3898fef907e5ee"
+            "certificate_hash": "416bba9df46485a5c953f86404577a9f2b19e8b0"
           }
         },
         {
@@ -52,11 +52,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "348057118012-hv05srvtb624742jguusj0t8qlr72d3h.apps.googleusercontent.com",
+          "client_id": "348057118012-joqef7811tgqrhq2tei0ng9p4a4ojfgi.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.mybillu.my_billu_control",
-            "certificate_hash": "8e17679c82d40d16a361d779a2e7489e1473a01d"
+            "certificate_hash": "416bba9df46485a5c953f86404577a9f2b19e8b0"
           }
         },
         {
