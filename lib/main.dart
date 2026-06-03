@@ -192,7 +192,7 @@ class _AuthGateState extends State<AuthGate> {
     final cachedEmail = await _subService.getCachedEmail();
 
     if (cachedEmail == null || cachedEmail.isEmpty) {
-      // Not registered yet — show Gmail sign-in
+      // Not registered yet — show Gmail sign-in (this blocks)
       setState(() {
         _subChecking = false;
         _needsGmailRegistration = true;
@@ -200,95 +200,86 @@ class _AuthGateState extends State<AuthGate> {
       return;
     }
 
-    // Check subscription status
-    final result = await _subService.checkSubscription(cachedEmail);
-    _subResult = result;
+    // Returning user — let them in immediately, check in background
+    setState(() {
+      _subChecking = false;
+      _needsGmailRegistration = false;
+    });
+    _checkOnboarding();
 
-    switch (result.status) {
-      case SubscriptionStatus.active:
-      case SubscriptionStatus.trial:
-      case SubscriptionStatus.grace:
-        // Good to go — check trial days
-        _expiryDateStr = result.expiryDate?.toIso8601String().split('T').first ?? '';
-        if (result.daysLeft != null && result.daysLeft! <= 7) {
-          _trialDaysLeft = result.daysLeft!;
-        }
-        setState(() {
-          _subChecking = false;
-          _needsGmailRegistration = false;
-        });
-        _checkOnboarding();
-        break;
+    // Background subscription check (non-blocking)
+    _backgroundSubscriptionCheck(cachedEmail);
+  }
 
-      case SubscriptionStatus.expired:
-        _expiryDateStr = result.expiryDate?.toIso8601String().split('T').first ?? '';
-        setState(() {
-          _subChecking = false;
-          _needsGmailRegistration = false;
-          _expired = true;
-        });
-        break;
+  /// Checks subscription in background without blocking the app.
+  /// If revoked/expired, shows appropriate screen.
+  Future<void> _backgroundSubscriptionCheck(String email) async {
+    try {
+      final result = await _subService.checkSubscription(email);
+      if (!mounted) return;
+      _subResult = result;
 
-      case SubscriptionStatus.revoked:
-        _expiryDateStr = '';
-        setState(() {
-          _subChecking = false;
-          _needsGmailRegistration = false;
-        });
-        // Show blocking dialog and force-exit
-        if (mounted) {
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) => AlertDialog(
-              title: const Row(children: [
-                Icon(Icons.block, color: AppColors.error),
-                SizedBox(width: 8),
-                Expanded(child: Text('Access Revoked')),
-              ]),
-              content: const Text(
-                'Your access has been revoked by admin. Contact support.',
-                style: TextStyle(fontSize: 14),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    SystemNavigator.pop();
-                    exit(0);
-                  },
-                  child: const Text('OK'),
+      switch (result.status) {
+        case SubscriptionStatus.active:
+        case SubscriptionStatus.trial:
+        case SubscriptionStatus.grace:
+          // Good — update trial info silently
+          _expiryDateStr = result.expiryDate?.toIso8601String().split('T').first ?? '';
+          if (result.daysLeft != null && result.daysLeft! <= 7) {
+            setState(() => _trialDaysLeft = result.daysLeft!);
+          }
+          break;
+
+        case SubscriptionStatus.expired:
+          _expiryDateStr = result.expiryDate?.toIso8601String().split('T').first ?? '';
+          setState(() => _expired = true);
+          break;
+
+        case SubscriptionStatus.revoked:
+          if (mounted) {
+            await showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) => AlertDialog(
+                title: const Row(children: [
+                  Icon(Icons.block, color: AppColors.error),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('Access Revoked')),
+                ]),
+                content: const Text(
+                  'Your access has been revoked by admin. Contact support.',
+                  style: TextStyle(fontSize: 14),
                 ),
-              ],
-            ),
-          );
-        }
-        break;
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      SystemNavigator.pop();
+                      exit(0);
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }
+          break;
 
-      case SubscriptionStatus.deviceMismatch:
-        setState(() {
-          _subChecking = false;
-          _needsGmailRegistration = false;
-          _expired = true;
-        });
-        break;
+        case SubscriptionStatus.deviceMismatch:
+          setState(() => _expired = true);
+          break;
 
-      case SubscriptionStatus.unregistered:
-        setState(() {
-          _subChecking = false;
-          _needsGmailRegistration = true;
-        });
-        break;
+        case SubscriptionStatus.unregistered:
+          setState(() => _needsGmailRegistration = true);
+          break;
 
-      case SubscriptionStatus.error:
-        // Network error — try offline cache
-        setState(() {
-          _subChecking = false;
-          _needsGmailRegistration = false;
-          // If we have cached email, allow access (grace period handled in service)
-        });
-        _checkOnboarding();
-        break;
+        case SubscriptionStatus.error:
+          // Network error — already inside app, do nothing (offline mode)
+          break;
+      }
+    } catch (e) {
+      // Offline or error — do nothing, let user continue
+      debugPrint('Background subscription check failed: $e');
     }
   }
 
