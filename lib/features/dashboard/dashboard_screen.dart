@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../widgets/common_widgets.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../../core/services/subscription_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -51,7 +52,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     final name = await appState.getSetting('businessName');
     final logo = await appState.getSetting('businessLogo');
     final fy = await appState.getSetting('financial_year');
-    final expiryStr = await appState.getSetting('app_expiry_date');
     if (mounted) {
       setState(() {
         _userName = name ?? '';
@@ -63,16 +63,31 @@ class _DashboardScreenState extends State<DashboardScreen>
           final fyStart = now.month >= 4 ? now.year : now.year - 1;
           _financialYear = '$fyStart-${(fyStart + 1).toString().substring(2)}';
         }
-        // Expiry
-        if (expiryStr != null && expiryStr.isNotEmpty) {
-          final expiryDate = DateTime.tryParse(expiryStr);
-          if (expiryDate != null) {
-            final diff = expiryDate.difference(DateTime.now()).inDays;
-            _expiryDaysLeft = diff;
-            _expiryExpired = diff < 0;
-          }
-        }
       });
+    }
+    // Fetch expiry from Firestore (updated by admin Control app)
+    _loadExpiryFromFirestore();
+  }
+
+  Future<void> _loadExpiryFromFirestore() async {
+    try {
+      final subService = SubscriptionService();
+      final email = await subService.getCachedEmail();
+      if (email == null || email.isEmpty) return;
+
+      final result = await subService.checkSubscription(email);
+      if (!mounted) return;
+
+      if (result.expiryDate != null) {
+        final diff = result.expiryDate!.difference(DateTime.now()).inDays;
+        setState(() {
+          _expiryDaysLeft = diff;
+          _expiryExpired = diff < 0;
+        });
+      }
+    } catch (e) {
+      // Offline — try local cache
+      debugPrint('Expiry fetch error: $e');
     }
   }
 
