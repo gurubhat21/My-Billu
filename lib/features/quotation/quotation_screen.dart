@@ -373,7 +373,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
             const Divider(),
             TextField(controller: discountCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Discount â‚¹', prefixIcon: Icon(Icons.local_offer)),
+              decoration: const InputDecoration(labelText: 'Discount \u20b9', prefixIcon: Icon(Icons.local_offer)),
               onChanged: (_) => setDialogState(() {})),
             const SizedBox(height: 8),
             TextField(controller: notesCtrl,
@@ -480,7 +480,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
                     content: TextField(
                       controller: ctrl, autofocus: true,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(prefixText: 'â‚¹ ', labelText: 'Unit Price'),
+                      decoration: const InputDecoration(prefixText: '\u20b9 ', labelText: 'Unit Price'),
                       onSubmitted: (_) {
                         final p = double.tryParse(ctrl.text);
                         if (p != null && p >= 0) setDialogState(() => c.price = p);
