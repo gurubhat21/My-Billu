@@ -1200,31 +1200,100 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (confirm != true || !mounted) return;
 
+      // Show progress
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Row(children: [
+            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            SizedBox(width: 12),
+            Text('Restoring cloud data...'),
+          ]),
+          backgroundColor: AppColors.primary,
+          duration: Duration(seconds: 30),
+        ));
+      }
+
       final appState = context.read<AppState>();
-      // Reuse the same restore logic
-      if (data['items'] != null) { for (final m in data['items']) { try { await appState.addItem(Item.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-      if (data['customers'] != null) { for (final m in data['customers']) { try { await appState.addCustomer(Customer.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-      if (data['bills'] != null) { for (final m in data['bills']) { try { await appState.createBill(Bill.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-      if (data['purchases'] != null) { for (final m in data['purchases']) { try { await appState.createPurchase(Purchase.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-      if (data['quotations'] != null) { for (final m in data['quotations']) { try { await appState.addQuotation(Quotation.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-      if (data['expenses'] != null) { for (final m in data['expenses']) { try { await appState.addExpense(Expense.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-      if (data['creditNotes'] != null) { for (final m in data['creditNotes']) { try { await appState.addCreditNote(CreditNote.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-      if (data['purchaseReturns'] != null) { for (final m in data['purchaseReturns']) { try { await appState.addPurchaseReturn(PurchaseReturn.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-      if (data['suppliers'] != null) { for (final m in data['suppliers']) { try { await appState.addSupplier(Supplier.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-      if (data['cashBookEntries'] != null) { for (final m in data['cashBookEntries']) { try { await appState.addCashBookEntry(CashBookEntry.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
-      if (data['bankAccounts'] != null) { for (final m in data['bankAccounts']) { try { await appState.addBankAccount(BankAccount.fromMap(Map<String, dynamic>.from(m))); } catch (_) {} } }
+      final db = appState.dbHelper;
+
+      // Keys handled separately (not via settings restore)
+      const skipSettingsKeys = {
+        'quotations_data', 'expenses_data', 'credit_notes_data',
+        'purchase_returns_data', 'suppliers_data', 'recurring_bills_data',
+        'cash_book_entries', 'bank_accounts', 'audit_log',
+      };
+
+      // 1. Restore settings FIRST (includes business profile data)
       if (data['settings'] != null) {
         final settings = (data['settings'] as Map<String, dynamic>);
         for (final entry in settings.entries) {
-          try {
-            await appState.saveSetting(entry.key, entry.value.toString());
-          } catch (e) {
-            debugPrint('Failed to restore setting ${entry.key}: $e');
-          }
+          if (skipSettingsKeys.contains(entry.key)) continue;
+          try { await db.setSetting(entry.key, entry.value.toString()); } catch (_) {}
         }
-        debugPrint('Restored ${settings.length} settings including: ${settings.keys.where((k) => k == "loginPassword" || k == "app_expiry_date" || k == "loginUsername").join(", ")}');
+        debugPrint('Restored ${settings.length} settings');
       }
+
+      // 2. Restore items (direct insert/replace)
+      if (data['items'] != null) {
+        for (final m in data['items']) {
+          try { await db.insertItem(Item.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+
+      // 3. Restore customers (direct insert/replace)
+      if (data['customers'] != null) {
+        for (final m in data['customers']) {
+          try { await db.insertCustomer(Customer.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+
+      // 4. Restore bills (direct insert/replace - no stock changes)
+      if (data['bills'] != null) {
+        for (final m in data['bills']) {
+          try { await db.insertBill(Bill.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+
+      // 5. Restore purchases (direct insert/replace - no stock changes)
+      if (data['purchases'] != null) {
+        for (final m in data['purchases']) {
+          try { await db.insertPurchase(Purchase.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+        }
+      }
+
+      // 6. Restore settings-based JSON data
+      if (data['quotations'] != null) {
+        await db.setSetting('quotations_data', jsonEncode(data['quotations']));
+      }
+      if (data['expenses'] != null) {
+        await db.setSetting('expenses_data', jsonEncode(data['expenses']));
+      }
+      if (data['creditNotes'] != null) {
+        await db.setSetting('credit_notes_data', jsonEncode(data['creditNotes']));
+      }
+      if (data['purchaseReturns'] != null) {
+        await db.setSetting('purchase_returns_data', jsonEncode(data['purchaseReturns']));
+      }
+      if (data['suppliers'] != null) {
+        await db.setSetting('suppliers_data', jsonEncode(data['suppliers']));
+      }
+      if (data['recurringBills'] != null) {
+        await db.setSetting('recurring_bills_data', jsonEncode(data['recurringBills']));
+      }
+      if (data['cashBookEntries'] != null) {
+        await db.setSetting('cash_book_entries', jsonEncode(data['cashBookEntries']));
+      }
+      if (data['bankAccounts'] != null) {
+        await db.setSetting('bank_accounts', jsonEncode(data['bankAccounts']));
+      }
+
+      // 7. Reload everything
       await appState.loadAll();
+      await _loadSettings();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
