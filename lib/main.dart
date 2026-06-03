@@ -179,8 +179,8 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkSubscription() async {
     setState(() => _subChecking = true);
 
-    // Skip subscription check on web
-    if (kIsWeb) {
+    // Skip subscription check on web and Windows desktop (no Google Sign-in support)
+    if (kIsWeb || (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)) {
       setState(() {
         _subChecking = false;
         _needsGmailRegistration = false;
