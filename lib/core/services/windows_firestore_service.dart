@@ -50,6 +50,15 @@ class WindowsFirestoreService {
     final deviceService = DeviceIdService();
 
     try {
+      // Check device ID uniqueness — same device can't register to another Gmail
+      final existingEmail = await _findEmailByWindowsDeviceId(deviceService.deviceId ?? '');
+      if (existingEmail != null && existingEmail != email) {
+        return {
+          'status': 'error',
+          'message': 'This device is already registered to another account ($existingEmail). Contact admin for migration.',
+        };
+      }
+
       // Check if document exists
       final getUrl = '$_baseUrl/subscriptions/$email?key=$_apiKey';
       final getResp = await http.get(Uri.parse(getUrl));
@@ -283,5 +292,51 @@ class WindowsFirestoreService {
     final field = fields[key] as Map<String, dynamic>?;
     if (field == null) return '';
     return (field['stringValue'] ?? field['timestampValue'] ?? '').toString();
+  }
+
+  /// Find if a Windows device ID is already registered to another email
+  static Future<String?> _findEmailByWindowsDeviceId(String deviceId) async {
+    if (deviceId.isEmpty) return null;
+    try {
+      final url = '$_baseUrl:runQuery?key=$_apiKey';
+      final resp = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'structuredQuery': {
+            'from': [{'collectionId': 'subscriptions'}],
+            'where': {
+              'fieldFilter': {
+                'field': {'fieldPath': 'windowsDeviceId'},
+                'op': 'EQUAL',
+                'value': {'stringValue': deviceId},
+              }
+            },
+            'limit': 1,
+          }
+        }),
+      );
+      if (resp.statusCode == 200) {
+        final results = jsonDecode(resp.body) as List;
+        for (final result in results) {
+          final doc = result['document'];
+          if (doc != null) {
+            final docName = doc['name'] as String;
+            return docName.split('/').last;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Device ID check error: $e');
+    }
+    return null;
+  }
+
+  /// Request device migration from admin
+  static Future<void> requestMigration(String email, String platform) async {
+    await _patchDocument(email, {
+      'migrationRequested': 'true',
+      'migrationPlatform': platform,
+    });
   }
 }

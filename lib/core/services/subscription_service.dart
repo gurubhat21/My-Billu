@@ -122,6 +122,18 @@ class SubscriptionService {
     }
 
     try {
+      // Check device ID uniqueness — same device can't register to another Gmail
+      final deviceQuery = await _subsCollection.where('androidDeviceId', isEqualTo: deviceId).get();
+      for (final d in deviceQuery.docs) {
+        if (d.id != email) {
+          return SubscriptionResult(
+            status: SubscriptionStatus.error,
+            email: email,
+            message: 'This device is already registered to another account (${d.id}). Contact admin for migration.',
+          );
+        }
+      }
+
       // Check if email already registered
       final doc = await _subsCollection.doc(email).get();
       if (doc.exists) {
@@ -223,8 +235,10 @@ class SubscriptionService {
 
       // Read cloudSyncEnabled and cache locally
       final cloudSyncEnabled = data['cloudSyncEnabled'] as bool? ?? false;
+      final cloudSyncRequested = data['cloudSyncRequested'] as bool? ?? false;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('sub_cloud_sync_enabled', cloudSyncEnabled);
+      await prefs.setBool('sub_cloud_sync_requested', cloudSyncRequested);
 
       // Check platform-specific device match (Android)
       String registeredAndroidId = data['androidDeviceId'] as String? ?? '';
@@ -340,12 +354,38 @@ class SubscriptionService {
     await prefs.remove(_expiryKey);
     await prefs.remove(_lastCheckKey);
     await prefs.remove('sub_cloud_sync_enabled');
+    await prefs.remove('sub_cloud_sync_requested');
   }
 
   /// Check if cloud sync is enabled for this subscription
   Future<bool> isCloudSyncEnabled() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('sub_cloud_sync_enabled') ?? false;
+  }
+
+  /// Check if cloud sync has been requested
+  Future<bool> isCloudSyncRequested() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('sub_cloud_sync_requested') ?? false;
+  }
+
+  /// Request cloud sync from admin
+  Future<void> requestCloudSync(String email) async {
+    await _subsCollection.doc(email).update({
+      'cloudSyncRequested': true,
+      'cloudSyncRequestedAt': FieldValue.serverTimestamp(),
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('sub_cloud_sync_requested', true);
+  }
+
+  /// Request device migration from admin
+  Future<void> requestMigration(String email, String platform) async {
+    await _subsCollection.doc(email).update({
+      'migrationRequested': true,
+      'migrationRequestedAt': FieldValue.serverTimestamp(),
+      'migrationPlatform': platform,
+    });
   }
 
   // ====== ADMIN FUNCTIONS ======

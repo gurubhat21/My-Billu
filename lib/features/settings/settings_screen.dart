@@ -41,6 +41,7 @@ import 'import_export_screen.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/services/firebase_sync_service.dart';
+import '../../core/services/subscription_service.dart';
 import '../admin/admin_panel_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -902,6 +903,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildCloudSyncCard(BuildContext context) {
+    // Check if cloud sync is enabled by admin
+    return FutureBuilder<List<bool>>(
+      future: Future.wait([
+        SubscriptionService().isCloudSyncEnabled(),
+        SubscriptionService().isCloudSyncRequested(),
+      ]),
+      builder: (context, snapshot) {
+        final cloudSyncEnabled = snapshot.data?[0] ?? false;
+        final cloudSyncRequested = snapshot.data?[1] ?? false;
+
+        // If cloud sync is NOT enabled, show locked card
+        if (!cloudSyncEnabled) {
+          return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [Colors.grey.shade700, Colors.grey.shade600]),
+                    borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.lock, size: 22, color: Colors.white)),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Firebase Cloud Sync', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                  Text('Premium feature — requires admin approval',
+                    style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+                ])),
+              ]),
+              const SizedBox(height: 16),
+              Container(padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.08))),
+                child: Row(children: [
+                  Icon(
+                    cloudSyncRequested ? Icons.hourglass_top : Icons.cloud_off,
+                    size: 20,
+                    color: cloudSyncRequested ? const Color(0xFFFF9800) : Colors.white38),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(
+                    cloudSyncRequested
+                        ? 'Request sent! Waiting for admin approval...'
+                        : 'Cloud sync allows you to sync data across devices via Google Firebase.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cloudSyncRequested ? const Color(0xFFFF9800) : Colors.white54))),
+                ])),
+              const SizedBox(height: 14),
+              if (!cloudSyncRequested)
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C4DFF),
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: () async {
+                    final email = await SubscriptionService().getCachedEmail();
+                    if (email == null || email.isEmpty) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Please register first'), backgroundColor: AppColors.warning));
+                      }
+                      return;
+                    }
+                    await SubscriptionService().requestCloudSync(email);
+                    setState(() {});
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: const Row(children: [
+                          Icon(Icons.check_circle, color: Colors.white, size: 18), SizedBox(width: 8),
+                          Text('Cloud sync request sent to admin!')]),
+                        backgroundColor: const Color(0xFF7C4DFF), behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+                    }
+                  },
+                  icon: const Icon(Icons.send, size: 20),
+                  label: const Text('Request Cloud Sync'),
+                ))
+              else
+                SizedBox(width: double.infinity, child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF9800).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFF9800).withValues(alpha: 0.3))),
+                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.hourglass_top, size: 18, color: Color(0xFFFF9800)),
+                    SizedBox(width: 8),
+                    Text('⏳ Request Pending', style: TextStyle(
+                      fontWeight: FontWeight.w600, color: Color(0xFFFF9800), fontSize: 14)),
+                  ]),
+                )),
+            ]));
+        }
+
+        // Cloud sync IS enabled — show normal card
+        return _buildCloudSyncCardEnabled(context);
+      },
+    );
+  }
+
+  Widget _buildCloudSyncCardEnabled(BuildContext context) {
     try {
       final stream = _getAuthStream();
       if (stream == null) {

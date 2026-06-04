@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 import '../providers/app_state.dart';
+import 'subscription_service.dart';
 
 class FirebaseSyncService {
   static final FirebaseSyncService _instance = FirebaseSyncService._();
@@ -92,6 +93,12 @@ class FirebaseSyncService {
 
   Future<void> uploadData(AppState appState) async {
     if (!isSignedIn || _isSyncing) return;
+    // Check if cloud sync is enabled by admin
+    final syncEnabled = await SubscriptionService().isCloudSyncEnabled();
+    if (!syncEnabled) {
+      debugPrint('Cloud sync is disabled by admin');
+      throw Exception('Cloud sync is disabled. Contact admin to enable.');
+    }
     _isSyncing = true;
     try {
       final localSettings = await appState.getAllSettings();
@@ -197,6 +204,12 @@ class FirebaseSyncService {
 
   Future<Map<String, dynamic>?> downloadData() async {
     if (!isSignedIn) return null;
+    // Check if cloud sync is enabled by admin
+    final syncEnabled = await SubscriptionService().isCloudSyncEnabled();
+    if (!syncEnabled) {
+      debugPrint('Cloud sync is disabled by admin');
+      throw Exception('Cloud sync is disabled. Contact admin to enable.');
+    }
     try {
       final userDoc = _firestore.collection('users').doc(currentUser!.uid);
       final metaSnap = await userDoc.get();
@@ -246,9 +259,12 @@ class FirebaseSyncService {
 
   void startAutoSync(AppState appState) {
     stopAutoSync();
-    _autoSyncTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+    _autoSyncTimer = Timer.periodic(const Duration(minutes: 5), (_) async {
       if (isSignedIn && !_isSyncing) {
-        uploadData(appState);
+        final syncEnabled = await SubscriptionService().isCloudSyncEnabled();
+        if (syncEnabled) {
+          uploadData(appState);
+        }
       }
     });
   }
