@@ -168,6 +168,8 @@ class _AuthGateState extends State<AuthGate> {
   bool _needsGmailRegistration = false;
   SubscriptionResult? _subResult;
   bool _signingIn = false;
+  final _windowsEmailController = TextEditingController();
+  String? _windowsEmailError;
 
   final _subService = SubscriptionService();
 
@@ -180,8 +182,8 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkSubscription() async {
     setState(() => _subChecking = true);
 
-    // Skip subscription check on web and Windows (Firebase C++ SDK crashes on Windows)
-    if (kIsWeb || (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)) {
+    // Skip subscription check on web only
+    if (kIsWeb) {
       setState(() {
         _subChecking = false;
         _needsGmailRegistration = false;
@@ -566,8 +568,55 @@ class _AuthGateState extends State<AuthGate> {
     return MainShell(onLogout: () => setState(() => _loggedIn = false));
   }
 
+  /// Windows: register with typed email directly to Firestore (no Firebase Auth)
+  Future<void> _signInWithEmailWindows() async {
+    final email = _windowsEmailController.text.trim().toLowerCase();
+    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+      setState(() => _windowsEmailError = 'Enter a valid Gmail address');
+      return;
+    }
+    setState(() {
+      _signingIn = true;
+      _windowsEmailError = null;
+    });
+    try {
+      final result = await _subService.registerDevice(email, email.split('@').first);
+
+      if (result.status == SubscriptionStatus.deviceMismatch) {
+        setState(() => _signingIn = false);
+        if (mounted) {
+          showDialog(context: context, builder: (ctx) => AlertDialog(
+            title: const Row(children: [
+              Icon(Icons.devices_other, color: AppColors.warning),
+              SizedBox(width: 8),
+              Expanded(child: Text('Device Mismatch')),
+            ]),
+            content: Text(result.message ?? 'This email is registered to another device.'),
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+          ));
+        }
+        return;
+      }
+
+      // Success — proceed
+      setState(() {
+        _signingIn = false;
+        _needsGmailRegistration = false;
+      });
+      _checkOnboarding();
+      _backgroundSubscriptionCheck(email);
+    } catch (e) {
+      setState(() {
+        _signingIn = false;
+        _windowsEmailError = 'Registration failed. Check internet.';
+      });
+      debugPrint('Windows email registration error: $e');
+    }
+  }
+
   Widget _buildGmailRegistrationScreen() {
     final deviceService = DeviceIdService();
+    final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -577,7 +626,8 @@ class _AuthGateState extends State<AuthGate> {
           ),
         ),
         child: Center(
-          child: Container(
+          child: SingleChildScrollView(
+            child: Container(
             width: 420, padding: const EdgeInsets.all(40),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.05),
@@ -602,23 +652,70 @@ class _AuthGateState extends State<AuthGate> {
                 style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.6))),
               const SizedBox(height: 32),
 
-              // Gmail Sign-in Button
-              SizedBox(width: double.infinity, child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black87,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 2,
+              if (isWindows) ...[
+                // Windows: Email input field
+                TextField(
+                  controller: _windowsEmailController,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    hintText: 'Enter your Gmail address',
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                    prefixIcon: const Icon(Icons.mail_outline, color: AppColors.primary),
+                    errorText: _windowsEmailError,
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                    ),
+                  ),
+                  onSubmitted: (_) => _signInWithEmailWindows(),
                 ),
-                onPressed: _signingIn ? null : _signInWithGmail,
-                icon: _signingIn
-                  ? const SizedBox(width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.mail, color: Colors.red, size: 22),
-                label: Text(_signingIn ? 'Signing in...' : 'Sign in with Gmail',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-              )),
+                const SizedBox(height: 16),
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 2,
+                  ),
+                  onPressed: _signingIn ? null : _signInWithEmailWindows,
+                  icon: _signingIn
+                    ? const SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.login, size: 22),
+                  label: Text(_signingIn ? 'Registering...' : 'Register & Continue',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                )),
+              ] else ...[
+                // Android/iOS: Gmail Sign-in Button
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black87,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 2,
+                  ),
+                  onPressed: _signingIn ? null : _signInWithGmail,
+                  icon: _signingIn
+                    ? const SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.mail, color: Colors.red, size: 22),
+                  label: Text(_signingIn ? 'Signing in...' : 'Sign in with Gmail',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                )),
+              ],
 
               const SizedBox(height: 24),
               const Divider(),
@@ -652,11 +749,12 @@ class _AuthGateState extends State<AuthGate> {
               ),
 
               const SizedBox(height: 16),
-              Text('One Gmail = One Device',
+              Text(isWindows ? 'Use the same Gmail registered on your phone' : 'One Gmail = One Device',
                 style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3))),
               Text('7-day free trial included',
                 style: TextStyle(fontSize: 11, color: AppColors.success.withValues(alpha: 0.6))),
             ]),
+          ),
           ),
         ),
       ),
