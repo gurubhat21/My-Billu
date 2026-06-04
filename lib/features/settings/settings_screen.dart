@@ -36,6 +36,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:typed_data';
 import '../../core/services/lan_sync_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'keyboard_shortcuts_screen.dart';
 import 'import_export_screen.dart';
 import 'package:local_auth/local_auth.dart';
