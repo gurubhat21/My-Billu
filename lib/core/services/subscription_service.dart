@@ -126,21 +126,30 @@ class SubscriptionService {
       final doc = await _subsCollection.doc(email).get();
       if (doc.exists) {
         final data = doc.data() as Map<String, dynamic>;
-        final existingDeviceId = data['deviceId'] as String?;
 
-        if (existingDeviceId != null && existingDeviceId.isNotEmpty && existingDeviceId != deviceId) {
-          // Already bound to different device
+        // Check platform-specific device ID (Android)
+        String existingAndroidId = data['androidDeviceId'] as String? ?? '';
+        // Backward compat: if androidDeviceId is empty, check old deviceId
+        if (existingAndroidId.isEmpty) {
+          final oldDeviceId = data['deviceId'] as String? ?? '';
+          if (oldDeviceId.startsWith('and_')) {
+            existingAndroidId = oldDeviceId;
+          }
+        }
+
+        if (existingAndroidId.isNotEmpty && existingAndroidId != deviceId) {
+          // Already bound to different Android device
           return SubscriptionResult(
             status: SubscriptionStatus.deviceMismatch,
             email: email,
-            deviceId: existingDeviceId,
-            message: 'This Gmail is already registered to another device. Contact admin for device migration.',
+            deviceId: existingAndroidId,
+            message: 'This Gmail is already registered to another Android device. Contact admin for device migration.',
           );
         }
 
-        // Same device re-registering — just update info
+        // Same device re-registering — update with both legacy + platform fields
         await _subsCollection.doc(email).update({
-          ...deviceService.toMap(),
+          ...deviceService.toBackwardCompatMap(),
           'displayName': displayName,
           'lastOnlineAt': FieldValue.serverTimestamp(),
           'appVersion': '6.0.0',
@@ -151,7 +160,7 @@ class SubscriptionService {
         await _subsCollection.doc(email).set({
           'email': email,
           'displayName': displayName,
-          ...deviceService.toMap(),
+          ...deviceService.toBackwardCompatMap(),
           'subscriptionStatus': 'trial',
           'expiryDate': Timestamp.fromDate(trialExpiry),
           'registeredAt': FieldValue.serverTimestamp(),
@@ -194,18 +203,26 @@ class SubscriptionService {
       }
 
       final data = doc.data() as Map<String, dynamic>;
-      final registeredDeviceId = data['deviceId'] as String?;
       final statusStr = data['subscriptionStatus'] as String? ?? 'trial';
       final expiryTs = data['expiryDate'] as Timestamp?;
       final expiryDate = expiryTs?.toDate();
 
-      // Check device match
-      if (registeredDeviceId != null && registeredDeviceId.isNotEmpty && registeredDeviceId != deviceId) {
+      // Check platform-specific device match (Android)
+      String registeredAndroidId = data['androidDeviceId'] as String? ?? '';
+      // Backward compat: if androidDeviceId is empty, check old deviceId
+      if (registeredAndroidId.isEmpty) {
+        final oldDeviceId = data['deviceId'] as String? ?? '';
+        if (oldDeviceId.startsWith('and_')) {
+          registeredAndroidId = oldDeviceId;
+        }
+      }
+
+      if (registeredAndroidId.isNotEmpty && registeredAndroidId != deviceId) {
         final result = SubscriptionResult(
           status: SubscriptionStatus.deviceMismatch,
           email: email,
-          deviceId: registeredDeviceId,
-          message: 'This account is bound to a different device. Contact admin.',
+          deviceId: registeredAndroidId,
+          message: 'This account is bound to a different Android device. Contact admin.',
         );
         await _cacheResult(result);
         return result;
@@ -245,11 +262,11 @@ class SubscriptionService {
       final daysLeft = expiryDate != null ? expiryDate.difference(DateTime.now()).inDays : 999;
       final status = statusStr == 'trial' ? SubscriptionStatus.trial : SubscriptionStatus.active;
 
-      // Update last online
+      // Update last online with both legacy + platform-specific fields
       await _subsCollection.doc(email).update({
         'lastOnlineAt': FieldValue.serverTimestamp(),
         'lastCheckAt': FieldValue.serverTimestamp(),
-        ...deviceService.toMap(),
+        ...deviceService.toBackwardCompatMap(),
         'appVersion': '6.0.0',
       });
 
@@ -335,26 +352,48 @@ class SubscriptionService {
   }
 
   /// Migrate device — unbind old device so user can re-register on new one (admin)
-  Future<void> migrateDevice(String email, {String reason = 'Device migration'}) async {
+  /// [platform] can be 'android', 'windows', or 'all' to clear both
+  Future<void> migrateDevice(String email, {String reason = 'Device migration', String platform = 'android'}) async {
     final doc = await _subsCollection.doc(email).get();
     if (!doc.exists) return;
 
     final data = doc.data() as Map<String, dynamic>;
-    final oldDeviceId = data['deviceId'] ?? '';
+    final oldAndroidId = data['androidDeviceId'] ?? data['deviceId'] ?? '';
+    final oldWindowsId = data['windowsDeviceId'] ?? '';
     final history = List<Map<String, dynamic>>.from(data['migrationHistory'] ?? []);
     history.add({
-      'oldDeviceId': oldDeviceId,
+      'oldAndroidDeviceId': oldAndroidId,
+      'oldWindowsDeviceId': oldWindowsId,
+      'platform': platform,
       'migratedAt': DateTime.now().toIso8601String(),
       'reason': reason,
     });
 
-    await _subsCollection.doc(email).update({
-      'deviceId': '',          // Clear device binding
-      'deviceName': '',
-      'deviceModel': '',
-      'platform': '',
+    final updateFields = <String, dynamic>{
       'migrationHistory': history,
-    });
+    };
+
+    if (platform == 'android' || platform == 'all') {
+      updateFields['androidDeviceId'] = '';
+      updateFields['androidDeviceName'] = '';
+      updateFields['androidDeviceModel'] = '';
+      // Also clear legacy fields when clearing android
+      updateFields['deviceId'] = '';
+      updateFields['deviceName'] = '';
+      updateFields['deviceModel'] = '';
+    }
+
+    if (platform == 'windows' || platform == 'all') {
+      updateFields['windowsDeviceId'] = '';
+      updateFields['windowsDeviceName'] = '';
+      updateFields['windowsDeviceModel'] = '';
+    }
+
+    if (platform == 'all') {
+      updateFields['platform'] = '';
+    }
+
+    await _subsCollection.doc(email).update(updateFields);
   }
 
   /// Update admin notes (admin)

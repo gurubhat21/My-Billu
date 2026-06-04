@@ -81,11 +81,28 @@ class DeviceIdService {
     await prefs.setString(_deviceModelKey, _deviceModel ?? 'Unknown');
   }
 
-  /// Get all device info as a map (for Firestore)
+  /// Get all device info as a map (for Firestore) — legacy fields
   Map<String, String> toMap() => {
     'deviceId': _deviceId ?? 'unknown',
     'deviceName': _deviceName ?? 'Unknown',
     'deviceModel': _deviceModel ?? 'Unknown',
     'platform': platform,
+  };
+
+  /// Get platform-specific device info map (e.g. androidDeviceId, windowsDeviceName)
+  Map<String, String> toPlatformMap() {
+    final prefix = platform; // 'android', 'windows', etc.
+    return {
+      '${prefix}DeviceId': _deviceId ?? 'unknown',
+      '${prefix}DeviceName': _deviceName ?? 'Unknown',
+      '${prefix}DeviceModel': _deviceModel ?? 'Unknown',
+      'platform': platform,
+    };
+  }
+
+  /// Get both legacy + platform-specific fields (for backward compatibility)
+  Map<String, String> toBackwardCompatMap() => {
+    ...toMap(),
+    ...toPlatformMap(),
   };
 }

@@ -55,24 +55,36 @@ class WindowsFirestoreService {
       final getResp = await http.get(Uri.parse(getUrl));
 
       if (getResp.statusCode == 200) {
-        // Document exists — check device
+        // Document exists — check Windows device
         final data = jsonDecode(getResp.body);
         final fields = data['fields'] as Map<String, dynamic>? ?? {};
-        final existingDeviceId = _getString(fields, 'deviceId');
 
-        if (existingDeviceId.isNotEmpty &&
-            existingDeviceId != (deviceService.deviceId ?? '')) {
+        // Check platform-specific device ID (Windows)
+        String existingWindowsId = _getString(fields, 'windowsDeviceId');
+        // Backward compat: if windowsDeviceId is empty, check old deviceId
+        if (existingWindowsId.isEmpty) {
+          final oldDeviceId = _getString(fields, 'deviceId');
+          if (oldDeviceId.startsWith('win_')) {
+            existingWindowsId = oldDeviceId;
+          }
+        }
+
+        if (existingWindowsId.isNotEmpty &&
+            existingWindowsId != (deviceService.deviceId ?? '')) {
           return {
             'status': 'deviceMismatch',
-            'message': 'This email is registered to another device. Contact admin for migration.',
+            'message': 'This email is registered to another Windows device. Contact admin for migration.',
           };
         }
 
-        // Same device — update info
+        // Same device — update with both legacy + platform-specific fields
         await _patchDocument(email, {
           'deviceId': deviceService.deviceId ?? '',
           'deviceName': deviceService.deviceName ?? 'Windows',
           'deviceModel': deviceService.deviceModel ?? 'Desktop',
+          'windowsDeviceId': deviceService.deviceId ?? '',
+          'windowsDeviceName': deviceService.deviceName ?? 'Windows',
+          'windowsDeviceModel': deviceService.deviceModel ?? 'Desktop',
           'platform': 'windows',
           'displayName': displayName,
           'appVersion': '6.0.0',
@@ -86,6 +98,9 @@ class WindowsFirestoreService {
           'deviceId': deviceService.deviceId ?? '',
           'deviceName': deviceService.deviceName ?? 'Windows',
           'deviceModel': deviceService.deviceModel ?? 'Desktop',
+          'windowsDeviceId': deviceService.deviceId ?? '',
+          'windowsDeviceName': deviceService.deviceName ?? 'Windows',
+          'windowsDeviceModel': deviceService.deviceModel ?? 'Desktop',
           'platform': 'windows',
           'subscriptionStatus': 'trial',
           'expiryDate': trialExpiry.toIso8601String(),
@@ -151,8 +166,11 @@ class WindowsFirestoreService {
 
       await _cacheResult(status.isEmpty ? 'trial' : status, expiryStr);
 
-      // Update lastOnline
+      // Update lastOnline with platform-specific fields
       await _patchDocument(email, {
+        'windowsDeviceId': deviceService.deviceId ?? '',
+        'windowsDeviceName': deviceService.deviceName ?? 'Windows',
+        'windowsDeviceModel': deviceService.deviceModel ?? 'Desktop',
         'platform': 'windows',
         'appVersion': '6.0.0',
       });
