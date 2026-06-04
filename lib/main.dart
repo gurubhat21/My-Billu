@@ -1,4 +1,5 @@
 import 'dart:io' show exit, Platform;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -43,6 +44,7 @@ import 'features/fake_quote/fake_quote_screen.dart';
 import 'features/qr_generator/qr_generator_screen.dart';
 import 'core/services/device_id_service.dart';
 import 'core/services/subscription_service.dart';
+import 'core/services/windows_firestore_service.dart';
 import 'core/services/windows_google_auth.dart';
 
 void main() async {
@@ -59,17 +61,19 @@ void main() async {
     await data_path.loadDataPathConfig();
   }
 
-  // Initialize Firebase (wrapped in try-catch to prevent crash if config is wrong)
-  try {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      await Firebase.initializeApp();
-    } else {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+  // Initialize Firebase (skip on Windows — C++ SDK crashes, use REST API instead)
+  if (!(!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)) {
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await Firebase.initializeApp();
+      } else {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
+    } catch (e) {
+      debugPrint('Firebase init error: $e');
     }
-  } catch (e) {
-    debugPrint('Firebase init error: $e');
   }
 
   // Initialize Device ID service
@@ -182,13 +186,27 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkSubscription() async {
     setState(() => _subChecking = true);
 
-    // Skip subscription check on web only
+    // Skip subscription check on web
     if (kIsWeb) {
       setState(() {
         _subChecking = false;
         _needsGmailRegistration = false;
       });
       _checkOnboarding();
+      return;
+    }
+
+    // Windows: use REST API (Firebase C++ SDK not initialized)
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedEmail = prefs.getString('sub_registered_email');
+      if (cachedEmail == null || cachedEmail.isEmpty) {
+        setState(() { _subChecking = false; _needsGmailRegistration = true; });
+      } else {
+        setState(() { _subChecking = false; _needsGmailRegistration = false; });
+        _checkOnboarding();
+        _windowsBackgroundCheck(cachedEmail);
+      }
       return;
     }
 
@@ -568,21 +586,17 @@ class _AuthGateState extends State<AuthGate> {
     return MainShell(onLogout: () => setState(() => _loggedIn = false));
   }
 
-  /// Windows: register with typed email directly to Firestore (no Firebase Auth)
+  /// Windows: register with typed email via REST API (no Firebase SDK)
   Future<void> _signInWithEmailWindows() async {
     final email = _windowsEmailController.text.trim().toLowerCase();
     if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
       setState(() => _windowsEmailError = 'Enter a valid Gmail address');
       return;
     }
-    setState(() {
-      _signingIn = true;
-      _windowsEmailError = null;
-    });
+    setState(() { _signingIn = true; _windowsEmailError = null; });
     try {
-      final result = await _subService.registerDevice(email, email.split('@').first);
-
-      if (result.status == SubscriptionStatus.deviceMismatch) {
+      final result = await WindowsFirestoreService.registerDevice(email, email.split('@').first);
+      if (result['status'] == 'deviceMismatch') {
         setState(() => _signingIn = false);
         if (mounted) {
           showDialog(context: context, builder: (ctx) => AlertDialog(
@@ -591,26 +605,45 @@ class _AuthGateState extends State<AuthGate> {
               SizedBox(width: 8),
               Expanded(child: Text('Device Mismatch')),
             ]),
-            content: Text(result.message ?? 'This email is registered to another device.'),
+            content: Text(result['message'] ?? 'This email is registered to another device.'),
             actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
           ));
         }
         return;
       }
-
-      // Success — proceed
-      setState(() {
-        _signingIn = false;
-        _needsGmailRegistration = false;
-      });
+      if (result['status'] == 'error') {
+        setState(() { _signingIn = false; _windowsEmailError = result['message'] ?? 'Failed'; });
+        return;
+      }
+      setState(() { _signingIn = false; _needsGmailRegistration = false; });
       _checkOnboarding();
-      _backgroundSubscriptionCheck(email);
     } catch (e) {
-      setState(() {
-        _signingIn = false;
-        _windowsEmailError = 'Registration failed. Check internet.';
-      });
-      debugPrint('Windows email registration error: $e');
+      setState(() { _signingIn = false; _windowsEmailError = 'Registration failed. Check internet.'; });
+    }
+  }
+
+  /// Windows background subscription check via REST API
+  Future<void> _windowsBackgroundCheck(String email) async {
+    try {
+      final result = await WindowsFirestoreService.checkSubscription(email);
+      if (!mounted) return;
+      final status = result['status'] ?? '';
+      if (status == 'revoked') {
+        await showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
+          title: const Row(children: [
+            Icon(Icons.block, color: AppColors.error), SizedBox(width: 8),
+            Expanded(child: Text('Access Revoked')),
+          ]),
+          content: const Text('Your access has been revoked by admin.'),
+          actions: [
+            TextButton(onPressed: () { Navigator.pop(ctx); SystemNavigator.pop(); exit(0); }, child: const Text('OK')),
+          ],
+        ));
+      } else if (status == 'expired') {
+        setState(() => _expired = true);
+      }
+    } catch (e) {
+      debugPrint('Windows background check error: $e');
     }
   }
 
@@ -653,7 +686,6 @@ class _AuthGateState extends State<AuthGate> {
               const SizedBox(height: 32),
 
               if (isWindows) ...[
-                // Windows: Email input field
                 TextField(
                   controller: _windowsEmailController,
                   style: const TextStyle(color: Colors.white, fontSize: 15),
@@ -665,18 +697,12 @@ class _AuthGateState extends State<AuthGate> {
                     errorText: _windowsEmailError,
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: 0.05),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15))),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 2)),
                   ),
                   onSubmitted: (_) => _signInWithEmailWindows(),
                 ),
@@ -687,7 +713,6 @@ class _AuthGateState extends State<AuthGate> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    elevation: 2,
                   ),
                   onPressed: _signingIn ? null : _signInWithEmailWindows,
                   icon: _signingIn
@@ -698,7 +723,6 @@ class _AuthGateState extends State<AuthGate> {
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 )),
               ] else ...[
-                // Android/iOS: Gmail Sign-in Button
                 SizedBox(width: double.infinity, child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
@@ -720,8 +744,6 @@ class _AuthGateState extends State<AuthGate> {
               const SizedBox(height: 24),
               const Divider(),
               const SizedBox(height: 12),
-
-              // Device info
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -731,7 +753,7 @@ class _AuthGateState extends State<AuthGate> {
                 ),
                 child: Column(children: [
                   Row(children: [
-                    Icon(Icons.phone_android, size: 14, color: Colors.white.withValues(alpha: 0.4)),
+                    Icon(isWindows ? Icons.computer : Icons.phone_android, size: 14, color: Colors.white.withValues(alpha: 0.4)),
                     const SizedBox(width: 6),
                     Expanded(child: Text(
                       'Device: ${deviceService.deviceName ?? "Unknown"}',
@@ -747,9 +769,8 @@ class _AuthGateState extends State<AuthGate> {
                   ]),
                 ]),
               ),
-
               const SizedBox(height: 16),
-              Text(isWindows ? 'Use the same Gmail registered on your phone' : 'One Gmail = One Device',
+              Text(isWindows ? 'Use the same Gmail as your Android device' : 'One Gmail = One Device',
                 style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3))),
               Text('7-day free trial included',
                 style: TextStyle(fontSize: 11, color: AppColors.success.withValues(alpha: 0.6))),
