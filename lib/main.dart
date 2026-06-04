@@ -196,17 +196,9 @@ class _AuthGateState extends State<AuthGate> {
       return;
     }
 
-    // Windows: use REST API (Firebase C++ SDK not initialized)
+    // Windows: always require Google login on every launch
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-      final prefs = await SharedPreferences.getInstance();
-      final cachedEmail = prefs.getString('sub_registered_email');
-      if (cachedEmail == null || cachedEmail.isEmpty) {
-        setState(() { _subChecking = false; _needsGmailRegistration = true; });
-      } else {
-        setState(() { _subChecking = false; _needsGmailRegistration = false; });
-        _checkOnboarding();
-        _windowsBackgroundCheck(cachedEmail);
-      }
+      setState(() { _subChecking = false; _needsGmailRegistration = true; });
       return;
     }
 
@@ -621,6 +613,9 @@ class _AuthGateState extends State<AuthGate> {
       }
       setState(() { _signingIn = false; _needsGmailRegistration = false; });
       _checkOnboarding();
+      // Run background subscription check
+      final cachedEmail = await WindowsFirestoreService.getCachedEmail();
+      if (cachedEmail != null) _windowsBackgroundCheck(cachedEmail);
     } catch (e) {
       setState(() { _signingIn = false; _windowsEmailError = 'Sign-in failed: $e'; });
     }
@@ -657,6 +652,8 @@ class _AuthGateState extends State<AuthGate> {
       }
       setState(() { _signingIn = false; _needsGmailRegistration = false; });
       _checkOnboarding();
+      // Run background subscription check
+      _windowsBackgroundCheck(email);
     } catch (e) {
       setState(() { _signingIn = false; _windowsEmailError = 'Registration failed. Check internet.'; });
     }
