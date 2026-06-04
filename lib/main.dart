@@ -180,8 +180,8 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkSubscription() async {
     setState(() => _subChecking = true);
 
-    // Skip subscription check on web only
-    if (kIsWeb) {
+    // Skip subscription check on web and Windows (Firebase C++ SDK crashes on Windows)
+    if (kIsWeb || (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)) {
       setState(() {
         _subChecking = false;
         _needsGmailRegistration = false;
@@ -190,26 +190,36 @@ class _AuthGateState extends State<AuthGate> {
       return;
     }
 
-    final cachedEmail = await _subService.getCachedEmail();
+    try {
+      final cachedEmail = await _subService.getCachedEmail();
 
-    if (cachedEmail == null || cachedEmail.isEmpty) {
-      // Not registered yet — show Gmail sign-in (this blocks)
+      if (cachedEmail == null || cachedEmail.isEmpty) {
+        // Not registered yet — show Gmail sign-in (this blocks)
+        setState(() {
+          _subChecking = false;
+          _needsGmailRegistration = true;
+        });
+        return;
+      }
+
+      // Returning user — let them in immediately, check in background
       setState(() {
         _subChecking = false;
-        _needsGmailRegistration = true;
+        _needsGmailRegistration = false;
       });
-      return;
+      _checkOnboarding();
+
+      // Background subscription check (non-blocking)
+      _backgroundSubscriptionCheck(cachedEmail);
+    } catch (e) {
+      debugPrint('Subscription check error: $e');
+      // On any error, let user into the app
+      setState(() {
+        _subChecking = false;
+        _needsGmailRegistration = false;
+      });
+      _checkOnboarding();
     }
-
-    // Returning user — let them in immediately, check in background
-    setState(() {
-      _subChecking = false;
-      _needsGmailRegistration = false;
-    });
-    _checkOnboarding();
-
-    // Background subscription check (non-blocking)
-    _backgroundSubscriptionCheck(cachedEmail);
   }
 
   /// Checks subscription in background without blocking the app.
