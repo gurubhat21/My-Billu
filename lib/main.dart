@@ -586,7 +586,47 @@ class _AuthGateState extends State<AuthGate> {
     return MainShell(onLogout: () => setState(() => _loggedIn = false));
   }
 
-  /// Windows: register with typed email via REST API (no Firebase SDK)
+  /// Windows: Sign in with Google via browser OAuth, then register via REST API
+  Future<void> _signInWithGoogleWindows() async {
+    setState(() { _signingIn = true; _windowsEmailError = null; });
+    try {
+      final userInfo = await WindowsGoogleAuth.signInAndGetEmail();
+      if (userInfo == null) {
+        setState(() { _signingIn = false; _windowsEmailError = 'Sign-in was cancelled or failed'; });
+        return;
+      }
+
+      final email = userInfo['email']!.toLowerCase();
+      final displayName = userInfo['displayName'] ?? email.split('@').first;
+
+      final result = await WindowsFirestoreService.registerDevice(email, displayName);
+      if (result['status'] == 'deviceMismatch') {
+        setState(() => _signingIn = false);
+        if (mounted) {
+          showDialog(context: context, builder: (ctx) => AlertDialog(
+            title: const Row(children: [
+              Icon(Icons.devices_other, color: AppColors.warning),
+              SizedBox(width: 8),
+              Expanded(child: Text('Device Mismatch')),
+            ]),
+            content: Text(result['message'] ?? 'This email is registered to another device.'),
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+          ));
+        }
+        return;
+      }
+      if (result['status'] == 'error') {
+        setState(() { _signingIn = false; _windowsEmailError = result['message'] ?? 'Failed'; });
+        return;
+      }
+      setState(() { _signingIn = false; _needsGmailRegistration = false; });
+      _checkOnboarding();
+    } catch (e) {
+      setState(() { _signingIn = false; _windowsEmailError = 'Sign-in failed: $e'; });
+    }
+  }
+
+  /// Windows fallback: register with typed email via REST API
   Future<void> _signInWithEmailWindows() async {
     final email = _windowsEmailController.text.trim().toLowerCase();
     if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
@@ -686,41 +726,66 @@ class _AuthGateState extends State<AuthGate> {
               const SizedBox(height: 32),
 
               if (isWindows) ...[
+                // Google Sign-In button for Windows (browser-based OAuth)
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black87,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 2,
+                  ),
+                  onPressed: _signingIn ? null : _signInWithGoogleWindows,
+                  icon: _signingIn
+                    ? const SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.mail, color: Colors.red, size: 22),
+                  label: Text(_signingIn ? 'Signing in...' : 'Sign in with Google',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                )),
+
+                // Error message
+                if (_windowsEmailError != null) ...[
+                  const SizedBox(height: 12),
+                  Text(_windowsEmailError!, style: const TextStyle(color: AppColors.error, fontSize: 12)),
+                ],
+
+                const SizedBox(height: 20),
+                Row(children: [
+                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('or', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12))),
+                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+                ]),
+                const SizedBox(height: 16),
+
+                // Manual email fallback
                 TextField(
                   controller: _windowsEmailController,
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    hintText: 'Enter your Gmail address',
-                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-                    prefixIcon: const Icon(Icons.mail_outline, color: AppColors.primary),
-                    errorText: _windowsEmailError,
+                    hintText: 'Enter Gmail manually',
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 13),
+                    prefixIcon: Icon(Icons.mail_outline, color: Colors.white.withValues(alpha: 0.3), size: 20),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.05),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15))),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                    fillColor: Colors.white.withValues(alpha: 0.03),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: AppColors.primary.withValues(alpha: 0.5))),
                   ),
                   onSubmitted: (_) => _signInWithEmailWindows(),
                 ),
-                const SizedBox(height: 16),
-                SizedBox(width: double.infinity, child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
+                const SizedBox(height: 8),
+                SizedBox(width: double.infinity, child: TextButton(
                   onPressed: _signingIn ? null : _signInWithEmailWindows,
-                  icon: _signingIn
-                    ? const SizedBox(width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.login, size: 22),
-                  label: Text(_signingIn ? 'Registering...' : 'Register & Continue',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  child: Text('Register with email',
+                    style: TextStyle(color: AppColors.primary.withValues(alpha: 0.7), fontSize: 13)),
                 )),
               ] else ...[
                 SizedBox(width: double.infinity, child: ElevatedButton.icon(

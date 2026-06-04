@@ -134,6 +134,43 @@ class WindowsGoogleAuth {
     }
   }
 
+  /// Sign in and return just the email + display name (no Firebase Auth needed).
+  /// Extracts from JWT ID token payload.
+  static Future<Map<String, String>?> signInAndGetEmail() async {
+    final tokens = await signIn();
+    if (tokens == null) return null;
+
+    final idToken = tokens['idToken'];
+    if (idToken == null) return null;
+
+    try {
+      // Decode JWT payload (base64url encoded, no verification needed — just extracting claims)
+      final parts = idToken.split('.');
+      if (parts.length != 3) return null;
+
+      // Pad base64 if needed
+      String payload = parts[1];
+      final padLength = (4 - payload.length % 4) % 4;
+      payload += '=' * padLength;
+
+      final decoded = utf8.decode(base64Url.decode(payload));
+      final claims = jsonDecode(decoded) as Map<String, dynamic>;
+
+      final email = claims['email'] as String?;
+      final name = claims['name'] as String? ?? claims['given_name'] as String? ?? '';
+
+      if (email == null || email.isEmpty) return null;
+
+      return {
+        'email': email,
+        'displayName': name,
+      };
+    } catch (e) {
+      debugPrint('Failed to decode ID token: $e');
+      return null;
+    }
+  }
+
   static String _generateRandomString(int length) {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random.secure();
