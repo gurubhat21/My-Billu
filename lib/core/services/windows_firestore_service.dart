@@ -339,4 +339,11 @@ class WindowsFirestoreService {
       'migrationPlatform': platform,
     });
   }
+
+  /// Request cloud sync from admin via REST API
+  static Future<void> requestCloudSync(String email) async {
+    await _patchDocument(email, {
+      'cloudSyncRequested': 'true',
+    });
+  }
 }
