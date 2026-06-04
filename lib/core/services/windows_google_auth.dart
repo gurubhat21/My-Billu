@@ -17,8 +17,8 @@ class WindowsGoogleAuth {
   static Future<Map<String, String>?> signIn() async {
     HttpServer? server;
     try {
-      // Start local HTTP server on a random port
-      server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      // Start local HTTP server on fixed port 8888
+      server = await HttpServer.bind(InternetAddress.loopbackIPv4, 8888);
       final port = server.port;
       final redirectUri = 'http://localhost:$port';
 
