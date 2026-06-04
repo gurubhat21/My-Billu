@@ -17,8 +17,20 @@ class WindowsGoogleAuth {
   static Future<Map<String, String>?> signIn() async {
     HttpServer? server;
     try {
-      // Start local HTTP server on fixed port 8888
-      server = await HttpServer.bind(InternetAddress.loopbackIPv4, 8888);
+      // Try binding to a local port (try multiple in case one is busy)
+      const ports = [43210, 43211, 43212];
+      for (final tryPort in ports) {
+        try {
+          server = await HttpServer.bind(InternetAddress.loopbackIPv4, tryPort);
+          break;
+        } catch (_) {
+          debugPrint('Port $tryPort busy, trying next...');
+        }
+      }
+      if (server == null) {
+        debugPrint('All ports busy, cannot start OAuth server');
+        return null;
+      }
       final port = server.port;
       final redirectUri = 'http://localhost:$port';
 
