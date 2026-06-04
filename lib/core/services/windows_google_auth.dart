@@ -37,14 +37,13 @@ class WindowsGoogleAuth {
       // Generate state for CSRF protection
       final state = _generateRandomString(32);
 
-      // Build Google OAuth URL
+      // Build Google OAuth URL — use implicit flow (token only, no id_token)
       final authUrl = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {
         'client_id': _webClientId,
         'redirect_uri': redirectUri,
-        'response_type': 'token id_token',
-        'scope': 'email profile',
+        'response_type': 'token',
+        'scope': 'openid email profile',
         'state': state,
-        'nonce': _generateRandomString(16),
         'include_granted_scopes': 'true',
       });
 
@@ -68,12 +67,12 @@ class WindowsGoogleAuth {
         final requestUri = request.uri;
 
         if (requestUri.path == '/') {
-          // Check if we have tokens in query params (sent by our JS)
-          final idToken = requestUri.queryParameters['id_token'];
-          final accessToken = requestUri.queryParameters['access_token'];
+          // Check if we have email from the JS userinfo fetch
+          final email = requestUri.queryParameters['email'];
+          final name = requestUri.queryParameters['name'];
           final returnedState = requestUri.queryParameters['state'];
 
-          if (idToken != null && accessToken != null) {
+          if (email != null && email.isNotEmpty) {
             // Verify state
             if (returnedState != state) {
               request.response
@@ -93,14 +92,12 @@ class WindowsGoogleAuth {
 
             if (!completer.isCompleted) {
               completer.complete({
-                'idToken': idToken,
-                'accessToken': accessToken,
+                'email': email,
+                'displayName': name ?? '',
               });
             }
           } else {
-            // First request — serve HTML page that extracts tokens from URL fragment
-            // Google's implicit flow puts tokens in the URL fragment (#)
-            // which is NOT sent to the server, so we need JS to extract and redirect
+            // First request — serve HTML that extracts token and fetches user info
             request.response
               ..statusCode = 200
               ..headers.contentType = ContentType.html
@@ -134,41 +131,10 @@ class WindowsGoogleAuth {
     }
   }
 
-  /// Sign in and return just the email + display name (no Firebase Auth needed).
-  /// Extracts from JWT ID token payload.
+  /// Sign in and return just the email + display name.
+  /// Now directly returns from the OAuth flow (no JWT decoding needed).
   static Future<Map<String, String>?> signInAndGetEmail() async {
-    final tokens = await signIn();
-    if (tokens == null) return null;
-
-    final idToken = tokens['idToken'];
-    if (idToken == null) return null;
-
-    try {
-      // Decode JWT payload (base64url encoded, no verification needed — just extracting claims)
-      final parts = idToken.split('.');
-      if (parts.length != 3) return null;
-
-      // Pad base64 if needed
-      String payload = parts[1];
-      final padLength = (4 - payload.length % 4) % 4;
-      payload += '=' * padLength;
-
-      final decoded = utf8.decode(base64Url.decode(payload));
-      final claims = jsonDecode(decoded) as Map<String, dynamic>;
-
-      final email = claims['email'] as String?;
-      final name = claims['name'] as String? ?? claims['given_name'] as String? ?? '';
-
-      if (email == null || email.isEmpty) return null;
-
-      return {
-        'email': email,
-        'displayName': name,
-      };
-    } catch (e) {
-      debugPrint('Failed to decode ID token: $e');
-      return null;
-    }
+    return await signIn();
   }
 
   static String _generateRandomString(int length) {
@@ -177,7 +143,7 @@ class WindowsGoogleAuth {
     return List.generate(length, (_) => chars[random.nextInt(chars.length)]).join();
   }
 
-  /// HTML page that extracts tokens from URL fragment and sends to server
+  /// HTML page that extracts access_token, fetches email via Google API, sends to server
   static String _extractorHtml(String expectedState) {
     return '''
 <!DOCTYPE html>
@@ -225,38 +191,51 @@ class WindowsGoogleAuth {
     <p id="message">Processing authentication, please wait.</p>
   </div>
   <script>
-    try {
-      var hash = window.location.hash.substring(1);
-      if (!hash) {
+    (function() {
+      function showError(msg) {
         document.getElementById('title').innerText = 'Error';
-        document.getElementById('message').innerText = 'No authentication data received.';
+        document.getElementById('message').innerText = msg;
         document.getElementById('message').className = 'error';
         document.getElementById('spinner').style.display = 'none';
-        return;
       }
-      var params = new URLSearchParams(hash);
-      var idToken = params.get('id_token');
-      var accessToken = params.get('access_token');
-      var state = params.get('state');
+      try {
+        var hash = window.location.hash.substring(1);
+        if (!hash) { showError('No authentication data received.'); return; }
 
-      if (idToken && accessToken) {
-        // Redirect to our server with tokens as query params
-        window.location.href = '/?id_token=' + encodeURIComponent(idToken) 
-          + '&access_token=' + encodeURIComponent(accessToken) 
-          + '&state=' + encodeURIComponent(state || '');
-      } else {
-        var error = params.get('error') || 'Unknown error';
-        document.getElementById('title').innerText = 'Sign-in Failed';
-        document.getElementById('message').innerText = error;
-        document.getElementById('message').className = 'error';
-        document.getElementById('spinner').style.display = 'none';
+        var params = new URLSearchParams(hash);
+        var accessToken = params.get('access_token');
+        var state = params.get('state');
+
+        if (!accessToken) {
+          var error = params.get('error') || 'No access token received';
+          showError(error);
+          return;
+        }
+
+        document.getElementById('message').innerText = 'Getting your account info...';
+
+        // Fetch email from Google userinfo API
+        fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        })
+        .then(function(resp) { return resp.json(); })
+        .then(function(info) {
+          if (info.email) {
+            // Redirect to our server with email + name (short URL!)
+            window.location.href = '/?email=' + encodeURIComponent(info.email)
+              + '&name=' + encodeURIComponent(info.name || '')
+              + '&state=' + encodeURIComponent(state || '');
+          } else {
+            showError('Could not get email from Google account.');
+          }
+        })
+        .catch(function(err) {
+          showError('Failed to fetch account info: ' + err.message);
+        });
+      } catch(e) {
+        showError(e.message);
       }
-    } catch(e) {
-      document.getElementById('title').innerText = 'Error';
-      document.getElementById('message').innerText = e.message;
-      document.getElementById('message').className = 'error';
-      document.getElementById('spinner').style.display = 'none';
-    }
+    })();
   </script>
 </body>
 </html>
