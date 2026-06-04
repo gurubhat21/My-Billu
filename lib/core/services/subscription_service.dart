@@ -152,6 +152,7 @@ class SubscriptionService {
           ...deviceService.toBackwardCompatMap(),
           'displayName': displayName,
           'lastOnlineAt': FieldValue.serverTimestamp(),
+          'androidLastOnlineAt': FieldValue.serverTimestamp(),
           'appVersion': '6.0.0',
         });
       } else {
@@ -163,6 +164,10 @@ class SubscriptionService {
           ...deviceService.toBackwardCompatMap(),
           'subscriptionStatus': 'trial',
           'expiryDate': Timestamp.fromDate(trialExpiry),
+          'androidExpiryDate': Timestamp.fromDate(trialExpiry),
+          'androidStatus': 'trial',
+          'androidLastOnlineAt': FieldValue.serverTimestamp(),
+          'cloudSyncEnabled': false,
           'registeredAt': FieldValue.serverTimestamp(),
           'lastOnlineAt': FieldValue.serverTimestamp(),
           'lastCheckAt': FieldValue.serverTimestamp(),
@@ -203,9 +208,23 @@ class SubscriptionService {
       }
 
       final data = doc.data() as Map<String, dynamic>;
-      final statusStr = data['subscriptionStatus'] as String? ?? 'trial';
-      final expiryTs = data['expiryDate'] as Timestamp?;
+
+      // Read androidStatus first, fall back to legacy subscriptionStatus
+      final androidStatus = data['androidStatus'] as String?;
+      final statusStr = (androidStatus != null && androidStatus.isNotEmpty)
+          ? androidStatus
+          : (data['subscriptionStatus'] as String? ?? 'trial');
+
+      // Read androidExpiryDate first, fall back to legacy expiryDate
+      final androidExpiryTs = data['androidExpiryDate'] as Timestamp?;
+      final legacyExpiryTs = data['expiryDate'] as Timestamp?;
+      final expiryTs = androidExpiryTs ?? legacyExpiryTs;
       final expiryDate = expiryTs?.toDate();
+
+      // Read cloudSyncEnabled and cache locally
+      final cloudSyncEnabled = data['cloudSyncEnabled'] as bool? ?? false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('sub_cloud_sync_enabled', cloudSyncEnabled);
 
       // Check platform-specific device match (Android)
       String registeredAndroidId = data['androidDeviceId'] as String? ?? '';
@@ -245,6 +264,7 @@ class SubscriptionService {
         // Update status in Firestore
         await _subsCollection.doc(email).update({
           'subscriptionStatus': 'expired',
+          'androidStatus': 'expired',
           'lastCheckAt': FieldValue.serverTimestamp(),
         });
         final result = SubscriptionResult(
@@ -265,6 +285,7 @@ class SubscriptionService {
       // Update last online with both legacy + platform-specific fields
       await _subsCollection.doc(email).update({
         'lastOnlineAt': FieldValue.serverTimestamp(),
+        'androidLastOnlineAt': FieldValue.serverTimestamp(),
         'lastCheckAt': FieldValue.serverTimestamp(),
         ...deviceService.toBackwardCompatMap(),
         'appVersion': '6.0.0',
@@ -301,6 +322,7 @@ class SubscriptionService {
       final deviceService = DeviceIdService();
       await _subsCollection.doc(email).collection('activity_log').add({
         'type': 'app_open',
+        'platform': 'android',
         'timestamp': FieldValue.serverTimestamp(),
         'deviceId': deviceService.deviceId ?? 'unknown',
         'deviceName': deviceService.deviceName ?? 'unknown',
@@ -317,6 +339,13 @@ class SubscriptionService {
     await prefs.remove(_statusKey);
     await prefs.remove(_expiryKey);
     await prefs.remove(_lastCheckKey);
+    await prefs.remove('sub_cloud_sync_enabled');
+  }
+
+  /// Check if cloud sync is enabled for this subscription
+  Future<bool> isCloudSyncEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('sub_cloud_sync_enabled') ?? false;
   }
 
   // ====== ADMIN FUNCTIONS ======

@@ -78,7 +78,7 @@ class WindowsFirestoreService {
         }
 
         // Same device — update with both legacy + platform-specific fields
-        await _patchDocument(email, {
+        final updateFields = {
           'deviceId': deviceService.deviceId ?? '',
           'deviceName': deviceService.deviceName ?? 'Windows',
           'deviceModel': deviceService.deviceModel ?? 'Desktop',
@@ -88,7 +88,16 @@ class WindowsFirestoreService {
           'platform': 'windows',
           'displayName': displayName,
           'appVersion': '6.0.0',
-        });
+        };
+
+        // If windowsStatus is empty, set it (e.g. migrated legacy doc)
+        final existingWindowsStatus = _getString(fields, 'windowsStatus');
+        if (existingWindowsStatus.isEmpty) {
+          final legacyStatus = _getString(fields, 'subscriptionStatus');
+          updateFields['windowsStatus'] = legacyStatus.isNotEmpty ? legacyStatus : 'trial';
+        }
+
+        await _patchDocument(email, updateFields);
       } else if (getResp.statusCode == 404) {
         // New registration — create with 7-day trial
         final trialExpiry = DateTime.now().add(const Duration(days: 7));
@@ -104,6 +113,9 @@ class WindowsFirestoreService {
           'platform': 'windows',
           'subscriptionStatus': 'trial',
           'expiryDate': trialExpiry.toIso8601String(),
+          'windowsExpiryDate': trialExpiry.toIso8601String(),
+          'windowsStatus': 'trial',
+          'cloudSyncEnabled': 'false',
           'appVersion': '6.0.0',
           'notes': '',
         });
@@ -138,8 +150,17 @@ class WindowsFirestoreService {
       final data = jsonDecode(resp.body);
       final fields = data['fields'] as Map<String, dynamic>? ?? {};
 
-      final status = _getString(fields, 'subscriptionStatus');
-      final expiryStr = _getString(fields, 'expiryDate');
+      // Read windowsStatus first, fall back to legacy subscriptionStatus
+      final windowsStatus = _getString(fields, 'windowsStatus');
+      final status = windowsStatus.isNotEmpty
+          ? windowsStatus
+          : _getString(fields, 'subscriptionStatus');
+
+      // Read windowsExpiryDate first, fall back to legacy expiryDate
+      final windowsExpiryStr = _getString(fields, 'windowsExpiryDate');
+      final expiryStr = windowsExpiryStr.isNotEmpty
+          ? windowsExpiryStr
+          : _getString(fields, 'expiryDate');
       final expiryDate = DateTime.tryParse(expiryStr);
 
       // Check revoked
@@ -168,10 +189,13 @@ class WindowsFirestoreService {
 
       // Update lastOnline with platform-specific fields
       final deviceService = DeviceIdService();
+      final now = DateTime.now().toUtc().toIso8601String();
       await _patchDocument(email, {
         'windowsDeviceId': deviceService.deviceId ?? '',
         'windowsDeviceName': deviceService.deviceName ?? 'Windows',
         'windowsDeviceModel': deviceService.deviceModel ?? 'Desktop',
+        'windowsLastOnlineAt': now,
+        'lastOnlineAt': now,
         'platform': 'windows',
         'appVersion': '6.0.0',
       });
@@ -207,6 +231,7 @@ class WindowsFirestoreService {
         body: jsonEncode({
           'fields': {
             'type': {'stringValue': 'app_open'},
+            'platform': {'stringValue': 'windows'},
             'timestamp': {'timestampValue': DateTime.now().toUtc().toIso8601String()},
             'deviceId': {'stringValue': deviceService.deviceId ?? ''},
             'deviceName': {'stringValue': deviceService.deviceName ?? 'Windows'},
