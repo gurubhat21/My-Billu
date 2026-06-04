@@ -43,6 +43,7 @@ import 'features/fake_quote/fake_quote_screen.dart';
 import 'features/qr_generator/qr_generator_screen.dart';
 import 'core/services/device_id_service.dart';
 import 'core/services/subscription_service.dart';
+import 'core/services/windows_google_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -179,8 +180,8 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkSubscription() async {
     setState(() => _subChecking = true);
 
-    // Skip subscription check on web and Windows desktop (no Google Sign-in support)
-    if (kIsWeb || (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)) {
+    // Skip subscription check on web only
+    if (kIsWeb) {
       setState(() {
         _subChecking = false;
         _needsGmailRegistration = false;
@@ -292,7 +293,21 @@ class _AuthGateState extends State<AuthGate> {
         provider.addScope('email');
         final result = await FirebaseAuth.instance.signInWithPopup(provider);
         user = result.user;
+      } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+        // Windows: browser-based OAuth
+        final tokens = await WindowsGoogleAuth.signIn();
+        if (tokens == null) {
+          setState(() => _signingIn = false);
+          return;
+        }
+        final credential = GoogleAuthProvider.credential(
+          accessToken: tokens['accessToken'],
+          idToken: tokens['idToken'],
+        );
+        final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+        user = userCredential.user;
       } else {
+        // Android/iOS: native Google Sign-In
         final googleUser = await GoogleSignIn(scopes: ['email']).signIn();
         if (googleUser == null) {
           setState(() => _signingIn = false);
