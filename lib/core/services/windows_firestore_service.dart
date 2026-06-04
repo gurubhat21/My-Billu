@@ -167,6 +167,7 @@ class WindowsFirestoreService {
       await _cacheResult(status.isEmpty ? 'trial' : status, expiryStr);
 
       // Update lastOnline with platform-specific fields
+      final deviceService = DeviceIdService();
       await _patchDocument(email, {
         'windowsDeviceId': deviceService.deviceId ?? '',
         'windowsDeviceName': deviceService.deviceName ?? 'Windows',
