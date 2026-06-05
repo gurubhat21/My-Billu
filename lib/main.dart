@@ -774,7 +774,7 @@ class _AuthGateState extends State<AuthGate> {
             Navigator.pop(dCtx);
             setState(() {
               _needsGmailRegistration = false;
-              _checkingSubscription = false;
+              _subChecking = false;
               _expired = false;
               _onboardingDone = true;
             });
@@ -789,7 +789,7 @@ class _AuthGateState extends State<AuthGate> {
               Navigator.pop(dCtx);
               setState(() {
                 _needsGmailRegistration = false;
-                _checkingSubscription = false;
+                _subChecking = false;
                 _expired = false;
                 _onboardingDone = true;
               });
