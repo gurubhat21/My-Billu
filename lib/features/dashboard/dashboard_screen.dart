@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/app_state.dart';
@@ -27,6 +28,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _expiryExpired = false;
   DateTime _currentTime = DateTime.now();
   Timer? _clockTimer;
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -117,7 +119,12 @@ class _DashboardScreenState extends State<DashboardScreen>
         return FadeTransition(
           opacity: _fadeAnim,
           child: RefreshIndicator(
-            onRefresh: () => appState.loadDashboardStats(),
+            onRefresh: () async {
+              await Future.wait([
+                appState.loadDashboardStats(),
+                _loadExpiryFromFirestore(),
+              ]);
+            },
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth > 700;
@@ -188,6 +195,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildNeonGreeting(BuildContext context) {
     final displayName = _userName.isNotEmpty ? _userName : 'Boss';
+    final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
     return Container(
       width: double.infinity,
@@ -212,9 +220,43 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
+          // Sync button (Windows only — top right)
+          if (isWindows)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _isSyncing ? null : _syncAllData,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF00F5A0).withValues(alpha: 0.3)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      _isSyncing
+                        ? const SizedBox(width: 14, height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00F5A0)))
+                        : const Icon(Icons.sync, size: 14, color: Color(0xFF00F5A0)),
+                      const SizedBox(width: 6),
+                      Text(
+                        _isSyncing ? 'Syncing...' : 'Sync',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF00F5A0)),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // Greeting emoji + text
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -406,7 +448,24 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ],
       ),
+        ],
+      ),
     );
+  }
+
+  /// Sync all online data (subscription, expiry, dashboard stats)
+  Future<void> _syncAllData() async {
+    setState(() => _isSyncing = true);
+    try {
+      final appState = context.read<AppState>();
+      await Future.wait([
+        appState.loadDashboardStats(),
+        _loadExpiryFromFirestore(),
+      ]);
+    } catch (e) {
+      debugPrint('Sync error: $e');
+    }
+    if (mounted) setState(() => _isSyncing = false);
   }
 
   String _getEmoji() {
