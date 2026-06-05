@@ -162,15 +162,16 @@ Future<void> openWhatsAppContact(BuildContext context) async {
   // Get cached details
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
     email = (await WindowsFirestoreService.getCachedEmail()) ?? '';
+    customerName = (await WindowsFirestoreService.getCachedDisplayName()) ?? '';
   } else {
     final subService = SubscriptionService();
     email = (await subService.getCachedEmail()) ?? '';
+    // Get Gmail display name from FirebaseAuth
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      customerName = user?.displayName ?? '';
+    } catch (_) {}
   }
-
-  try {
-    final appState = context.read<AppState>();
-    customerName = (await appState.getSetting('businessName')) ?? '';
-  } catch (_) {}
 
   final message = 'Hi Guruprasad, I want to buy this billing software.\n\n'
       'Customer Name: ${customerName.isNotEmpty ? customerName : "N/A"}\n'

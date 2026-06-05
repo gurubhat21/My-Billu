@@ -15,6 +15,7 @@ class WindowsFirestoreService {
   static const _emailKey = 'sub_registered_email';
   static const _statusKey = 'sub_cached_status';
   static const _expiryKey = 'sub_cached_expiry';
+  static const _displayNameKey = 'sub_cached_display_name';
 
   /// Get cached email
   static Future<String?> getCachedEmail() async {
@@ -26,6 +27,12 @@ class WindowsFirestoreService {
   static Future<void> _cacheEmail(String email) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_emailKey, email);
+  }
+
+  /// Get cached display name
+  static Future<String?> getCachedDisplayName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_displayNameKey);
   }
 
   /// Cache subscription result
@@ -137,6 +144,9 @@ class WindowsFirestoreService {
       }
 
       await _cacheEmail(email);
+      // Cache display name
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_displayNameKey, displayName);
 
       // Check subscription
       return await checkSubscription(email);
