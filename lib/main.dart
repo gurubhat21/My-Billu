@@ -309,10 +309,15 @@ class _AuthGateState extends State<AuthGate> {
                   Expanded(child: Text('Access Revoked')),
                 ]),
                 content: const Text(
-                  'Your access has been revoked by admin. Contact support.',
+                  'Your access has been revoked by admin.\nPlease contact the developer to resolve.',
                   style: TextStyle(fontSize: 14),
                 ),
                 actions: [
+                  TextButton.icon(
+                    onPressed: () { Navigator.pop(ctx); openWhatsAppContact(context); },
+                    icon: const Icon(Icons.chat, size: 16, color: Color(0xFF25D366)),
+                    label: const Text('Contact Us', style: TextStyle(color: Color(0xFF25D366))),
+                  ),
                   TextButton(
                     onPressed: () {
                       Navigator.pop(ctx);
@@ -725,8 +730,13 @@ class _AuthGateState extends State<AuthGate> {
               Icon(Icons.block, color: AppColors.error), SizedBox(width: 8),
               Expanded(child: Text('Access Revoked')),
             ]),
-            content: const Text('Your access has been revoked by admin.'),
+            content: const Text('Your access has been revoked by admin.\nPlease contact the developer to resolve.'),
             actions: [
+              TextButton.icon(
+                onPressed: () { Navigator.pop(ctx); openWhatsAppContact(context); },
+                icon: const Icon(Icons.chat, size: 16, color: Color(0xFF25D366)),
+                label: const Text('Contact Us', style: TextStyle(color: Color(0xFF25D366))),
+              ),
               TextButton(onPressed: () { Navigator.pop(ctx); SystemNavigator.pop(); exit(0); }, child: const Text('OK')),
             ],
           ));

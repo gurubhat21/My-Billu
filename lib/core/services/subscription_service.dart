@@ -228,10 +228,18 @@ class SubscriptionService {
           : (data['subscriptionStatus'] as String? ?? 'trial');
 
       // Read androidExpiryDate first, fall back to legacy expiryDate
-      final androidExpiryTs = data['androidExpiryDate'] as Timestamp?;
-      final legacyExpiryTs = data['expiryDate'] as Timestamp?;
-      final expiryTs = androidExpiryTs ?? legacyExpiryTs;
-      final expiryDate = expiryTs?.toDate();
+      DateTime? expiryDate;
+      final rawAndroidExpiry = data['androidExpiryDate'];
+      final rawLegacyExpiry = data['expiryDate'];
+      if (rawAndroidExpiry is Timestamp) {
+        expiryDate = rawAndroidExpiry.toDate();
+      } else if (rawAndroidExpiry is String) {
+        expiryDate = DateTime.tryParse(rawAndroidExpiry);
+      } else if (rawLegacyExpiry is Timestamp) {
+        expiryDate = rawLegacyExpiry.toDate();
+      } else if (rawLegacyExpiry is String) {
+        expiryDate = DateTime.tryParse(rawLegacyExpiry);
+      }
 
       // Read platform-specific cloud sync flags (Android), fall back to legacy
       final androidSyncEnabled = data['androidCloudSyncEnabled'] as bool? ?? (data['cloudSyncEnabled'] as bool? ?? false);
