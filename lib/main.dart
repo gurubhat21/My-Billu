@@ -908,6 +908,30 @@ class _AuthGateState extends State<AuthGate> {
                 style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3))),
               Text('7-day free trial included',
                 style: TextStyle(fontSize: 11, color: AppColors.success.withValues(alpha: 0.6))),
+
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 12),
+              // Contact info
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.phone, size: 14, color: const Color(0xFF25D366).withValues(alpha: 0.8)),
+                const SizedBox(width: 6),
+                Text('9449831316', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF25D366).withValues(alpha: 0.8))),
+              ]),
+              const SizedBox(height: 4),
+              Text('By Sumukha Tech Solutions',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.35))),
+              const SizedBox(height: 12),
+              SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                onPressed: () => openWhatsAppContact(context),
+                icon: const Icon(Icons.chat, size: 16, color: Color(0xFF25D366)),
+                label: const Text('Contact Us', style: TextStyle(fontSize: 12, color: Color(0xFF25D366))),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: const Color(0xFF25D366).withValues(alpha: 0.3)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              )),
             ]),
           ),
           ),
