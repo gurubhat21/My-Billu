@@ -200,6 +200,13 @@ class WindowsFirestoreService {
 
       await _cacheResult(status.isEmpty ? 'trial' : status, expiryStr);
 
+      // Cache cloud sync flags from Firestore
+      final prefs = await SharedPreferences.getInstance();
+      final cloudSyncEnabled = _getString(fields, 'cloudSyncEnabled');
+      final cloudSyncRequested = _getString(fields, 'cloudSyncRequested');
+      await prefs.setBool('sub_cloud_sync_enabled', cloudSyncEnabled == 'true');
+      await prefs.setBool('sub_cloud_sync_requested', cloudSyncRequested == 'true');
+
       // Update lastOnline with platform-specific fields
       final deviceService = DeviceIdService();
       final now = DateTime.now().toUtc().toIso8601String();

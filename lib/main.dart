@@ -196,9 +196,17 @@ class _AuthGateState extends State<AuthGate> {
       return;
     }
 
-    // Windows: always require Google login on every launch
+    // Windows: Google login required only on first launch (no cached email)
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-      setState(() { _subChecking = false; _needsGmailRegistration = true; });
+      final prefs = await SharedPreferences.getInstance();
+      final cachedEmail = prefs.getString('sub_registered_email');
+      if (cachedEmail == null || cachedEmail.isEmpty) {
+        setState(() { _subChecking = false; _needsGmailRegistration = true; });
+      } else {
+        setState(() { _subChecking = false; _needsGmailRegistration = false; });
+        _checkOnboarding();
+        _windowsBackgroundCheck(cachedEmail);
+      }
       return;
     }
 
