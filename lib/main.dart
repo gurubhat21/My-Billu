@@ -153,6 +153,36 @@ class MyBilluApp extends StatelessWidget {
   }
 }
 
+/// Open WhatsApp with pre-filled customer details (top-level so all screens can use it)
+Future<void> openWhatsAppContact(BuildContext context) async {
+  final deviceService = DeviceIdService();
+  String customerName = '';
+  String email = '';
+
+  // Get cached details
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+    email = (await WindowsFirestoreService.getCachedEmail()) ?? '';
+  } else {
+    final subService = SubscriptionService();
+    email = (await subService.getCachedEmail()) ?? '';
+  }
+
+  try {
+    final appState = context.read<AppState>();
+    customerName = (await appState.getSetting('businessName')) ?? '';
+  } catch (_) {}
+
+  final message = 'Hi Guruprasad, I want to buy this billing software.\n\n'
+      'Customer Name: ${customerName.isNotEmpty ? customerName : "N/A"}\n'
+      'Gmail Address: ${email.isNotEmpty ? email : "N/A"}\n'
+      'Device ID: ${deviceService.deviceId ?? "N/A"}';
+
+  final uri = Uri.parse('https://wa.me/919449831316?text=${Uri.encodeComponent(message)}');
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
 /// Gate that shows Gmail Registration → Subscription Check → Onboarding → Login → MainShell
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -239,35 +269,6 @@ class _AuthGateState extends State<AuthGate> {
         _needsGmailRegistration = false;
       });
       _checkOnboarding();
-    }
-  }
-
-  /// Open WhatsApp with pre-filled customer details
-  Future<void> _openWhatsApp() async {
-    final deviceService = DeviceIdService();
-    String customerName = '';
-    String email = '';
-
-    // Get cached details
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-      email = (await WindowsFirestoreService.getCachedEmail()) ?? '';
-    } else {
-      email = (await _subService.getCachedEmail()) ?? '';
-    }
-
-    try {
-      final appState = context.read<AppState>();
-      customerName = (await appState.getSetting('businessName')) ?? '';
-    } catch (_) {}
-
-    final message = 'Hi Guruprasad, I want to buy this billing software.\n\n'
-        'Customer Name: ${customerName.isNotEmpty ? customerName : "N/A"}\n'
-        'Gmail Address: ${email.isNotEmpty ? email : "N/A"}\n'
-        'Device ID: ${deviceService.deviceId ?? "N/A"}';
-
-    final uri = Uri.parse('https://wa.me/919449831316?text=${Uri.encodeComponent(message)}');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -537,7 +538,7 @@ class _AuthGateState extends State<AuthGate> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             onPressed: () async {
               Navigator.pop(ctx);
-              _openWhatsApp();
+              openWhatsAppContact(context);
             },
             icon: const Icon(Icons.chat, size: 18),
             label: const Text('Contact Us on WhatsApp'),
@@ -1044,7 +1045,7 @@ class ExpiredScreen extends StatelessWidget {
                     backgroundColor: const Color(0xFF25D366),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  onPressed: () => _openWhatsApp(),
+                  onPressed: () => openWhatsAppContact(context),
                   icon: const Icon(Icons.chat, size: 18),
                   label: const Text('WhatsApp Us'),
                 )),
@@ -1457,7 +1458,7 @@ class _MainShellState extends State<MainShell> {
                 ),
                 Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                   child: SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                    onPressed: () => _openWhatsApp(),
+                    onPressed: () => openWhatsAppContact(context),
                     icon: const Icon(Icons.chat, size: 14, color: Color(0xFF25D366)),
                     label: const Text('Contact Us', style: TextStyle(fontSize: 10, color: Color(0xFF25D366))),
                     style: OutlinedButton.styleFrom(
@@ -1751,7 +1752,7 @@ class _MainShellState extends State<MainShell> {
           child: SizedBox(width: double.infinity, child: OutlinedButton.icon(
             onPressed: () {
               Navigator.pop(context);
-              _openWhatsApp();
+              openWhatsAppContact(context);
             },
             icon: const Icon(Icons.chat, size: 16, color: Color(0xFF25D366)),
             label: const Text('Contact Us', style: TextStyle(fontSize: 11, color: Color(0xFF25D366))),
