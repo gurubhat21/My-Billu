@@ -2392,6 +2392,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (picked != null && context.mounted) {
                 final newExpiry = picked.toIso8601String().split('T').first;
                 await context.read<AppState>().saveSetting('app_expiry_date', newExpiry);
+
+                // Also update Firestore so control app sees it
+                try {
+                  final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+                  if (isWindows) {
+                    final email = await WindowsFirestoreService.getCachedEmail();
+                    if (email != null && email.isNotEmpty) {
+                      await WindowsFirestoreService.activateSubscription(email, picked);
+                    }
+                  } else {
+                    final subService = SubscriptionService();
+                    final email = await subService.getCachedEmail();
+                    if (email != null && email.isNotEmpty) {
+                      await subService.activateSubscription(email, picked);
+                    }
+                  }
+                } catch (e) {
+                  debugPrint('Firestore expiry update error: $e');
+                }
+
                 if (context.mounted) {
                   setState(() {});
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
