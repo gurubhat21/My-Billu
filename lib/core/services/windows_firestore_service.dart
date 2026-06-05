@@ -359,7 +359,6 @@ class WindowsFirestoreService {
   static Future<void> requestCloudSync(String email) async {
     await _patchDocument(email, {
       'windowsCloudSyncRequested': 'true',
-      'cloudSyncRequested': 'true',
     });
   }
 }

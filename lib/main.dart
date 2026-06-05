@@ -705,10 +705,8 @@ class _AuthGateState extends State<AuthGate> {
           break;
 
         case 'unregistered':
-          // Admin deleted subscription — force re-login
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('sub_registered_email');
-          setState(() => _needsGmailRegistration = true);
+          // Admin deleted subscription — just show expired, don't clear login
+          setState(() => _expired = true);
           break;
 
         case 'deviceMismatch':

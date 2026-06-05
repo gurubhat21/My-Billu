@@ -373,7 +373,6 @@ class SubscriptionService {
   Future<void> requestCloudSync(String email) async {
     await _subsCollection.doc(email).update({
       'androidCloudSyncRequested': true,
-      'cloudSyncRequested': true,
       'cloudSyncRequestedAt': FieldValue.serverTimestamp(),
     });
     final prefs = await SharedPreferences.getInstance();
