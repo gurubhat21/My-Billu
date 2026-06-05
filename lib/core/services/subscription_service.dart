@@ -407,10 +407,25 @@ class SubscriptionService {
 
   /// Activate a subscription (admin)
   Future<void> activateSubscription(String email, DateTime expiryDate) async {
-    await _subsCollection.doc(email).update({
+    final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+    final updates = <String, dynamic>{
       'subscriptionStatus': 'active',
       'expiryDate': Timestamp.fromDate(expiryDate),
-    });
+      'lastActivatedAt': FieldValue.serverTimestamp(),
+    };
+    if (isWindows) {
+      updates['windowsStatus'] = 'active';
+      updates['windowsExpiryDate'] = Timestamp.fromDate(expiryDate);
+    } else {
+      updates['androidStatus'] = 'active';
+      updates['androidExpiryDate'] = Timestamp.fromDate(expiryDate);
+    }
+    await _subsCollection.doc(email).update(updates);
+    // Also cache locally
+    await _cacheEmail(email);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_statusKey, 'active');
+    await prefs.setString(_expiryKey, expiryDate.toIso8601String());
   }
 
   /// Revoke a subscription (admin)

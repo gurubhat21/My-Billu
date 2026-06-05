@@ -371,4 +371,18 @@ class WindowsFirestoreService {
       'windowsCloudSyncRequested': 'true',
     });
   }
+
+  /// Activate subscription via REST API (updates Firestore + local cache)
+  static Future<void> activateSubscription(String email, DateTime expiryDate) async {
+    final expiryStr = expiryDate.toUtc().toIso8601String();
+    await _patchDocument(email, {
+      'subscriptionStatus': 'active',
+      'expiryDate': expiryStr,
+      'windowsStatus': 'active',
+      'windowsExpiryDate': expiryStr,
+      'lastActivatedAt': DateTime.now().toUtc().toIso8601String(),
+    });
+    // Cache locally
+    await _cacheResult('active', expiryStr);
+  }
 }

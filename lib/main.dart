@@ -1086,12 +1086,7 @@ class ExpiredScreen extends StatelessWidget {
           onPressed: () async {
             if (pwdCtrl.text == AppConstants.masterPassword) {
               Navigator.pop(dCtx);
-              // Activate subscription in Firestore if email available
-              if (subResult?.email != null) {
-                await _showDatePickerAndActivate(context);
-              } else {
-                _showLocalDatePicker(context);
-              }
+              await _showDatePickerAndActivate(context);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 content: Text('Invalid password'), backgroundColor: AppColors.error));
@@ -1113,7 +1108,28 @@ class ExpiredScreen extends StatelessWidget {
     );
     if (picked != null && context.mounted) {
       try {
-        await SubscriptionService().activateSubscription(subResult!.email!, picked);
+        // Get email from subResult or cached
+        String? email = subResult?.email;
+        final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
+        if (email == null || email.isEmpty) {
+          if (isWindows) {
+            email = await WindowsFirestoreService.getCachedEmail();
+          } else {
+            email = await SubscriptionService().getCachedEmail();
+          }
+        }
+
+        if (email != null && email.isNotEmpty) {
+          if (isWindows) {
+            // Update via REST API for Windows
+            await WindowsFirestoreService.activateSubscription(email, picked);
+          } else {
+            // Update via native Firestore for Android
+            await SubscriptionService().activateSubscription(email, picked);
+          }
+        }
+
         onExtended();
       } catch (e) {
         if (context.mounted) {
@@ -1121,22 +1137,6 @@ class ExpiredScreen extends StatelessWidget {
             content: Text('Activation error: $e'), backgroundColor: AppColors.error));
         }
       }
-    }
-  }
-
-  void _showLocalDatePicker(BuildContext context) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now().add(const Duration(days: 365)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2099),
-      helpText: 'SET NEW EXPIRY DATE',
-    );
-    if (picked != null && context.mounted) {
-      final newExpiry = picked.toIso8601String().split('T').first;
-      final appState = context.read<AppState>();
-      await appState.saveSetting('app_expiry_date', newExpiry);
-      onExtended();
     }
   }
 }
