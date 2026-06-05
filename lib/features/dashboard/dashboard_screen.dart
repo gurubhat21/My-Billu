@@ -9,6 +9,7 @@ import '../../core/utils/formatters.dart';
 import '../../widgets/common_widgets.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../core/services/subscription_service.dart';
+import '../../core/services/windows_firestore_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -73,22 +74,39 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<void> _loadExpiryFromFirestore() async {
     try {
-      final subService = SubscriptionService();
-      final email = await subService.getCachedEmail();
-      if (email == null || email.isEmpty) return;
+      final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
-      final result = await subService.checkSubscription(email);
-      if (!mounted) return;
-
-      if (result.expiryDate != null) {
-        final diff = result.expiryDate!.difference(DateTime.now()).inDays;
-        setState(() {
-          _expiryDaysLeft = diff;
-          _expiryExpired = diff < 0;
-        });
+      if (isWindows) {
+        // Windows: use REST API
+        final email = await WindowsFirestoreService.getCachedEmail();
+        if (email == null || email.isEmpty) return;
+        final result = await WindowsFirestoreService.checkSubscription(email);
+        if (!mounted) return;
+        final expiryStr = result['expiryDate'] as String? ?? '';
+        final expiry = DateTime.tryParse(expiryStr);
+        if (expiry != null) {
+          final diff = expiry.difference(DateTime.now()).inDays;
+          setState(() {
+            _expiryDaysLeft = diff;
+            _expiryExpired = diff < 0;
+          });
+        }
+      } else {
+        // Android: use native Firestore
+        final subService = SubscriptionService();
+        final email = await subService.getCachedEmail();
+        if (email == null || email.isEmpty) return;
+        final result = await subService.checkSubscription(email);
+        if (!mounted) return;
+        if (result.expiryDate != null) {
+          final diff = result.expiryDate!.difference(DateTime.now()).inDays;
+          setState(() {
+            _expiryDaysLeft = diff;
+            _expiryExpired = diff < 0;
+          });
+        }
       }
     } catch (e) {
-      // Offline — try local cache
       debugPrint('Expiry fetch error: $e');
     }
   }

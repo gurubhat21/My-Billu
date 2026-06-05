@@ -236,6 +236,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         // Password
                         TextField(
                           controller: _passCtrl,
+                          autofocus: true,
                           obscureText: !_showPassword,
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
