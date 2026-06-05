@@ -756,6 +756,54 @@ class _AuthGateState extends State<AuthGate> {
     }
   }
 
+  /// Bypass Gmail registration with master password
+  void _showBypassDialog() {
+    final pwdCtrl = TextEditingController();
+    showDialog(context: context, builder: (dCtx) => AlertDialog(
+      title: const Text('Enter Master Password'),
+      content: TextField(
+        controller: pwdCtrl,
+        autofocus: true,
+        obscureText: true,
+        decoration: InputDecoration(
+          hintText: 'Master password',
+          prefixIcon: const Icon(Icons.lock),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+        onSubmitted: (_) {
+          if (pwdCtrl.text == AppConstants.masterPassword) {
+            Navigator.pop(dCtx);
+            setState(() {
+              _needsGmailRegistration = false;
+              _checkingSubscription = false;
+              _expired = false;
+              _onboardingDone = true;
+            });
+          }
+        },
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () {
+            if (pwdCtrl.text == AppConstants.masterPassword) {
+              Navigator.pop(dCtx);
+              setState(() {
+                _needsGmailRegistration = false;
+                _checkingSubscription = false;
+                _expired = false;
+                _onboardingDone = true;
+              });
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Invalid password'), backgroundColor: AppColors.error));
+            }
+          },
+          child: const Text('Verify'),
+        ),
+      ],
+    ));
+  }
+
   Widget _buildGmailRegistrationScreen() {
     final deviceService = DeviceIdService();
     final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
@@ -932,6 +980,15 @@ class _AuthGateState extends State<AuthGate> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               )),
+
+              const SizedBox(height: 16),
+              // Bypass button
+              GestureDetector(
+                onTap: () => _showBypassDialog(),
+                child: Text('Bypass',
+                  style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.15),
+                    decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.1))),
+              ),
             ]),
           ),
           ),
