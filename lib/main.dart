@@ -673,19 +673,47 @@ class _AuthGateState extends State<AuthGate> {
       final result = await WindowsFirestoreService.checkSubscription(email);
       if (!mounted) return;
       final status = result['status'] ?? '';
-      if (status == 'revoked') {
-        await showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
-          title: const Row(children: [
-            Icon(Icons.block, color: AppColors.error), SizedBox(width: 8),
-            Expanded(child: Text('Access Revoked')),
-          ]),
-          content: const Text('Your access has been revoked by admin.'),
-          actions: [
-            TextButton(onPressed: () { Navigator.pop(ctx); SystemNavigator.pop(); exit(0); }, child: const Text('OK')),
-          ],
-        ));
-      } else if (status == 'expired') {
-        setState(() => _expired = true);
+
+      switch (status) {
+        case 'active':
+        case 'trial':
+          // Update trial/expiry info
+          final expiryStr = result['expiryDate'] ?? '';
+          final daysLeft = result['daysLeft'] ?? 999;
+          _expiryDateStr = expiryStr;
+          if (daysLeft <= 7) {
+            setState(() => _trialDaysLeft = daysLeft);
+          }
+          break;
+
+        case 'expired':
+          _expiryDateStr = result['expiryDate'] ?? '';
+          setState(() => _expired = true);
+          break;
+
+        case 'revoked':
+          await showDialog(context: context, barrierDismissible: false, builder: (ctx) => AlertDialog(
+            title: const Row(children: [
+              Icon(Icons.block, color: AppColors.error), SizedBox(width: 8),
+              Expanded(child: Text('Access Revoked')),
+            ]),
+            content: const Text('Your access has been revoked by admin.'),
+            actions: [
+              TextButton(onPressed: () { Navigator.pop(ctx); SystemNavigator.pop(); exit(0); }, child: const Text('OK')),
+            ],
+          ));
+          break;
+
+        case 'unregistered':
+          // Admin deleted subscription — force re-login
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('sub_registered_email');
+          setState(() => _needsGmailRegistration = true);
+          break;
+
+        case 'deviceMismatch':
+          setState(() => _expired = true);
+          break;
       }
     } catch (e) {
       debugPrint('Windows background check error: $e');
