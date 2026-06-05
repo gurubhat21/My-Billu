@@ -233,12 +233,12 @@ class SubscriptionService {
       final expiryTs = androidExpiryTs ?? legacyExpiryTs;
       final expiryDate = expiryTs?.toDate();
 
-      // Read cloudSyncEnabled and cache locally
-      final cloudSyncEnabled = data['cloudSyncEnabled'] as bool? ?? false;
-      final cloudSyncRequested = data['cloudSyncRequested'] as bool? ?? false;
+      // Read platform-specific cloud sync flags (Android), fall back to legacy
+      final androidSyncEnabled = data['androidCloudSyncEnabled'] as bool? ?? (data['cloudSyncEnabled'] as bool? ?? false);
+      final androidSyncRequested = data['androidCloudSyncRequested'] as bool? ?? (data['cloudSyncRequested'] as bool? ?? false);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('sub_cloud_sync_enabled', cloudSyncEnabled);
-      await prefs.setBool('sub_cloud_sync_requested', cloudSyncRequested);
+      await prefs.setBool('sub_cloud_sync_enabled', androidSyncEnabled);
+      await prefs.setBool('sub_cloud_sync_requested', androidSyncRequested);
 
       // Check platform-specific device match (Android)
       String registeredAndroidId = data['androidDeviceId'] as String? ?? '';
@@ -369,9 +369,10 @@ class SubscriptionService {
     return prefs.getBool('sub_cloud_sync_requested') ?? false;
   }
 
-  /// Request cloud sync from admin
+  /// Request cloud sync from admin (Android)
   Future<void> requestCloudSync(String email) async {
     await _subsCollection.doc(email).update({
+      'androidCloudSyncRequested': true,
       'cloudSyncRequested': true,
       'cloudSyncRequestedAt': FieldValue.serverTimestamp(),
     });

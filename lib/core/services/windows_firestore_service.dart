@@ -200,12 +200,16 @@ class WindowsFirestoreService {
 
       await _cacheResult(status.isEmpty ? 'trial' : status, expiryStr);
 
-      // Cache cloud sync flags from Firestore
+      // Cache cloud sync flags from Firestore (platform-specific first, fallback to legacy)
       final prefs = await SharedPreferences.getInstance();
-      final cloudSyncEnabled = _getString(fields, 'cloudSyncEnabled');
-      final cloudSyncRequested = _getString(fields, 'cloudSyncRequested');
-      await prefs.setBool('sub_cloud_sync_enabled', cloudSyncEnabled == 'true');
-      await prefs.setBool('sub_cloud_sync_requested', cloudSyncRequested == 'true');
+      final winSyncEnabled = _getString(fields, 'windowsCloudSyncEnabled');
+      final legacySyncEnabled = _getString(fields, 'cloudSyncEnabled');
+      final winSyncRequested = _getString(fields, 'windowsCloudSyncRequested');
+      final legacySyncRequested = _getString(fields, 'cloudSyncRequested');
+      await prefs.setBool('sub_cloud_sync_enabled',
+          winSyncEnabled == 'true' || (winSyncEnabled.isEmpty && legacySyncEnabled == 'true'));
+      await prefs.setBool('sub_cloud_sync_requested',
+          winSyncRequested == 'true' || (winSyncRequested.isEmpty && legacySyncRequested == 'true'));
 
       // Update lastOnline with platform-specific fields
       final deviceService = DeviceIdService();
@@ -354,6 +358,7 @@ class WindowsFirestoreService {
   /// Request cloud sync from admin via REST API
   static Future<void> requestCloudSync(String email) async {
     await _patchDocument(email, {
+      'windowsCloudSyncRequested': 'true',
       'cloudSyncRequested': 'true',
     });
   }
