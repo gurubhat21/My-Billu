@@ -32,6 +32,22 @@ class _YearCloseScreenState extends State<YearCloseScreen> {
   double _supplierOutstanding = 0;
   double _bankBalance = 0;
 
+  // Carry-forward selections (all selectable, some default ON)
+  bool _carryItems = true;
+  bool _carryCustomers = true;
+  bool _carrySuppliers = true;
+  bool _carryBankAccounts = true;
+  bool _carryUnpaidBills = true;
+  bool _carryRecurringBills = true;
+  bool _carrySettings = true;
+  bool _carryPaidBills = false;
+  bool _carryPaidPurchases = false;
+  bool _carryQuotations = false;
+  bool _carryExpenses = false;
+  bool _carryCashBook = false;
+  bool _carryCreditNotes = false;
+  bool _carryPurchaseReturns = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,52 +79,94 @@ class _YearCloseScreenState extends State<YearCloseScreen> {
     try {
       final appState = context.read<AppState>();
 
-      // Prepare items data (carry forward with stock)
-      final itemsData = appState.items.map((item) => item.toMap()).toList();
+      // Prepare data based on selections
+      final itemsData = _carryItems
+          ? appState.items.map((item) => item.toMap()).toList()
+          : <Map<String, dynamic>>[];
 
-      // Prepare customers data (carry forward with outstanding balance)
-      final customersData = appState.customers.map((c) => c.toMap()).toList();
+      final customersData = _carryCustomers
+          ? appState.customers.map((c) => c.toMap()).toList()
+          : <Map<String, dynamic>>[];
 
-      // Prepare suppliers data
-      final suppliersData = appState.suppliers.map((s) => s.toMap()).toList();
+      final suppliersData = _carrySuppliers
+          ? appState.suppliers.map((s) => s.toMap()).toList()
+          : <Map<String, dynamic>>[];
 
-      // Prepare bank accounts data
-      final bankAccountsData = appState.bankAccounts.map((a) => a.toMap()).toList();
+      final bankAccountsData = _carryBankAccounts
+          ? appState.bankAccounts.map((a) => a.toMap()).toList()
+          : <Map<String, dynamic>>[];
 
-      // Prepare active recurring bills
-      final recurringData = appState.recurringBills
-          .where((rb) => rb.isActive)
-          .map((rb) => rb.toMap())
-          .toList();
+      final recurringData = _carryRecurringBills
+          ? appState.recurringBills.where((rb) => rb.isActive).map((rb) => rb.toMap()).toList()
+          : <Map<String, dynamic>>[];
 
-      // Prepare unpaid bills (copy to new FY)
-      final unpaidBills = appState.bills
-          .where((b) => b.status != BillStatus.paid)
-          .map((b) => b.toMap())
-          .toList();
+      // Unpaid bills
+      final unpaidBills = _carryUnpaidBills
+          ? appState.bills.where((b) => b.status != BillStatus.paid).map((b) => b.toMap()).toList()
+          : <Map<String, dynamic>>[];
 
-      // Prepare settings to carry forward (business info, preferences)
-      final allSettings = await appState.getAllSettings();
+      // Paid bills (optional carry)
+      final paidBills = _carryPaidBills
+          ? appState.bills.where((b) => b.status == BillStatus.paid).map((b) => b.toMap()).toList()
+          : <Map<String, dynamic>>[];
+
+      // Combine all bills to carry
+      final allBillsToCarry = [...unpaidBills, ...paidBills];
+
+      // Paid purchases (optional carry)
+      final purchaseData = _carryPaidPurchases
+          ? appState.purchases.map((p) => p.toMap()).toList()
+          : <Map<String, dynamic>>[];
+
+      // Settings to carry
       final settingsToCarry = <String, String>{};
-      // Carry business settings, theme, preferences
-      final carryKeys = [
-        'businessName', 'businessAddress', 'businessPhone', 'businessGstin',
-        'businessLogo', 'businessBankName', 'businessBankAccount',
-        'businessBankIfsc', 'businessUpiId', 'loginUsername', 'loginPassword',
-        'app_theme', 'biometric_enabled', 'pdf_thank_you_message',
-        'pdf_terms_conditions', 'pdf_save_path', 'billing_show_description',
-        'billing_show_serial_number', 'invoice_prefix', 'invoice_pattern',
-        'app_expiry_date', 'gmail_registered', 'registered_email',
-        'registered_display_name', 'subscription_status', 'subscription_expiry',
-        'data_path',
-      ];
-      for (final key in carryKeys) {
-        if (allSettings.containsKey(key)) {
-          settingsToCarry[key] = allSettings[key]!;
+      if (_carrySettings) {
+        final allSettings = await appState.getAllSettings();
+        final carryKeys = [
+          'businessName', 'businessAddress', 'businessPhone', 'businessGstin',
+          'businessLogo', 'businessBankName', 'businessBankAccount',
+          'businessBankIfsc', 'businessUpiId', 'loginUsername', 'loginPassword',
+          'app_theme', 'biometric_enabled', 'pdf_thank_you_message',
+          'pdf_terms_conditions', 'pdf_save_path', 'billing_show_description',
+          'billing_show_serial_number', 'invoice_prefix', 'invoice_pattern',
+          'app_expiry_date', 'gmail_registered', 'registered_email',
+          'registered_display_name', 'subscription_status', 'subscription_expiry',
+          'data_path',
+        ];
+        for (final key in carryKeys) {
+          if (allSettings.containsKey(key)) {
+            settingsToCarry[key] = allSettings[key]!;
+          }
         }
       }
-      // Reset start number to 1 in new FY
       settingsToCarry['invoice_start_number'] = '1';
+
+      // Optional JSON data to carry
+      final extraSettingsToCarry = <String, String>{};
+
+      if (_carryQuotations) {
+        final quotData = appState.quotations.map((q) => q.toMap()).toList();
+        extraSettingsToCarry['quotations_data'] = jsonEncode(quotData);
+      }
+      if (_carryExpenses) {
+        final expData = appState.expenses.map((e) => e.toMap()).toList();
+        extraSettingsToCarry['expenses_data'] = jsonEncode(expData);
+      }
+      if (_carryCashBook) {
+        final cbData = appState.cashBookEntries.map((e) => e.toMap()).toList();
+        extraSettingsToCarry['cash_book_entries'] = jsonEncode(cbData);
+      }
+      if (_carryCreditNotes) {
+        final cnData = appState.creditNotes.map((e) => e.toMap()).toList();
+        extraSettingsToCarry['credit_notes_data'] = jsonEncode(cnData);
+      }
+      if (_carryPurchaseReturns) {
+        final prData = appState.purchaseReturns.map((e) => e.toMap()).toList();
+        extraSettingsToCarry['purchase_returns_data'] = jsonEncode(prData);
+      }
+
+      // Merge extra settings
+      settingsToCarry.addAll(extraSettingsToCarry);
 
       // Execute year close
       _newFY = await FYService.instance.closeYearAndCreateNew(
@@ -117,9 +175,18 @@ class _YearCloseScreenState extends State<YearCloseScreen> {
         suppliersData: suppliersData,
         bankAccountsData: bankAccountsData,
         recurringBillsData: recurringData,
-        unpaidBillsData: unpaidBills,
+        unpaidBillsData: allBillsToCarry,
         settingsToCarry: settingsToCarry,
       );
+
+      // Also insert purchases into new FY if selected
+      if (_carryPaidPurchases && purchaseData.isNotEmpty) {
+        final db = await appState.dbHelper.database;
+        for (final p in purchaseData) {
+          p['items'] = p['items'] is String ? p['items'] : jsonEncode(p['items']);
+          await db.insert('purchases', p, conflictAlgorithm: 1);
+        }
+      }
 
       // Reload data from new FY database
       await appState.reloadAllData();
@@ -204,24 +271,60 @@ class _YearCloseScreenState extends State<YearCloseScreen> {
       )),
       const SizedBox(height: 16),
 
-      // What will carry forward
+      // Selectable carry-forward options
       GlassCard(padding: const EdgeInsets.all(20), child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('📋 What Carries to New FY', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          _carryRow(Icons.inventory, 'Items with closing stock', true),
-          _carryRow(Icons.people, 'Customers with outstanding balance', true),
-          _carryRow(Icons.local_shipping, 'Suppliers with outstanding balance', true),
-          _carryRow(Icons.account_balance, 'Bank accounts with balance', true),
-          _carryRow(Icons.receipt_long, 'Unpaid bills ($_unpaidBillCount)', true),
-          _carryRow(Icons.repeat, 'Active recurring bills', true),
-          _carryRow(Icons.settings, 'Business settings & preferences', true),
-          const Divider(height: 16),
-          _carryRow(Icons.receipt, 'Paid bills & old transactions', false),
-          _carryRow(Icons.shopping_cart, 'Paid purchases', false),
-          _carryRow(Icons.request_quote, 'Quotations', false),
-          _carryRow(Icons.money_off, 'Expenses', false),
-          _carryRow(Icons.book, 'Cash book entries', false),
+          Row(children: [
+            const Text('📋 What Carries to New FY', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Spacer(),
+            TextButton(
+              onPressed: () => setState(() {
+                _carryItems = true; _carryCustomers = true; _carrySuppliers = true;
+                _carryBankAccounts = true; _carryUnpaidBills = true; _carryRecurringBills = true;
+                _carrySettings = true; _carryPaidBills = true; _carryPaidPurchases = true;
+                _carryQuotations = true; _carryExpenses = true; _carryCashBook = true;
+                _carryCreditNotes = true; _carryPurchaseReturns = true;
+              }),
+              child: const Text('Select All', style: TextStyle(fontSize: 11)),
+            ),
+          ]),
+          const SizedBox(height: 8),
+
+          // Recommended (default ON)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6)),
+            child: const Text('✅ Recommended (selected by default)', style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.w600)),
+          ),
+          _selectableRow(Icons.inventory, 'Items with closing stock', _carryItems, (v) => setState(() => _carryItems = v!)),
+          _selectableRow(Icons.people, 'Customers with outstanding balance', _carryCustomers, (v) => setState(() => _carryCustomers = v!)),
+          _selectableRow(Icons.local_shipping, 'Suppliers with outstanding balance', _carrySuppliers, (v) => setState(() => _carrySuppliers = v!)),
+          _selectableRow(Icons.account_balance, 'Bank accounts with balance', _carryBankAccounts, (v) => setState(() => _carryBankAccounts = v!)),
+          _selectableRow(Icons.receipt_long, 'Unpaid bills ($_unpaidBillCount)', _carryUnpaidBills, (v) => setState(() => _carryUnpaidBills = v!)),
+          _selectableRow(Icons.repeat, 'Active recurring bills', _carryRecurringBills, (v) => setState(() => _carryRecurringBills = v!)),
+          _selectableRow(Icons.settings, 'Business settings & preferences', _carrySettings, (v) => setState(() => _carrySettings = v!)),
+
+          const Divider(height: 20),
+
+          // Optional (default OFF)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(6)),
+            child: Text('📁 Optional (not selected by default)', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5), fontWeight: FontWeight.w600)),
+          ),
+          _selectableRow(Icons.receipt, 'Paid bills & old transactions', _carryPaidBills, (v) => setState(() => _carryPaidBills = v!)),
+          _selectableRow(Icons.shopping_cart, 'Paid purchases', _carryPaidPurchases, (v) => setState(() => _carryPaidPurchases = v!)),
+          _selectableRow(Icons.request_quote, 'Quotations', _carryQuotations, (v) => setState(() => _carryQuotations = v!)),
+          _selectableRow(Icons.money_off, 'Expenses', _carryExpenses, (v) => setState(() => _carryExpenses = v!)),
+          _selectableRow(Icons.book, 'Cash book entries', _carryCashBook, (v) => setState(() => _carryCashBook = v!)),
+          _selectableRow(Icons.assignment_return, 'Credit notes', _carryCreditNotes, (v) => setState(() => _carryCreditNotes = v!)),
+          _selectableRow(Icons.keyboard_return, 'Purchase returns', _carryPurchaseReturns, (v) => setState(() => _carryPurchaseReturns = v!)),
         ],
       )),
       const SizedBox(height: 16),
@@ -262,6 +365,23 @@ class _YearCloseScreenState extends State<YearCloseScreen> {
   }
 
   Widget _buildConfirmStep(String currentFY, String nextFY) {
+    // Count selected items
+    int selectedCount = 0;
+    if (_carryItems) selectedCount++;
+    if (_carryCustomers) selectedCount++;
+    if (_carrySuppliers) selectedCount++;
+    if (_carryBankAccounts) selectedCount++;
+    if (_carryUnpaidBills) selectedCount++;
+    if (_carryRecurringBills) selectedCount++;
+    if (_carrySettings) selectedCount++;
+    if (_carryPaidBills) selectedCount++;
+    if (_carryPaidPurchases) selectedCount++;
+    if (_carryQuotations) selectedCount++;
+    if (_carryExpenses) selectedCount++;
+    if (_carryCashBook) selectedCount++;
+    if (_carryCreditNotes) selectedCount++;
+    if (_carryPurchaseReturns) selectedCount++;
+
     return Column(children: [
       Container(
         padding: const EdgeInsets.all(20),
@@ -275,6 +395,7 @@ class _YearCloseScreenState extends State<YearCloseScreen> {
           const Text('Confirm Year Close', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           Text('You are about to close FY $currentFY and create FY $nextFY.\n'
+              '$selectedCount items selected to carry forward.\n'
               'All data will be preserved in the old FY database.\n'
               'You can switch back to view old FY data anytime.',
             textAlign: TextAlign.center,
@@ -345,7 +466,7 @@ class _YearCloseScreenState extends State<YearCloseScreen> {
       Text('You are now in FY ${_newFY ?? ""}',
         style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14)),
       const SizedBox(height: 8),
-      Text('All invoice numbers have been reset to 1.',
+      const Text('All invoice numbers have been reset to 1.',
         style: TextStyle(color: AppColors.primary, fontSize: 13)),
       const SizedBox(height: 32),
       SizedBox(width: 200, child: ElevatedButton.icon(
@@ -369,16 +490,26 @@ class _YearCloseScreenState extends State<YearCloseScreen> {
       ]));
   }
 
-  Widget _carryRow(IconData icon, String label, bool carries) {
-    return Padding(padding: const EdgeInsets.only(bottom: 6),
-      child: Row(children: [
-        Icon(carries ? Icons.check_circle : Icons.cancel,
-          size: 16, color: carries ? AppColors.success : AppColors.error.withValues(alpha: 0.4)),
-        const SizedBox(width: 8),
-        Icon(icon, size: 16, color: Colors.white.withValues(alpha: 0.5)),
-        const SizedBox(width: 8),
-        Text(label, style: TextStyle(fontSize: 12,
-          color: carries ? Colors.white.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.4))),
-      ]));
+  Widget _selectableRow(IconData icon, String label, bool value, ValueChanged<bool?> onChanged) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(children: [
+          SizedBox(width: 24, height: 24, child: Checkbox(
+            value: value,
+            onChanged: onChanged,
+            activeColor: AppColors.success,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          )),
+          const SizedBox(width: 8),
+          Icon(icon, size: 16, color: value ? Colors.white.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.3)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, style: TextStyle(fontSize: 12,
+            color: value ? Colors.white.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.4)))),
+        ])),
+    );
   }
 }
