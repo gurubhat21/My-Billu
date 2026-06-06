@@ -12,6 +12,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static dynamic _db;
   static String? _customDataPath;
+  static String _dbFileName = 'my_billu.db';
 
   DatabaseHelper._init();
 
@@ -20,17 +21,29 @@ class DatabaseHelper {
     _customDataPath = path;
   }
 
+  /// Set the DB filename (for FY-specific databases)
+  static void setDBFileName(String fileName) {
+    _dbFileName = fileName;
+  }
+
+  /// Get the current DB filename
+  static String get dbFileName => _dbFileName;
+
   /// Get the current data path
   static String? get dataPath => _customDataPath;
+
+  /// Reset DB instance (needed when switching FYs)
+  static void resetDB() {
+    _db = null;
+  }
 
   Future<dynamic> get database async {
     if (_db != null) return _db;
     if (!kIsWeb && _customDataPath != null) {
-      // Use custom path on native (Windows) — pass full db file path
-      // The path separator and directory creation are handled in initDatabaseAtPath
-      _db = await platform_db.initDatabaseAtPath(_customDataPath!);
+      // Use custom path on native (Windows) — pass dir path + filename
+      _db = await platform_db.initDatabaseAtPath(_customDataPath!, _dbFileName);
     } else {
-      _db = await platform_db.initDatabase('my_billu.db');
+      _db = await platform_db.initDatabase(_dbFileName);
     }
     return _db;
   }
@@ -88,4 +101,3 @@ class DatabaseHelper {
   Future<String?> getSetting(String key) async => await platform_db.getSetting(await database, key);
   Future<Map<String, String>> getAllSettings() async => await platform_db.getAllSettings(await database);
 }
-

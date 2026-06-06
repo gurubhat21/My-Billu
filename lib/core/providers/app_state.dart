@@ -55,6 +55,26 @@ class AppState extends ChangeNotifier {
 
   // ===== INITIALIZATION =====
 
+  /// Reload all data from database (used after FY switch)
+  Future<void> reloadAllData() async {
+    _items = [];
+    _customers = [];
+    _bills = [];
+    _purchases = [];
+    _dashboardStats = {};
+    _quotations = [];
+    _expenses = [];
+    _creditNotes = [];
+    _purchaseReturns = [];
+    _suppliers = [];
+    _recurringBills = [];
+    _auditLog = [];
+    _cashBookEntries = [];
+    _bankAccounts = [];
+    notifyListeners();
+    await loadAll();
+  }
+
   Future<void> loadAll() async {
     _isLoading = true;
     notifyListeners();

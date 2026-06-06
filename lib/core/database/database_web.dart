@@ -60,7 +60,7 @@ Future<WebDB> initDatabase(String fileName) async {
 }
 
 /// Stub for web (not used, but needed for conditional import compilation)
-Future<WebDB> initDatabaseAtPath(String fullPath) async {
+Future<WebDB> initDatabaseAtPath(String fullPath, [String fileName = 'my_billu.db']) async {
   return WebDB();
 }
 

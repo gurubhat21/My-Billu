@@ -10,6 +10,7 @@ import '../../widgets/common_widgets.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../core/services/subscription_service.dart';
 import '../../core/services/windows_firestore_service.dart';
+import '../../core/services/fy_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -54,22 +55,64 @@ class _DashboardScreenState extends State<DashboardScreen>
     final appState = context.read<AppState>();
     final name = await appState.getSetting('businessName');
     final logo = await appState.getSetting('businessLogo');
-    final fy = await appState.getSetting('financial_year');
     if (mounted) {
       setState(() {
         _userName = name ?? '';
         _logoUrl = logo ?? '';
-        if (fy != null && fy.isNotEmpty) {
-          _financialYear = fy;
-        } else {
-          final now = DateTime.now();
-          final fyStart = now.month >= 4 ? now.year : now.year - 1;
-          _financialYear = '$fyStart-${(fyStart + 1).toString().substring(2)}';
-        }
+        _financialYear = FYService.instance.activeFY;
       });
     }
     // Fetch expiry from Firestore (updated by admin Control app)
     _loadExpiryFromFirestore();
+  }
+
+  void _showFYSwitcher() {
+    final fys = FYService.instance.availableFYs;
+    final currentFY = FYService.instance.activeFY;
+
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.date_range, color: Color(0xFFFBBF24)),
+        SizedBox(width: 10),
+        Text('Switch Financial Year'),
+      ]),
+      content: SizedBox(
+        width: 300,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final fy in fys.reversed)
+            ListTile(
+              title: Text('FY $fy', style: TextStyle(
+                fontWeight: fy == currentFY ? FontWeight.w800 : FontWeight.w500,
+                color: fy == currentFY ? AppColors.primary : null)),
+              leading: Icon(
+                fy == currentFY ? Icons.radio_button_checked : Icons.radio_button_off,
+                color: fy == currentFY ? AppColors.primary : null),
+              trailing: fy == FYService.getFYFromDate(DateTime.now())
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8)),
+                      child: const Text('Current', style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.w700)))
+                  : null,
+              onTap: () async {
+                Navigator.pop(ctx);
+                if (fy != currentFY) {
+                  await FYService.instance.switchToFY(fy);
+                  final appState = context.read<AppState>();
+                  await appState.reloadAllData();
+                  if (mounted) {
+                    setState(() => _financialYear = fy);
+                  }
+                }
+              },
+            ),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+      ],
+    ));
   }
 
   Future<void> _loadExpiryFromFirestore() async {
@@ -340,23 +383,29 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                   // Financial Year chip
                   if (_financialYear.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.date_range, size: 12, color: Color(0xFFFBBF24)),
-                          const SizedBox(width: 4),
-                          Text(
-                            'FY $_financialYear',
-                            style: const TextStyle(color: Color(0xFFFBBF24), fontWeight: FontWeight.w700, fontSize: 11),
-                          ),
-                        ],
+                    InkWell(
+                      onTap: () => _showFYSwitcher(),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.date_range, size: 12, color: Color(0xFFFBBF24)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'FY $_financialYear',
+                              style: const TextStyle(color: Color(0xFFFBBF24), fontWeight: FontWeight.w700, fontSize: 11),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(Icons.arrow_drop_down, size: 14, color: Colors.white.withValues(alpha: 0.5)),
+                          ],
+                        ),
                       ),
                     ),
                 ],

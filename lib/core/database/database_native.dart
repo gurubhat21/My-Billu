@@ -17,10 +17,10 @@ Future<Database> initDatabase(String fileName) async {
 }
 
 /// Open database at a custom directory path (for Windows data path setting)
-Future<Database> initDatabaseAtPath(String dirPath) async {
+Future<Database> initDatabaseAtPath(String dirPath, [String fileName = 'my_billu.db']) async {
   final dir = Directory(dirPath);
   if (!dir.existsSync()) dir.createSync(recursive: true);
-  final dbFile = p.join(dirPath, 'my_billu.db');
+  final dbFile = p.join(dirPath, fileName);
   return await openDatabase(dbFile, version: 7,
     onCreate: _createDB,
     onUpgrade: _upgradeDB,

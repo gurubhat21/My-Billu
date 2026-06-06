@@ -45,6 +45,8 @@ import '../../core/services/firebase_sync_service.dart';
 import '../../core/services/subscription_service.dart';
 import '../../core/services/windows_firestore_service.dart';
 import '../admin/admin_panel_screen.dart';
+import 'year_close_screen.dart';
+import '../../core/services/fy_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -3015,6 +3017,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ]),
             ),
+            const SizedBox(height: 12),
+            // Close Year button
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFF59E0B),
+                side: BorderSide(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => const YearCloseScreen()));
+              },
+              icon: const Icon(Icons.next_plan, size: 18),
+              label: const Text('Close Year & Start New FY', style: TextStyle(fontWeight: FontWeight.w700)),
+            )),
           ]),
         );
       },
