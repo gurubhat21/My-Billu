@@ -385,4 +385,41 @@ class WindowsFirestoreService {
     // Cache locally
     await _cacheResult('active', expiryStr);
   }
+  /// Refresh cloud sync status from Firestore (call before showing settings)
+  static Future<Map<String, bool>> refreshCloudSyncStatus(String email) async {
+    try {
+      final url = '$_baseUrl/subscriptions/$email?key=$_apiKey';
+      final resp = await http.get(Uri.parse(url));
+
+      if (resp.statusCode != 200) {
+        throw Exception('HTTP ${resp.statusCode}');
+      }
+
+      final data = jsonDecode(resp.body);
+      final fields = data['fields'] as Map<String, dynamic>? ?? {};
+
+      final winSyncEnabled = _getString(fields, 'windowsCloudSyncEnabled');
+      final legacySyncEnabled = _getString(fields, 'cloudSyncEnabled');
+      final winSyncRequested = _getString(fields, 'windowsCloudSyncRequested');
+      final legacySyncRequested = _getString(fields, 'cloudSyncRequested');
+
+      final enabled = winSyncEnabled == 'true' || (winSyncEnabled.isEmpty && legacySyncEnabled == 'true');
+      final requested = winSyncRequested == 'true' || (winSyncRequested.isEmpty && legacySyncRequested == 'true');
+
+      // Update local cache
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('sub_cloud_sync_enabled', enabled);
+      await prefs.setBool('sub_cloud_sync_requested', requested);
+
+      return {'enabled': enabled, 'requested': requested};
+    } catch (e) {
+      debugPrint('Failed to refresh cloud sync status: $e');
+      // Fall back to local cache
+      final prefs = await SharedPreferences.getInstance();
+      return {
+        'enabled': prefs.getBool('sub_cloud_sync_enabled') ?? false,
+        'requested': prefs.getBool('sub_cloud_sync_requested') ?? false,
+      };
+    }
+  }
 }

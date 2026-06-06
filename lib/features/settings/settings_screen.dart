@@ -909,12 +909,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildCloudSyncCard(BuildContext context) {
     final isWindows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
-    // Both platforms: isCloudSyncEnabled/isCloudSyncRequested read from SharedPreferences (safe)
+    // On Windows: fetch fresh status from Firestore so admin approval is reflected immediately
+    // On Android: read from SharedPreferences (updated during checkSubscription at startup)
     return FutureBuilder<List<bool>>(
-      future: Future.wait([
-        SubscriptionService().isCloudSyncEnabled(),
-        SubscriptionService().isCloudSyncRequested(),
-      ]),
+      future: () async {
+        if (isWindows) {
+          final email = await WindowsFirestoreService.getCachedEmail();
+          if (email != null && email.isNotEmpty) {
+            final status = await WindowsFirestoreService.refreshCloudSyncStatus(email);
+            return [status['enabled'] ?? false, status['requested'] ?? false];
+          }
+        }
+        return Future.wait([
+          SubscriptionService().isCloudSyncEnabled(),
+          SubscriptionService().isCloudSyncRequested(),
+        ]);
+      }(),
       builder: (context, snapshot) {
         final cloudSyncEnabled = snapshot.data?[0] ?? false;
         final cloudSyncRequested = snapshot.data?[1] ?? false;
