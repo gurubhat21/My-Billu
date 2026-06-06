@@ -45,9 +45,11 @@ class FYService {
     if (dataPath != null) {
       return p.join(dataPath, 'fy_config.json');
     }
-    // Fallback for Android
-    return '';
+    // Android: use a path relative to app's files directory
+    return _androidConfigPath ?? '';
   }
+
+  String? _androidConfigPath;
 
   /// Get the DB filename for a specific FY
   static String getDBFileName(String fy) => 'my_billu_$fy.db';
@@ -56,9 +58,20 @@ class FYService {
   Future<void> initialize() async {
     if (kIsWeb) return;
 
+    // On Android, resolve the config path from sqflite
+    if (DatabaseHelper.dataPath == null) {
+      try {
+        // Use sqflite's getDatabasesPath for Android
+        final dbDir = await _getAndroidDbDir();
+        if (dbDir.isNotEmpty) {
+          _androidConfigPath = p.join(dbDir, 'fy_config.json');
+        }
+      } catch (_) {}
+    }
+
     final configPath = _getConfigPath();
     if (configPath.isEmpty) {
-      // Android — use default FY detection
+      // Fallback: just set display FY
       _activeFY = getFYFromDate(DateTime.now());
       _availableFYs = [_activeFY];
       return;
@@ -84,10 +97,27 @@ class FYService {
     await _ensureDBExists(_activeFY);
   }
 
+  /// Get Android database directory path
+  Future<String> _getAndroidDbDir() async {
+    try {
+      // Import dynamically — sqflite provides getDatabasesPath
+      final db = await DatabaseHelper.instance.database;
+      final dbPath = db.path as String;
+      return p.dirname(dbPath);
+    } catch (_) {
+      return '';
+    }
+  }
+
   /// First-time migration: rename existing my_billu.db to FY-specific name
   Future<void> _firstTimeMigration(String configPath) async {
-    final dataPath = DatabaseHelper.dataPath;
-    if (dataPath == null) return;
+    String? dbDir = DatabaseHelper.dataPath;
+
+    // On Android, derive dir from _androidConfigPath
+    if (dbDir == null && _androidConfigPath != null) {
+      dbDir = p.dirname(_androidConfigPath!);
+    }
+    if (dbDir == null) return;
 
     final currentFY = getFYFromDate(DateTime.now());
     _activeFY = currentFY;
@@ -100,8 +130,8 @@ class FYService {
     } catch (_) {}
     DatabaseHelper.resetDB();
 
-    final oldDbPath = p.join(dataPath, 'my_billu.db');
-    final newDbPath = p.join(dataPath, getDBFileName(currentFY));
+    final oldDbPath = p.join(dbDir, 'my_billu.db');
+    final newDbPath = p.join(dbDir, getDBFileName(currentFY));
 
     final oldFile = File(oldDbPath);
     if (oldFile.existsSync() && !File(newDbPath).existsSync()) {
@@ -114,8 +144,12 @@ class FYService {
     _saveConfig(configPath);
 
     // Point DB helper to FY-specific file
-    DatabaseHelper.setDataPath(dataPath);
-    DatabaseHelper.setDBFileName(getDBFileName(currentFY));
+    if (DatabaseHelper.dataPath != null) {
+      DatabaseHelper.setDBFileName(getDBFileName(currentFY));
+    } else {
+      // Android: set the file name so DatabaseHelper uses it
+      DatabaseHelper.setDBFileName(getDBFileName(currentFY));
+    }
   }
 
   /// Ensure DB file exists for a given FY
