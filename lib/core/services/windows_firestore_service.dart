@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'device_id_service.dart';
@@ -438,6 +440,7 @@ class WindowsFirestoreService {
   // ====== CLOUD SYNC (Auth + Data) ======
 
   static const _authUrl = 'https://identitytoolkit.googleapis.com/v1/accounts';
+  static const _googleClientId = '348057118012-dpdk6o8smrjg15k1vl3h0hfc21qiq7dj.apps.googleusercontent.com';
   static const _syncUidKey = 'win_sync_uid';
   static const _syncEmailKey = 'win_sync_email';
   static const _syncIdTokenKey = 'win_sync_id_token';
@@ -486,6 +489,115 @@ class WindowsFirestoreService {
     await prefs.setString(_syncRefreshTokenKey, refreshToken);
 
     return {'uid': uid, 'email': email, 'idToken': idToken};
+  }
+
+  /// Sign in with Google via browser OAuth (loopback server)
+  static Future<void> signInWithGoogle() async {
+    // 1. Start a local HTTP server to receive the OAuth callback
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final port = server.port;
+    final redirectUri = 'http://localhost:$port';
+
+    // 2. Build the Google OAuth URL
+    final authUri = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {
+      'client_id': _googleClientId,
+      'redirect_uri': redirectUri,
+      'response_type': 'token', // Implicit flow gives us access_token directly
+      'scope': 'email profile',
+      'prompt': 'select_account',
+    });
+
+    // 3. Open browser
+    await launchUrl(authUri, mode: LaunchMode.externalApplication);
+
+    // 4. Wait for the callback (implicit flow sends token in URL fragment)
+    // Since fragments aren't sent to server, serve a page that extracts it
+    try {
+      final request = await server.first.timeout(const Duration(minutes: 2));
+      
+      // Check if this has the token in query params (won't for implicit flow)
+      // Serve a page that reads the fragment and sends it back
+      final queryToken = request.uri.queryParameters['access_token'];
+      
+      if (queryToken != null && queryToken.isNotEmpty) {
+        // Direct token received
+        request.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.html
+          ..write('<html><body><h2>✅ Signed in! You can close this tab.</h2></body></html>');
+        await request.response.close();
+        await server.close();
+        await _firebaseSignInWithGoogleToken(queryToken);
+      } else {
+        // Serve a page that extracts the fragment and POSTs it back
+        request.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.html
+          ..write('''<!DOCTYPE html><html><body>
+<h2>Signing in...</h2>
+<script>
+  var hash = window.location.hash.substring(1);
+  var params = new URLSearchParams(hash);
+  var token = params.get('access_token');
+  if (token) {
+    fetch('/callback?access_token=' + token).then(function() {
+      document.body.innerHTML = '<h2>✅ Signed in! You can close this tab.</h2>';
+    });
+  } else {
+    document.body.innerHTML = '<h2>❌ Sign in failed. Please try again.</h2>';
+  }
+</script></body></html>''');
+        await request.response.close();
+
+        // Wait for the second request with the token
+        final tokenRequest = await server.first.timeout(const Duration(seconds: 30));
+        final token = tokenRequest.uri.queryParameters['access_token'];
+        tokenRequest.response
+          ..statusCode = 200
+          ..write('OK');
+        await tokenRequest.response.close();
+        await server.close();
+
+        if (token == null || token.isEmpty) {
+          throw Exception('No token received from Google');
+        }
+        await _firebaseSignInWithGoogleToken(token);
+      }
+    } catch (e) {
+      await server.close();
+      rethrow;
+    }
+  }
+
+  /// Exchange Google access token for Firebase Auth via signInWithIdp
+  static Future<void> _firebaseSignInWithGoogleToken(String accessToken) async {
+    final resp = await http.post(
+      Uri.parse('$_authUrl:signInWithIdp?key=$_apiKey'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'postBody': 'access_token=$accessToken&providerId=google.com',
+        'requestUri': 'http://localhost',
+        'returnIdpCredential': true,
+        'returnSecureToken': true,
+      }),
+    );
+
+    if (resp.statusCode != 200) {
+      final err = jsonDecode(resp.body);
+      throw Exception(err['error']?['message'] ?? 'Firebase sign-in failed');
+    }
+
+    final data = jsonDecode(resp.body);
+    final uid = data['localId'] as String;
+    final email = data['email'] as String? ?? '';
+    final idToken = data['idToken'] as String;
+    final refreshToken = data['refreshToken'] as String;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_syncUidKey, uid);
+    await prefs.setString(_syncEmailKey, email);
+    await prefs.setString(_syncIdTokenKey, idToken);
+    await prefs.setString(_syncRefreshTokenKey, refreshToken);
   }
 
   /// Get cached sync user info

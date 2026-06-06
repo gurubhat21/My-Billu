@@ -1066,51 +1066,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 16),
 
             if (!isSignedIn) ...[
-              TextField(
-                controller: _syncEmailCtrl,
-                style: const TextStyle(color: Colors.white),
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'your@email.com',
-                  prefixIcon: const Icon(Icons.email, size: 18),
-                  filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _syncPasswordCtrl,
-                obscureText: !_showSyncPassword,
-                style: const TextStyle(color: Colors.white),
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _syncing ? null : _windowsSyncSignIn(context),
-                decoration: InputDecoration(
-                  labelText: 'Password (min 6 chars)',
-                  prefixIcon: const Icon(Icons.lock, size: 18),
-                  suffixIcon: IconButton(
-                    icon: Icon(_showSyncPassword ? Icons.visibility_off : Icons.visibility, size: 20),
-                    onPressed: () => setState(() => _showSyncPassword = !_showSyncPassword),
-                  ),
-                  filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
-              ),
-              const SizedBox(height: 12),
+              Container(padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4285F4).withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF4285F4).withValues(alpha: 0.15))),
+                child: Row(children: [
+                  Icon(Icons.info_outline, size: 18, color: Colors.white.withValues(alpha: 0.5)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(
+                    'Sign in with your Google account to sync data across all your devices.',
+                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6)))),
+                ])),
+              const SizedBox(height: 14),
               SizedBox(width: double.infinity, child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4285F4),
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
                   padding: const EdgeInsets.symmetric(vertical: 14)),
-                onPressed: _syncing ? null : () => _windowsSyncSignIn(context),
+                onPressed: _syncing ? null : () => _windowsGoogleSignIn(context),
                 icon: _syncing
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.login, size: 20),
-                label: Text(_syncing ? 'Signing in...' : 'Sign In / Create Account'),
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Image.network('https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                        width: 20, height: 20,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 24, color: Color(0xFF4285F4))),
+                label: Text(_syncing ? 'Signing in...' : 'Sign in with Google',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               )),
-              const SizedBox(height: 8),
-              Text('Use same email & password on all devices to sync',
-                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.35))),
             ] else ...[
               // Signed-in user info
               Container(padding: const EdgeInsets.all(12),
@@ -1188,13 +1170,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
   }
 
-  Future<void> _windowsSyncSignIn(BuildContext context) async {
-    final email = _syncEmailCtrl.text.trim();
-    final password = _syncPasswordCtrl.text.trim();
-    if (email.isEmpty || password.isEmpty) return;
+  Future<void> _windowsGoogleSignIn(BuildContext context) async {
     setState(() => _syncing = true);
     try {
-      await WindowsFirestoreService.signInWithEmail(email, password);
+      await WindowsFirestoreService.signInWithGoogle();
       setState(() => _syncing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
