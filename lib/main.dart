@@ -60,8 +60,10 @@ void main() async {
 
     // Load saved data path for Windows
     await data_path.loadDataPathConfig();
+  }
 
-    // Initialize Financial Year system
+  // Initialize Financial Year system (all platforms)
+  if (!kIsWeb) {
     await FYService.instance.initialize();
   }
 

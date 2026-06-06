@@ -199,7 +199,10 @@ class _YearCloseScreenState extends State<YearCloseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentFY = FYService.instance.activeFY;
+    var currentFY = FYService.instance.activeFY;
+    if (currentFY.isEmpty || !currentFY.contains('-')) {
+      currentFY = FYService.getFYFromDate(DateTime.now());
+    }
     final startYear = int.parse(currentFY.split('-').first);
     final nextFY = '${startYear + 1}-${(startYear + 2).toString().substring(2)}';
 
