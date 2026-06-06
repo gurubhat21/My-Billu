@@ -1494,33 +1494,6 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
                 Divider(height: 1, color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
-                // Financial Year indicator
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.pop(context);
-                      _goTo(0); // Go to dashboard which has FY switcher
-                    },
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFBBF24).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.2)),
-                      ),
-                      child: Row(children: [
-                        const Icon(Icons.date_range, size: 16, color: Color(0xFFFBBF24)),
-                        const SizedBox(width: 8),
-                        Text('FY ${FYService.instance.activeFY}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFFBBF24))),
-                        const Spacer(),
-                        Icon(Icons.swap_horiz, size: 14, color: Colors.white.withValues(alpha: 0.3)),
-                      ]),
-                    ),
-                  ),
-                ),
                 // Scrollable menu items
                 Expanded(
                   child: SingleChildScrollView(
@@ -1798,25 +1771,6 @@ class _MainShellState extends State<MainShell> {
             Text('Smart Billing Software', style: TextStyle(
               fontSize: 12, color: Colors.white.withValues(alpha: 0.5), fontWeight: FontWeight.w500)),
           ]),
-        ),
-
-        // FY indicator
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFBBF24).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.2)),
-            ),
-            child: Row(children: [
-              const Icon(Icons.date_range, size: 14, color: Color(0xFFFBBF24)),
-              const SizedBox(width: 6),
-              Text('FY ${FYService.instance.activeFY}',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFFBBF24))),
-            ]),
-          ),
         ),
 
         // Menu Items
