@@ -1686,13 +1686,9 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _showFYPicker(BuildContext context) {
-    final appState = context.read<AppState>();
-    final now = DateTime.now();
-    final currentFYStart = now.month >= 4 ? now.year : now.year - 1;
-    final fyOptions = List.generate(8, (i) {
-      final y = currentFYStart - 5 + i;
-      return '$y-${(y + 1).toString().substring(2)}';
-    });
+    final fys = FYService.instance.availableFYs;
+    final currentFY = FYService.instance.activeFY;
+    final calendarFY = FYService.getFYFromDate(DateTime.now());
 
     showDialog(context: context, builder: (ctx) {
       return AlertDialog(
@@ -1704,29 +1700,25 @@ class _MainShellState extends State<MainShell> {
               borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.date_range, color: Colors.white, size: 20)),
           const SizedBox(width: 12),
-          const Text('Select Financial Year'),
+          const Text('Switch Financial Year'),
         ]),
         content: SizedBox(width: 320, child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Choose the financial year (April - March) you want to work with.',
-            style: TextStyle(fontSize: 13, color: Colors.grey)),
-          const SizedBox(height: 16),
-          ...fyOptions.map((fy) {
-            final isCurrent = fy == '$currentFYStart-${(currentFYStart + 1).toString().substring(2)}';
+          if (fys.length <= 1)
+            Padding(padding: const EdgeInsets.only(bottom: 12),
+              child: Text('Only one FY available. Close the year from Settings to create a new FY.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.withValues(alpha: 0.7)))),
+          ...fys.reversed.map((fy) {
+            final isActive = fy == currentFY;
+            final isCalendarCurrent = fy == calendarFY;
             return Padding(padding: const EdgeInsets.only(bottom: 6),
               child: InkWell(
                 onTap: () async {
                   Navigator.pop(ctx);
-                  await appState.saveSetting('financial_year', fy);
-                  if (mounted) {
-                    setState(() {});
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Row(children: [
-                        const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
-                        Text('Financial Year set to FY $fy'),
-                      ]),
-                      backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ));
+                  if (fy != currentFY) {
+                    await FYService.instance.switchToFY(fy);
+                    final appState = context.read<AppState>();
+                    await appState.reloadAllData();
+                    if (mounted) setState(() {});
                   }
                 },
                 borderRadius: BorderRadius.circular(12),
@@ -1734,22 +1726,23 @@ class _MainShellState extends State<MainShell> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: isCurrent ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
+                    color: isActive ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isCurrent ? AppColors.primary : Colors.grey.withValues(alpha: 0.2))),
+                    border: Border.all(color: isActive ? AppColors.primary : Colors.grey.withValues(alpha: 0.2))),
                   child: Row(children: [
-                    Icon(Icons.calendar_month, size: 18, color: isCurrent ? AppColors.primary : Colors.grey),
+                    Icon(isActive ? Icons.radio_button_checked : Icons.radio_button_off,
+                      size: 18, color: isActive ? AppColors.primary : Colors.grey),
                     const SizedBox(width: 12),
                     Expanded(child: Text('FY $fy', style: TextStyle(
-                      fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-                      color: isCurrent ? AppColors.primary : null, fontSize: 14))),
-                    if (isCurrent)
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      color: isActive ? AppColors.primary : null, fontSize: 14))),
+                    if (isCalendarCurrent)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.15),
+                          color: AppColors.success.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8)),
-                        child: const Text('Current', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary))),
+                        child: const Text('Current', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.success))),
                   ]),
                 ),
               ));

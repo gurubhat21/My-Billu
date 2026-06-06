@@ -2963,13 +2963,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildFinancialYearCard(BuildContext context) {
-    return FutureBuilder<String?>(
-      future: context.read<AppState>().getSetting('financial_year'),
-      builder: (context, snapshot) {
-        final now = DateTime.now();
-        final defaultFYStart = now.month >= 4 ? now.year : now.year - 1;
-        final defaultFY = '$defaultFYStart-${(defaultFYStart + 1).toString().substring(2)}';
-        final currentFY = snapshot.data ?? defaultFY;
+    return Builder(
+      builder: (context) {
+        final currentFY = FYService.instance.activeFY;
 
         return GlassCard(
           padding: const EdgeInsets.all(20),
@@ -3039,36 +3035,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showFYPickerDialog(BuildContext context, String currentFY) {
-    final appState = context.read<AppState>();
-    final now = DateTime.now();
-    final currentFYStart = now.month >= 4 ? now.year : now.year - 1;
-    final fyOptions = List.generate(8, (i) {
-      final y = currentFYStart - 5 + i;
-      return '$y-${(y + 1).toString().substring(2)}';
-    });
+    final fys = FYService.instance.availableFYs;
+    final activeFY = FYService.instance.activeFY;
+    final calendarFY = FYService.getFYFromDate(DateTime.now());
 
     showDialog(context: context, builder: (ctx) => AlertDialog(
       title: const Row(children: [
         Icon(Icons.date_range, color: Color(0xFFFBBF24)),
         SizedBox(width: 10),
-        Text('Change Financial Year'),
+        Text('Switch Financial Year'),
       ]),
       content: SizedBox(width: 320, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        ...fyOptions.map((fy) {
-          final isSelected = fy == currentFY;
-          final isCurrentReal = fy == '$currentFYStart-${(currentFYStart + 1).toString().substring(2)}';
+        if (fys.length <= 1)
+          Padding(padding: const EdgeInsets.only(bottom: 12),
+            child: Text('Only one FY available. Use "Close Year & Start New FY" to create a new FY.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.withValues(alpha: 0.7)))),
+        ...fys.reversed.map((fy) {
+          final isActive = fy == activeFY;
+          final isCalendarCurrent = fy == calendarFY;
           return Padding(padding: const EdgeInsets.only(bottom: 6),
             child: InkWell(
               onTap: () async {
                 Navigator.pop(ctx);
-                await appState.saveSetting('financial_year', fy);
-                if (mounted) {
-                  setState(() {});
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Financial Year changed to FY $fy'),
-                    backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ));
+                if (fy != activeFY) {
+                  await FYService.instance.switchToFY(fy);
+                  final appState = context.read<AppState>();
+                  await appState.reloadAllData();
+                  if (mounted) setState(() {});
                 }
               },
               borderRadius: BorderRadius.circular(10),
@@ -3076,25 +3069,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFFFBBF24).withValues(alpha: 0.15) : Colors.transparent,
+                  color: isActive ? const Color(0xFFFBBF24).withValues(alpha: 0.15) : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isSelected ? const Color(0xFFFBBF24) : Colors.grey.withValues(alpha: 0.2))),
+                  border: Border.all(color: isActive ? const Color(0xFFFBBF24) : Colors.grey.withValues(alpha: 0.2))),
                 child: Row(children: [
-                  Icon(Icons.calendar_month, size: 18,
-                    color: isSelected ? const Color(0xFFFBBF24) : Colors.grey),
+                  Icon(isActive ? Icons.radio_button_checked : Icons.radio_button_off,
+                    size: 18, color: isActive ? const Color(0xFFFBBF24) : Colors.grey),
                   const SizedBox(width: 10),
                   Expanded(child: Text('FY $fy', style: TextStyle(
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? const Color(0xFFFBBF24) : null))),
-                  if (isSelected)
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    color: isActive ? const Color(0xFFFBBF24) : null))),
+                  if (isActive)
                     const Icon(Icons.check_circle, size: 18, color: Color(0xFFFBBF24)),
-                  if (isCurrentReal && !isSelected)
+                  if (isCalendarCurrent && !isActive)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.grey.withValues(alpha: 0.15),
+                        color: AppColors.success.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6)),
-                      child: const Text('Current', style: TextStyle(fontSize: 9, color: Colors.grey))),
+                      child: const Text('Current', style: TextStyle(fontSize: 9, color: AppColors.success))),
                 ]),
               ),
             ));
