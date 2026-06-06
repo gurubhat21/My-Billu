@@ -1032,42 +1032,357 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         // Cloud sync IS enabled
         if (isWindows) {
-          // Windows: Firebase Auth/Firestore SDK not available, show info card
-          return GlassCard(padding: const EdgeInsets.all(20), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF4285F4), Color(0xFF34A853)]),
-                    borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.cloud_done, size: 22, color: Colors.white)),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Firebase Cloud Sync', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                  Text('Enabled ✓',
-                    style: TextStyle(fontSize: 12, color: const Color(0xFF4CAF50), fontWeight: FontWeight.w600)),
-                ])),
-              ]),
-              const SizedBox(height: 16),
-              Container(padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4285F4).withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF4285F4).withValues(alpha: 0.15))),
-                child: Row(children: [
-                  Icon(Icons.phone_android, size: 20, color: const Color(0xFF4CAF50)),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text(
-                    'Cloud sync is enabled for your account. Use the Android app to sync data across devices.',
-                    style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.7)))),
-                ])),
-            ]));
+          return _buildWindowsSyncCard(context);
         }
 
         // Android/other: show normal Firebase sync card
         return _buildCloudSyncCardEnabled(context);
       },
     );
+  }
+
+  Widget _buildWindowsSyncCard(BuildContext context) {
+    return FutureBuilder<Map<String, String?>>(
+      future: WindowsFirestoreService.getSyncUser(),
+      builder: (context, snapshot) {
+        final syncUser = snapshot.data;
+        final isSignedIn = syncUser?['uid'] != null && syncUser!['uid']!.isNotEmpty;
+
+        return GlassCard(padding: const EdgeInsets.all(20), child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF4285F4), Color(0xFF34A853)]),
+                  borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.cloud_sync, size: 22, color: Colors.white)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Firebase Cloud Sync', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                Text(isSignedIn ? 'Enabled ✓' : 'Sign in to sync',
+                  style: TextStyle(fontSize: 12, color: isSignedIn ? const Color(0xFF4CAF50) : Colors.white54, fontWeight: FontWeight.w600)),
+              ])),
+            ]),
+            const SizedBox(height: 16),
+
+            if (!isSignedIn) ...[
+              TextField(
+                controller: _syncEmailCtrl,
+                style: const TextStyle(color: Colors.white),
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'your@email.com',
+                  prefixIcon: const Icon(Icons.email, size: 18),
+                  filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _syncPasswordCtrl,
+                obscureText: !_showSyncPassword,
+                style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _syncing ? null : _windowsSyncSignIn(context),
+                decoration: InputDecoration(
+                  labelText: 'Password (min 6 chars)',
+                  prefixIcon: const Icon(Icons.lock, size: 18),
+                  suffixIcon: IconButton(
+                    icon: Icon(_showSyncPassword ? Icons.visibility_off : Icons.visibility, size: 20),
+                    onPressed: () => setState(() => _showSyncPassword = !_showSyncPassword),
+                  ),
+                  filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4285F4),
+                  padding: const EdgeInsets.symmetric(vertical: 14)),
+                onPressed: _syncing ? null : () => _windowsSyncSignIn(context),
+                icon: _syncing
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.login, size: 20),
+                label: Text(_syncing ? 'Signing in...' : 'Sign In / Create Account'),
+              )),
+              const SizedBox(height: 8),
+              Text('Use same email & password on all devices to sync',
+                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.35))),
+            ] else ...[
+              // Signed-in user info
+              Container(padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.success.withValues(alpha: 0.2))),
+                child: Row(children: [
+                  CircleAvatar(radius: 18,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+                    child: Text(
+                      (syncUser?['email'] ?? '?')[0].toUpperCase(),
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary))),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Signed In', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    Text(syncUser?['email'] ?? '', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                  ])),
+                  IconButton(
+                    tooltip: 'Sign Out',
+                    icon: const Icon(Icons.logout, size: 20, color: AppColors.error),
+                    onPressed: () async {
+                      await WindowsFirestoreService.syncSignOut();
+                      setState(() {});
+                    }),
+                ])),
+              const SizedBox(height: 14),
+
+              // Last sync time
+              FutureBuilder<DateTime?>(
+                future: WindowsFirestoreService.getLastSyncTime(),
+                builder: (ctx, snap) {
+                  final lastSync = snap.data;
+                  return Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(8)),
+                    child: Row(children: [
+                      Icon(Icons.schedule, size: 16, color: Colors.white.withValues(alpha: 0.4)),
+                      const SizedBox(width: 8),
+                      Text('Last sync: ', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+                      Text(lastSync != null
+                          ? DateFormat('dd MMM yyyy, hh:mm a').format(lastSync.toLocal())
+                          : 'Never',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                          color: lastSync != null ? AppColors.success : Colors.white.withValues(alpha: 0.4))),
+                    ]));
+                }),
+              const SizedBox(height: 14),
+
+              // Sync Now + Download buttons
+              Row(children: [
+                Expanded(child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4285F4),
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: _syncing ? null : () => _windowsSyncNow(context),
+                  icon: _syncing
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.sync, size: 20),
+                  label: Text(_syncing ? 'Syncing...' : 'Sync Now'),
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF34A853),
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: _syncing ? null : () => _windowsDownload(context),
+                  icon: const Icon(Icons.cloud_download, size: 20),
+                  label: const Text('Download'),
+                )),
+              ]),
+            ],
+          ]));
+      });
+  }
+
+  Future<void> _windowsSyncSignIn(BuildContext context) async {
+    final email = _syncEmailCtrl.text.trim();
+    final password = _syncPasswordCtrl.text.trim();
+    if (email.isEmpty || password.isEmpty) return;
+    setState(() => _syncing = true);
+    try {
+      await WindowsFirestoreService.signInWithEmail(email, password);
+      setState(() => _syncing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Row(children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 18), SizedBox(width: 8),
+            Text('Signed in successfully!')]),
+          backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+      }
+    } catch (e) {
+      setState(() => _syncing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Sign in error: $e'), backgroundColor: AppColors.error));
+      }
+    }
+  }
+
+  Future<void> _windowsSyncNow(BuildContext context) async {
+    setState(() => _syncing = true);
+    try {
+      final appState = context.read<AppState>();
+      final localSettings = await appState.getAllSettings();
+      final Map<String, dynamic> backup = {
+        'items': appState.items.map((i) => i.toMap()).toList(),
+        'customers': appState.customers.map((c) => c.toMap()).toList(),
+        'bills': appState.bills.map((b) => b.toMap()).toList(),
+        'purchases': appState.purchases.map((p) => p.toMap()).toList(),
+        'quotations': appState.quotations.map((q) => q.toMap()).toList(),
+        'expenses': appState.expenses.map((e) => e.toMap()).toList(),
+        'creditNotes': appState.creditNotes.map((c) => c.toMap()).toList(),
+        'purchaseReturns': appState.purchaseReturns.map((p) => p.toMap()).toList(),
+        'suppliers': appState.suppliers.map((s) => s.toMap()).toList(),
+        'recurringBills': appState.recurringBills.map((r) => r.toMap()).toList(),
+        'cashBookEntries': appState.cashBookEntries.map((e) => e.toMap()).toList(),
+        'bankAccounts': appState.bankAccounts.map((a) => a.toMap()).toList(),
+        'settings': localSettings,
+      };
+      await WindowsFirestoreService.uploadSyncData(backup);
+      setState(() => _syncing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Row(children: [
+            Icon(Icons.cloud_done, color: Colors.white, size: 18), SizedBox(width: 8),
+            Text('Data uploaded to cloud successfully!')]),
+          backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+      }
+    } catch (e) {
+      setState(() => _syncing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Sync error: $e'), backgroundColor: AppColors.error));
+      }
+    }
+  }
+
+  Future<void> _windowsDownload(BuildContext context) async {
+    setState(() => _syncing = true);
+    try {
+      final data = await WindowsFirestoreService.downloadSyncData();
+      setState(() => _syncing = false);
+      if (data == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('No cloud data found. Upload first!'), backgroundColor: AppColors.warning));
+        }
+        return;
+      }
+      if (!mounted) return;
+      // Use same download/restore flow as Android
+      _firebaseDownloadRestore(context, data);
+    } catch (e) {
+      setState(() => _syncing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Download error: $e'), backgroundColor: AppColors.error));
+      }
+    }
+  }
+
+  void _firebaseDownloadRestore(BuildContext context, Map<String, dynamic> data) async {
+    final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Row(children: [Icon(Icons.cloud_download, color: AppColors.primary), SizedBox(width: 10), Text('Download Cloud Data?')]),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('This will ADD cloud data to your local data.', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Text('Items: ${(data['items'] as List?)?.length ?? 0}'),
+        Text('Customers: ${(data['customers'] as List?)?.length ?? 0}'),
+        Text('Bills: ${(data['bills'] as List?)?.length ?? 0}'),
+        Text('Purchases: ${(data['purchases'] as List?)?.length ?? 0}'),
+        Text('Quotations: ${(data['quotations'] as List?)?.length ?? 0}'),
+        Text('Expenses: ${(data['expenses'] as List?)?.length ?? 0}'),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Download & Restore')),
+      ],
+    ));
+
+    if (confirm != true || !mounted) return;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Row(children: [
+          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+          SizedBox(width: 12),
+          Text('Restoring cloud data...'),
+        ]),
+        backgroundColor: AppColors.primary,
+        duration: Duration(seconds: 30),
+      ));
+    }
+
+    final appState = context.read<AppState>();
+    final db = appState.dbHelper;
+
+    const skipSettingsKeys = {
+      'quotations_data', 'expenses_data', 'credit_notes_data',
+      'purchase_returns_data', 'suppliers_data', 'recurring_bills_data',
+      'cash_book_entries', 'bank_accounts', 'audit_log',
+    };
+
+    if (data['settings'] != null) {
+      final settings = (data['settings'] as Map<String, dynamic>);
+      for (final entry in settings.entries) {
+        if (skipSettingsKeys.contains(entry.key)) continue;
+        try { await db.setSetting(entry.key, entry.value.toString()); } catch (_) {}
+      }
+    }
+
+    if (data['items'] != null) {
+      for (final m in data['items']) {
+        try { await db.insertItem(Item.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+      }
+    }
+    if (data['customers'] != null) {
+      for (final m in data['customers']) {
+        try { await db.insertCustomer(Customer.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+      }
+    }
+    if (data['bills'] != null) {
+      for (final m in data['bills']) {
+        try { await db.insertBill(Bill.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+      }
+    }
+    if (data['purchases'] != null) {
+      for (final m in data['purchases']) {
+        try { await db.insertPurchase(Purchase.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+      }
+    }
+    if (data['quotations'] != null) {
+      await db.setSetting('quotations_data', jsonEncode(data['quotations']));
+    }
+    if (data['expenses'] != null) {
+      await db.setSetting('expenses_data', jsonEncode(data['expenses']));
+    }
+    if (data['creditNotes'] != null) {
+      await db.setSetting('credit_notes_data', jsonEncode(data['creditNotes']));
+    }
+    if (data['purchaseReturns'] != null) {
+      await db.setSetting('purchase_returns_data', jsonEncode(data['purchaseReturns']));
+    }
+    if (data['suppliers'] != null) {
+      await db.setSetting('suppliers_data', jsonEncode(data['suppliers']));
+    }
+    if (data['recurringBills'] != null) {
+      await db.setSetting('recurring_bills_data', jsonEncode(data['recurringBills']));
+    }
+    if (data['cashBookEntries'] != null) {
+      await db.setSetting('cash_book_entries', jsonEncode(data['cashBookEntries']));
+    }
+    if (data['bankAccounts'] != null) {
+      await db.setSetting('bank_accounts', jsonEncode(data['bankAccounts']));
+    }
+
+    await appState.reloadAllData();
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Row(children: [
+          Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+          Text('Cloud data restored successfully!'),
+        ]),
+        backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    }
   }
 
   Widget _buildCloudSyncCardEnabled(BuildContext context) {

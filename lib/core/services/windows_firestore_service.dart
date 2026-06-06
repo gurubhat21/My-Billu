@@ -434,4 +434,249 @@ class WindowsFirestoreService {
       };
     }
   }
+
+  // ====== CLOUD SYNC (Auth + Data) ======
+
+  static const _authUrl = 'https://identitytoolkit.googleapis.com/v1/accounts';
+  static const _syncUidKey = 'win_sync_uid';
+  static const _syncEmailKey = 'win_sync_email';
+  static const _syncIdTokenKey = 'win_sync_id_token';
+  static const _syncRefreshTokenKey = 'win_sync_refresh_token';
+  static const _syncLastSyncKey = 'win_sync_last_sync';
+
+  /// Sign in with email/password via Firebase Auth REST API
+  static Future<Map<String, String>> signInWithEmail(String email, String password) async {
+    // Try sign in first
+    var resp = await http.post(
+      Uri.parse('$_authUrl:signInWithPassword?key=$_apiKey'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password, 'returnSecureToken': true}),
+    );
+
+    if (resp.statusCode == 400) {
+      final err = jsonDecode(resp.body);
+      final errMsg = err['error']?['message'] ?? '';
+      if (errMsg == 'EMAIL_NOT_FOUND') {
+        // Create new account
+        resp = await http.post(
+          Uri.parse('$_authUrl:signUp?key=$_apiKey'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'email': email, 'password': password, 'returnSecureToken': true}),
+        );
+        if (resp.statusCode != 200) {
+          final e = jsonDecode(resp.body);
+          throw Exception(e['error']?['message'] ?? 'Sign up failed');
+        }
+      } else {
+        throw Exception(errMsg.replaceAll('_', ' ').toLowerCase());
+      }
+    } else if (resp.statusCode != 200) {
+      throw Exception('Auth failed: ${resp.statusCode}');
+    }
+
+    final data = jsonDecode(resp.body);
+    final uid = data['localId'] as String;
+    final idToken = data['idToken'] as String;
+    final refreshToken = data['refreshToken'] as String;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_syncUidKey, uid);
+    await prefs.setString(_syncEmailKey, email);
+    await prefs.setString(_syncIdTokenKey, idToken);
+    await prefs.setString(_syncRefreshTokenKey, refreshToken);
+
+    return {'uid': uid, 'email': email, 'idToken': idToken};
+  }
+
+  /// Get cached sync user info
+  static Future<Map<String, String?>> getSyncUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'uid': prefs.getString(_syncUidKey),
+      'email': prefs.getString(_syncEmailKey),
+    };
+  }
+
+  /// Sign out (clear sync tokens)
+  static Future<void> syncSignOut() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_syncUidKey);
+    await prefs.remove(_syncEmailKey);
+    await prefs.remove(_syncIdTokenKey);
+    await prefs.remove(_syncRefreshTokenKey);
+  }
+
+  /// Get a fresh ID token (refresh if needed)
+  static Future<String?> _getFreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final refreshToken = prefs.getString(_syncRefreshTokenKey);
+    if (refreshToken == null) return null;
+
+    final resp = await http.post(
+      Uri.parse('https://securetoken.googleapis.com/v1/token?key=$_apiKey'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'grant_type': 'refresh_token', 'refresh_token': refreshToken}),
+    );
+
+    if (resp.statusCode != 200) return null;
+    final data = jsonDecode(resp.body);
+    final newToken = data['id_token'] as String;
+    final newRefresh = data['refresh_token'] as String;
+    await prefs.setString(_syncIdTokenKey, newToken);
+    await prefs.setString(_syncRefreshTokenKey, newRefresh);
+    return newToken;
+  }
+
+  /// Upload data to Firestore (users/{uid}/data/...)
+  static Future<void> uploadSyncData(Map<String, dynamic> backup) async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getString(_syncUidKey);
+    if (uid == null) throw Exception('Not signed in');
+
+    final token = await _getFreshToken();
+    if (token == null) throw Exception('Auth expired. Sign in again.');
+
+    final userDocUrl = '$_baseUrl/users/$uid?key=$_apiKey';
+
+    // Set user metadata
+    await http.patch(
+      Uri.parse('$userDocUrl'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode({'fields': {
+        'email': {'stringValue': prefs.getString(_syncEmailKey) ?? ''},
+        'lastSyncAt': {'timestampValue': DateTime.now().toUtc().toIso8601String()},
+        'deviceName': {'stringValue': 'Windows'},
+        'version': {'stringValue': '6.0.0'},
+      }}),
+    );
+
+    // Upload each collection as a sub-document
+    for (final key in backup.keys) {
+      if (key == 'version' || key == 'timestamp') continue;
+      final jsonStr = jsonEncode(backup[key]);
+      final dataDocUrl = '$_baseUrl/users/$uid/data/$key?key=$_apiKey';
+
+      if (jsonStr.length <= 900000) {
+        await http.patch(
+          Uri.parse(dataDocUrl),
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+          body: jsonEncode({'fields': {
+            'json': {'stringValue': jsonStr},
+            'chunks': {'integerValue': '1'},
+            'updatedAt': {'timestampValue': DateTime.now().toUtc().toIso8601String()},
+          }}),
+        );
+      } else {
+        // Chunked write
+        final chunks = <String>[];
+        for (var i = 0; i < jsonStr.length; i += 900000) {
+          final end = (i + 900000 > jsonStr.length) ? jsonStr.length : i + 900000;
+          chunks.add(jsonStr.substring(i, end));
+        }
+        await http.patch(
+          Uri.parse(dataDocUrl),
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+          body: jsonEncode({'fields': {
+            'chunks': {'integerValue': '${chunks.length}'},
+            'updatedAt': {'timestampValue': DateTime.now().toUtc().toIso8601String()},
+          }}),
+        );
+        for (var i = 0; i < chunks.length; i++) {
+          final chunkUrl = '$_baseUrl/users/$uid/data/${key}_$i?key=$_apiKey';
+          await http.patch(
+            Uri.parse(chunkUrl),
+            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+            body: jsonEncode({'fields': {
+              'json': {'stringValue': chunks[i]},
+              'index': {'integerValue': '$i'},
+            }}),
+          );
+        }
+      }
+    }
+
+    await prefs.setString(_syncLastSyncKey, DateTime.now().toIso8601String());
+  }
+
+  /// Download data from Firestore
+  static Future<Map<String, dynamic>?> downloadSyncData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getString(_syncUidKey);
+    if (uid == null) return null;
+
+    final token = await _getFreshToken();
+    if (token == null) throw Exception('Auth expired. Sign in again.');
+
+    // Check user doc exists
+    final userUrl = '$_baseUrl/users/$uid?key=$_apiKey';
+    final userResp = await http.get(
+      Uri.parse(userUrl),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (userResp.statusCode != 200) return null;
+
+    final backup = <String, dynamic>{'version': '6.0.0'};
+
+    final collections = ['items', 'customers', 'bills', 'purchases', 'quotations',
+      'expenses', 'creditNotes', 'purchaseReturns', 'suppliers', 'recurringBills',
+      'cashBookEntries', 'bankAccounts', 'settings'];
+
+    for (final key in collections) {
+      final json = await _readSyncChunked(uid, token, key);
+      if (json != null) {
+        if (key == 'settings') {
+          backup[key] = Map<String, dynamic>.from(jsonDecode(json));
+        } else {
+          backup[key] = List<Map<String, dynamic>>.from(
+            (jsonDecode(json) as List).map((e) => Map<String, dynamic>.from(e)));
+        }
+      }
+    }
+
+    return backup;
+  }
+
+  /// Read a possibly chunked document
+  static Future<String?> _readSyncChunked(String uid, String token, String key) async {
+    try {
+      final url = '$_baseUrl/users/$uid/data/$key?key=$_apiKey';
+      final resp = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+      if (resp.statusCode != 200) return null;
+
+      final data = jsonDecode(resp.body);
+      final fields = data['fields'] as Map<String, dynamic>? ?? {};
+
+      final numChunks = int.tryParse(
+          (fields['chunks']?['integerValue'] ?? '1').toString()) ?? 1;
+
+      if (numChunks <= 1 && fields['json']?['stringValue'] != null) {
+        return fields['json']['stringValue'] as String;
+      } else if (numChunks > 1) {
+        final parts = <String>[];
+        for (var i = 0; i < numChunks; i++) {
+          final chunkUrl = '$_baseUrl/users/$uid/data/${key}_$i?key=$_apiKey';
+          final chunkResp = await http.get(Uri.parse(chunkUrl), headers: {'Authorization': 'Bearer $token'});
+          if (chunkResp.statusCode == 200) {
+            final chunkData = jsonDecode(chunkResp.body);
+            final chunkFields = chunkData['fields'] as Map<String, dynamic>? ?? {};
+            if (chunkFields['json']?['stringValue'] != null) {
+              parts.add(chunkFields['json']['stringValue'] as String);
+            }
+          }
+        }
+        return parts.join();
+      }
+    } catch (e) {
+      debugPrint('Error reading sync data $key: $e');
+    }
+    return null;
+  }
+
+  /// Get last sync time
+  static Future<DateTime?> getLastSyncTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final str = prefs.getString(_syncLastSyncKey);
+    if (str == null) return null;
+    return DateTime.tryParse(str);
+  }
 }
