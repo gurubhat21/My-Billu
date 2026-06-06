@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -502,7 +503,7 @@ class WindowsFirestoreService {
     final authUri = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {
       'client_id': _googleClientId,
       'redirect_uri': redirectUri,
-      'response_type': 'token', // Implicit flow gives us access_token directly
+      'response_type': 'token',
       'scope': 'email profile',
       'prompt': 'select_account',
     });
@@ -510,26 +511,23 @@ class WindowsFirestoreService {
     // 3. Open browser
     await launchUrl(authUri, mode: LaunchMode.externalApplication);
 
-    // 4. Wait for the callback (implicit flow sends token in URL fragment)
-    // Since fragments aren't sent to server, serve a page that extracts it
-    try {
-      final request = await server.first.timeout(const Duration(minutes: 2));
-      
-      // Check if this has the token in query params (won't for implicit flow)
-      // Serve a page that reads the fragment and sends it back
-      final queryToken = request.uri.queryParameters['access_token'];
-      
-      if (queryToken != null && queryToken.isNotEmpty) {
-        // Direct token received
+    // 4. Listen for callbacks using a Completer
+    final completer = Completer<String>();
+    late final StreamSubscription<HttpRequest> subscription;
+
+    subscription = server.listen((request) async {
+      final token = request.uri.queryParameters['access_token'];
+
+      if (token != null && token.isNotEmpty) {
+        // Got the token (from JavaScript redirect)
         request.response
           ..statusCode = 200
           ..headers.contentType = ContentType.html
           ..write('<html><body><h2>✅ Signed in! You can close this tab.</h2></body></html>');
         await request.response.close();
-        await server.close();
-        await _firebaseSignInWithGoogleToken(queryToken);
+        if (!completer.isCompleted) completer.complete(token);
       } else {
-        // Serve a page that extracts the fragment and POSTs it back
+        // First request: serve page that extracts token from URL fragment
         request.response
           ..statusCode = 200
           ..headers.contentType = ContentType.html
@@ -548,22 +546,16 @@ class WindowsFirestoreService {
   }
 </script></body></html>''');
         await request.response.close();
-
-        // Wait for the second request with the token
-        final tokenRequest = await server.first.timeout(const Duration(seconds: 30));
-        final token = tokenRequest.uri.queryParameters['access_token'];
-        tokenRequest.response
-          ..statusCode = 200
-          ..write('OK');
-        await tokenRequest.response.close();
-        await server.close();
-
-        if (token == null || token.isEmpty) {
-          throw Exception('No token received from Google');
-        }
-        await _firebaseSignInWithGoogleToken(token);
       }
+    });
+
+    try {
+      final accessToken = await completer.future.timeout(const Duration(minutes: 2));
+      await subscription.cancel();
+      await server.close();
+      await _firebaseSignInWithGoogleToken(accessToken);
     } catch (e) {
+      await subscription.cancel();
       await server.close();
       rethrow;
     }
