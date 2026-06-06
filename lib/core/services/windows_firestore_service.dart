@@ -212,14 +212,14 @@ class WindowsFirestoreService {
 
       // Cache cloud sync flags from Firestore (platform-specific first, fallback to legacy)
       final prefs = await SharedPreferences.getInstance();
-      final winSyncEnabled = _getString(fields, 'windowsCloudSyncEnabled');
-      final legacySyncEnabled = _getString(fields, 'cloudSyncEnabled');
-      final winSyncRequested = _getString(fields, 'windowsCloudSyncRequested');
-      final legacySyncRequested = _getString(fields, 'cloudSyncRequested');
+      final winSyncEnabled = _getBool(fields, 'windowsCloudSyncEnabled');
+      final legacySyncEnabled = _getBool(fields, 'cloudSyncEnabled');
+      final winSyncRequested = _getBool(fields, 'windowsCloudSyncRequested');
+      final legacySyncRequested = _getBool(fields, 'cloudSyncRequested');
       await prefs.setBool('sub_cloud_sync_enabled',
-          winSyncEnabled == 'true' || (winSyncEnabled.isEmpty && legacySyncEnabled == 'true'));
+          winSyncEnabled ?? legacySyncEnabled ?? false);
       await prefs.setBool('sub_cloud_sync_requested',
-          winSyncRequested == 'true' || (winSyncRequested.isEmpty && legacySyncRequested == 'true'));
+          winSyncRequested ?? legacySyncRequested ?? false);
 
       // Update lastOnline with platform-specific fields
       final deviceService = DeviceIdService();
@@ -316,7 +316,19 @@ class WindowsFirestoreService {
   static String _getString(Map<String, dynamic> fields, String key) {
     final field = fields[key] as Map<String, dynamic>?;
     if (field == null) return '';
-    return (field['stringValue'] ?? field['timestampValue'] ?? '').toString();
+    return (field['stringValue'] ?? field['timestampValue'] ?? field['booleanValue']?.toString() ?? '').toString();
+  }
+
+  /// Read a boolean field from Firestore REST API format
+  /// Handles: booleanValue (true/false), stringValue ("true"/"false")
+  static bool? _getBool(Map<String, dynamic> fields, String key) {
+    final field = fields[key] as Map<String, dynamic>?;
+    if (field == null) return null;
+    // Direct boolean value
+    if (field.containsKey('booleanValue')) return field['booleanValue'] == true;
+    // String "true"/"false"
+    if (field.containsKey('stringValue')) return field['stringValue'] == 'true';
+    return null;
   }
 
   /// Find if a Windows device ID is already registered to another email
@@ -398,13 +410,13 @@ class WindowsFirestoreService {
       final data = jsonDecode(resp.body);
       final fields = data['fields'] as Map<String, dynamic>? ?? {};
 
-      final winSyncEnabled = _getString(fields, 'windowsCloudSyncEnabled');
-      final legacySyncEnabled = _getString(fields, 'cloudSyncEnabled');
-      final winSyncRequested = _getString(fields, 'windowsCloudSyncRequested');
-      final legacySyncRequested = _getString(fields, 'cloudSyncRequested');
+      final winSyncEnabled = _getBool(fields, 'windowsCloudSyncEnabled');
+      final legacySyncEnabled = _getBool(fields, 'cloudSyncEnabled');
+      final winSyncRequested = _getBool(fields, 'windowsCloudSyncRequested');
+      final legacySyncRequested = _getBool(fields, 'cloudSyncRequested');
 
-      final enabled = winSyncEnabled == 'true' || (winSyncEnabled.isEmpty && legacySyncEnabled == 'true');
-      final requested = winSyncRequested == 'true' || (winSyncRequested.isEmpty && legacySyncRequested == 'true');
+      final enabled = winSyncEnabled ?? legacySyncEnabled ?? false;
+      final requested = winSyncRequested ?? legacySyncRequested ?? false;
 
       // Update local cache
       final prefs = await SharedPreferences.getInstance();
