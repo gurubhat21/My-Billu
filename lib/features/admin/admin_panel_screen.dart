@@ -39,7 +39,14 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         (c['deviceName'] ?? '').toString().toLowerCase().contains(q)
       ).toList();
     }
-    if (_filterStatus != 'all') {
+    if (_filterStatus == 'expiring') {
+      list = list.where((c) {
+        final ts = c['expiryDate'] as Timestamp?;
+        if (ts == null) return false;
+        final days = ts.toDate().difference(DateTime.now()).inDays;
+        return days >= 0 && days <= 7 && c['subscriptionStatus'] != 'expired';
+      }).toList();
+    } else if (_filterStatus != 'all') {
       list = list.where((c) => c['subscriptionStatus'] == _filterStatus).toList();
     }
     return list;
@@ -79,16 +86,16 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
         : Column(children: [
             // Stats Cards
-            Padding(
+              Padding(
               padding: const EdgeInsets.all(16),
               child: Wrap(spacing: 12, runSpacing: 12, children: [
-                _statCard('Total', _totalClients, Icons.people, AppColors.primary),
-                _statCard('Active', _activeClients, Icons.check_circle, AppColors.success),
-                _statCard('Trial', _trialClients, Icons.timer, AppColors.warning),
-                _statCard('Expired', _expiredClients, Icons.cancel, AppColors.error),
-                _statCard('Revoked', _revokedClients, Icons.block, Colors.red.shade900),
+                _statCard('Total', _totalClients, Icons.people, AppColors.primary, 'all'),
+                _statCard('Active', _activeClients, Icons.check_circle, AppColors.success, 'active'),
+                _statCard('Trial', _trialClients, Icons.timer, AppColors.warning, 'trial'),
+                _statCard('Expired', _expiredClients, Icons.cancel, AppColors.error, 'expired'),
+                _statCard('Revoked', _revokedClients, Icons.block, Colors.red.shade900, 'revoked'),
                 if (_expiringClients > 0)
-                  _statCard('Expiring Soon', _expiringClients, Icons.warning, Colors.orange),
+                  _statCard('Expiring Soon', _expiringClients, Icons.warning, Colors.orange, 'expiring'),
               ]),
             ),
 
@@ -136,16 +143,29 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     );
   }
 
-  Widget _statCard(String label, int count, IconData icon, Color color) {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(width: 8),
-        Text('$count', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
-        const SizedBox(width: 6),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6))),
-      ]),
+  Widget _statCard(String label, int count, IconData icon, Color color, String filterValue) {
+    final isActive = _filterStatus == filterValue;
+    return GestureDetector(
+      onTap: () => setState(() => _filterStatus = isActive ? 'all' : filterValue),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive ? color.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isActive ? color : Colors.white.withValues(alpha: 0.08),
+            width: isActive ? 2 : 1,
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Text('$count', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 12, color: isActive ? color : Colors.white.withValues(alpha: 0.6))),
+        ]),
+      ),
     );
   }
 
