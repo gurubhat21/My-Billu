@@ -1221,12 +1221,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
         cloudData = await WindowsFirestoreService.downloadSyncData();
       } catch (_) {}
 
-      // Merge each collection
+      // Merge each collection (use specialized merge for numbered collections)
       final mergedBackup = <String, dynamic>{};
       for (final key in localData.keys) {
         final cloudList = (cloudData?[key] as List?)
             ?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? [];
-        mergedBackup[key] = MergeSyncService.mergeCollections(localData[key]!, cloudList);
+        switch (key) {
+          case 'bills':
+            mergedBackup[key] = MergeSyncService.mergeBills(localData[key]!, cloudList);
+            break;
+          case 'purchases':
+            mergedBackup[key] = MergeSyncService.mergePurchases(localData[key]!, cloudList);
+            break;
+          case 'quotations':
+            mergedBackup[key] = MergeSyncService.mergeQuotations(localData[key]!, cloudList);
+            break;
+          case 'creditNotes':
+            mergedBackup[key] = MergeSyncService.mergeCreditNotes(localData[key]!, cloudList);
+            break;
+          case 'purchaseReturns':
+            mergedBackup[key] = MergeSyncService.mergePurchaseReturns(localData[key]!, cloudList);
+            break;
+          default:
+            mergedBackup[key] = MergeSyncService.mergeCollections(localData[key]!, cloudList);
+        }
       }
 
       // Merge settings
@@ -1404,12 +1422,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     }
 
-    // Merge SQL-table collections
+    // Merge SQL-table collections (use specialized merge for numbered ones)
     for (final key in ['items', 'customers', 'bills', 'purchases']) {
       if (data[key] == null) continue;
       final cloudList = (data[key] as List)
           .map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      final merged = MergeSyncService.mergeCollections(localData[key]!, cloudList);
+      List<Map<String, dynamic>> merged;
+      switch (key) {
+        case 'bills':
+          merged = MergeSyncService.mergeBills(localData[key]!, cloudList);
+          break;
+        case 'purchases':
+          merged = MergeSyncService.mergePurchases(localData[key]!, cloudList);
+          break;
+        default:
+          merged = MergeSyncService.mergeCollections(localData[key]!, cloudList);
+      }
       final localIds = localData[key]!.map((r) => r['id'].toString()).toSet();
 
       for (final record in merged) {
@@ -1441,7 +1469,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (data[entry.key] == null) continue;
       final cloudList = (data[entry.key] as List)
           .map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      final merged = MergeSyncService.mergeCollections(localData[entry.key]!, cloudList);
+      List<Map<String, dynamic>> merged;
+      switch (entry.key) {
+        case 'quotations':
+          merged = MergeSyncService.mergeQuotations(localData[entry.key]!, cloudList);
+          break;
+        case 'creditNotes':
+          merged = MergeSyncService.mergeCreditNotes(localData[entry.key]!, cloudList);
+          break;
+        case 'purchaseReturns':
+          merged = MergeSyncService.mergePurchaseReturns(localData[entry.key]!, cloudList);
+          break;
+        default:
+          merged = MergeSyncService.mergeCollections(localData[entry.key]!, cloudList);
+      }
       await db.setSetting(entry.value, jsonEncode(merged));
     }
 

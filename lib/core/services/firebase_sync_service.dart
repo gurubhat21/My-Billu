@@ -151,12 +151,30 @@ class FirebaseSyncService {
       }
 
       // MERGE: local + cloud for each collection
+      // Use specialized merge for collections with unique numbers
       final mergedData = <String, dynamic>{};
       for (final key in localData.keys) {
-        mergedData[key] = MergeSyncService.mergeCollections(
-          localData[key]!,
-          cloudData[key] ?? [],
-        );
+        final local = localData[key]!;
+        final cloud = cloudData[key] ?? <Map<String, dynamic>>[];
+        switch (key) {
+          case 'bills':
+            mergedData[key] = MergeSyncService.mergeBills(local, cloud);
+            break;
+          case 'purchases':
+            mergedData[key] = MergeSyncService.mergePurchases(local, cloud);
+            break;
+          case 'quotations':
+            mergedData[key] = MergeSyncService.mergeQuotations(local, cloud);
+            break;
+          case 'creditNotes':
+            mergedData[key] = MergeSyncService.mergeCreditNotes(local, cloud);
+            break;
+          case 'purchaseReturns':
+            mergedData[key] = MergeSyncService.mergePurchaseReturns(local, cloud);
+            break;
+          default:
+            mergedData[key] = MergeSyncService.mergeCollections(local, cloud);
+        }
       }
 
       // Merge settings
