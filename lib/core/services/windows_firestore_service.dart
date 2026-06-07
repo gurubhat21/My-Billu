@@ -783,4 +783,34 @@ class WindowsFirestoreService {
     if (str == null) return null;
     return DateTime.tryParse(str);
   }
+
+  /// Delete all cloud sync data for the current user
+  static Future<void> deleteAllSyncData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getString(_syncUidKey);
+    if (uid == null) return;
+
+    final token = await _getFreshToken();
+    if (token == null) return;
+
+    final collections = ['items', 'customers', 'bills', 'purchases', 'quotations',
+      'expenses', 'creditNotes', 'purchaseReturns', 'suppliers', 'recurringBills',
+      'cashBookEntries', 'bankAccounts', 'settings'];
+
+    for (final key in collections) {
+      // Delete main doc
+      final url = '$_baseUrl/users/$uid/data/$key?key=$_apiKey';
+      try {
+        await http.delete(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+      } catch (_) {}
+      // Delete chunks
+      for (var i = 0; i < 20; i++) {
+        try {
+          final chunkUrl = '$_baseUrl/users/$uid/data/${key}_$i?key=$_apiKey';
+          await http.delete(Uri.parse(chunkUrl), headers: {'Authorization': 'Bearer $token'});
+        } catch (_) {}
+      }
+    }
+    debugPrint('Windows: All cloud data deleted for user $uid');
+  }
 }

@@ -390,4 +390,28 @@ class FirebaseSyncService {
     _autoSyncTimer?.cancel();
     _autoSyncTimer = null;
   }
+
+  /// Delete all cloud sync data for the current user
+  Future<void> deleteAllCloudData() async {
+    if (!isSignedIn) return;
+    try {
+      final userDoc = _firestore.collection('users').doc(currentUser!.uid);
+      final collections = ['items', 'customers', 'bills', 'purchases', 'quotations',
+        'expenses', 'creditNotes', 'purchaseReturns', 'suppliers', 'recurringBills',
+        'cashBookEntries', 'bankAccounts', 'settings'];
+
+      for (final key in collections) {
+        // Delete main doc
+        await userDoc.collection('data').doc(key).delete();
+        // Delete any chunks
+        for (var i = 0; i < 20; i++) {
+          try { await userDoc.collection('data').doc('${key}_$i').delete(); } catch (_) {}
+        }
+      }
+      debugPrint('Cloud data deleted for user ${currentUser!.uid}');
+    } catch (e) {
+      debugPrint('deleteAllCloudData error: $e');
+      rethrow;
+    }
+  }
 }

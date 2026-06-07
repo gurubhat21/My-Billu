@@ -844,9 +844,372 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _aboutRow('Mobile', '9449831316'),
               _aboutRow('Email', 'sumukhatech21@gmail.com'),
             ])),
+          const SizedBox(height: 20),
+          // Factory Data Reset
+          GlassCard(padding: const EdgeInsets.all(20), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.warning_amber_rounded, size: 22, color: AppColors.error)),
+                const SizedBox(width: 12),
+                Text('Factory Data Reset', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppColors.error)),
+              ]),
+              const SizedBox(height: 12),
+              Text('Clear all app data permanently. This action cannot be undone.',
+                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+              const SizedBox(height: 16),
+              SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                onPressed: () => _showFactoryResetDialog(context),
+                icon: const Icon(Icons.delete_forever, size: 20),
+                label: const Text('Factory Reset'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error.withValues(alpha: 0.2),
+                  foregroundColor: AppColors.error,
+                  side: const BorderSide(color: AppColors.error, width: 1),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              )),
+            ])),
         ]),
       );
     });
+  }
+
+  // ===== FACTORY DATA RESET =====
+  Future<void> _showFactoryResetDialog(BuildContext context) async {
+    final passwordCtrl = TextEditingController();
+    bool showPassword = false;
+    String? error;
+
+    // Step 1: Ask admin password
+    final authenticated = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.lock, color: AppColors.error, size: 24),
+          SizedBox(width: 10),
+          Text('Admin Password Required'),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Enter admin password to proceed with factory reset.',
+            style: TextStyle(fontSize: 13)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: passwordCtrl,
+            obscureText: !showPassword,
+            decoration: InputDecoration(
+              labelText: 'Admin Password',
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setDialogState(() => showPassword = !showPassword),
+              ),
+              errorText: error,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final appState = ctx.read<AppState>();
+              final savedPassword = await appState.getSetting('loginPassword') ?? '12345';
+              if (passwordCtrl.text == savedPassword || passwordCtrl.text == AppConstants.masterPassword) {
+                Navigator.pop(ctx, true);
+              } else {
+                setDialogState(() => error = 'Wrong password');
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Verify'),
+          ),
+        ],
+      )),
+    );
+
+    if (authenticated != true || !mounted) return;
+    passwordCtrl.dispose();
+
+    // Step 2: Show data selection dialog
+    await _showResetSelectionDialog(context);
+  }
+
+  Future<void> _showResetSelectionDialog(BuildContext context) async {
+    // Selectable data categories
+    final selections = <String, bool>{
+      'items': true,
+      'customers': true,
+      'bills': true,
+      'purchases': true,
+      'quotations': true,
+      'expenses': true,
+      'creditNotes': true,
+      'purchaseReturns': true,
+      'suppliers': true,
+      'recurringBills': true,
+      'cashBookEntries': true,
+      'bankAccounts': true,
+      'settings': false,  // Default OFF — risky to clear settings
+      'cloudData': true,  // Clear cloud sync data too
+    };
+
+    final labels = {
+      'items': 'Items / Products',
+      'customers': 'Customers',
+      'bills': 'Bills / Invoices',
+      'purchases': 'Purchases',
+      'quotations': 'Quotations',
+      'expenses': 'Expenses',
+      'creditNotes': 'Credit Notes',
+      'purchaseReturns': 'Purchase Returns',
+      'suppliers': 'Suppliers',
+      'recurringBills': 'Recurring Bills',
+      'cashBookEntries': 'Cash Book Entries',
+      'bankAccounts': 'Bank Accounts',
+      'settings': 'Settings (business info, preferences)',
+      'cloudData': 'Cloud Sync Data (Firestore)',
+    };
+
+    final icons = {
+      'items': Icons.inventory_2,
+      'customers': Icons.people,
+      'bills': Icons.receipt_long,
+      'purchases': Icons.shopping_cart,
+      'quotations': Icons.request_quote,
+      'expenses': Icons.money_off,
+      'creditNotes': Icons.note,
+      'purchaseReturns': Icons.assignment_return,
+      'suppliers': Icons.local_shipping,
+      'recurringBills': Icons.repeat,
+      'cashBookEntries': Icons.book,
+      'bankAccounts': Icons.account_balance,
+      'settings': Icons.settings,
+      'cloudData': Icons.cloud_off,
+    };
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
+        final selectedCount = selections.values.where((v) => v).length;
+        final allSelected = selections.values.every((v) => v);
+
+        return AlertDialog(
+          title: Row(children: [
+            const Icon(Icons.delete_forever, color: AppColors.error, size: 24),
+            const SizedBox(width: 10),
+            const Expanded(child: Text('Select Data to Clear')),
+            // Select All / Deselect All
+            TextButton(
+              onPressed: () {
+                final newVal = !allSelected;
+                setDialogState(() {
+                  for (final key in selections.keys) {
+                    selections[key] = newVal;
+                  }
+                });
+              },
+              child: Text(allSelected ? 'Deselect All' : 'Select All',
+                style: const TextStyle(fontSize: 12)),
+            ),
+          ]),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 420,
+            child: ListView(
+              children: selections.keys.map((key) {
+                final isCloud = key == 'cloudData';
+                return CheckboxListTile(
+                  value: selections[key],
+                  onChanged: (val) => setDialogState(() => selections[key] = val ?? false),
+                  title: Text(labels[key]!, style: TextStyle(
+                    fontSize: 14,
+                    color: isCloud ? AppColors.warning : null,
+                  )),
+                  secondary: Icon(icons[key], size: 20,
+                    color: isCloud ? AppColors.warning : AppColors.primary),
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: AppColors.error,
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            ElevatedButton.icon(
+              onPressed: selectedCount == 0 ? null : () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.delete_forever, size: 18),
+              label: Text('Clear $selectedCount ${selectedCount == 1 ? 'item' : 'items'}'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        );
+      }),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // Step 3: Final confirmation
+    final finalConfirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.warning, color: AppColors.error, size: 28),
+          SizedBox(width: 10),
+          Text('ARE YOU SURE?'),
+        ]),
+        content: const Text(
+          'This will permanently delete the selected data.\n\n'
+          'THIS CANNOT BE UNDONE.\n\n'
+          'Make sure you have a backup before proceeding.',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No, Go Back')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Yes, Delete Forever'),
+          ),
+        ],
+      ),
+    );
+
+    if (finalConfirm != true || !mounted) return;
+
+    // Execute reset
+    await _executeFactoryReset(context, selections);
+  }
+
+  Future<void> _executeFactoryReset(BuildContext context, Map<String, bool> selections) async {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Row(children: [
+        SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+        SizedBox(width: 12),
+        Text('Resetting data...'),
+      ]),
+      backgroundColor: AppColors.error,
+      duration: Duration(seconds: 30),
+    ));
+
+    try {
+      final appState = context.read<AppState>();
+      final db = appState.dbHelper;
+
+      // Clear SQL tables
+      if (selections['items'] == true) {
+        final allItems = await db.getAllItems();
+        for (final item in allItems) {
+          await db.deleteItem(item.id);
+        }
+      }
+      if (selections['customers'] == true) {
+        final allCustomers = await db.getAllCustomers();
+        for (final c in allCustomers) {
+          await db.deleteCustomer(c.id);
+        }
+      }
+      if (selections['bills'] == true) {
+        final allBills = await db.getAllBills();
+        for (final b in allBills) {
+          await db.deleteBill(b.id);
+        }
+      }
+      if (selections['purchases'] == true) {
+        final allPurchases = await db.getAllPurchases();
+        for (final p in allPurchases) {
+          await db.deletePurchase(p.id);
+        }
+      }
+
+      // Clear JSON-blob collections
+      if (selections['quotations'] == true) {
+        await db.setSetting('quotations_data', '[]');
+      }
+      if (selections['expenses'] == true) {
+        await db.setSetting('expenses_data', '[]');
+      }
+      if (selections['creditNotes'] == true) {
+        await db.setSetting('credit_notes_data', '[]');
+      }
+      if (selections['purchaseReturns'] == true) {
+        await db.setSetting('purchase_returns_data', '[]');
+      }
+      if (selections['suppliers'] == true) {
+        await db.setSetting('suppliers_data', '[]');
+      }
+      if (selections['recurringBills'] == true) {
+        await db.setSetting('recurring_bills_data', '[]');
+      }
+      if (selections['cashBookEntries'] == true) {
+        await db.setSetting('cash_book_entries', '[]');
+      }
+      if (selections['bankAccounts'] == true) {
+        await db.setSetting('bank_accounts', '[]');
+      }
+
+      // Clear settings (except critical ones)
+      if (selections['settings'] == true) {
+        final allSettings = await db.getAllSettings();
+        const keepKeys = {
+          'loginPassword', 'loginUsername', 'staff_accounts',
+          'app_password', 'app_expiry_date', 'subscription_status',
+          'quotations_data', 'expenses_data', 'credit_notes_data',
+          'purchase_returns_data', 'suppliers_data', 'recurring_bills_data',
+          'cash_book_entries', 'bank_accounts', 'audit_log',
+        };
+        for (final key in allSettings.keys) {
+          if (!keepKeys.contains(key)) {
+            await db.setSetting(key, '');
+          }
+        }
+      }
+
+      // Clear cloud sync data
+      if (selections['cloudData'] == true) {
+        try {
+          if (defaultTargetPlatform == TargetPlatform.windows) {
+            // Windows: clear via REST API
+            await WindowsFirestoreService.deleteAllSyncData();
+          } else {
+            // Android: clear via Firebase SDK
+            if (_syncService.isSignedIn) {
+              await _syncService.deleteAllCloudData();
+            }
+          }
+        } catch (e) {
+          debugPrint('Cloud data clear error: $e');
+        }
+      }
+
+      // Reload app
+      await appState.reloadAllData();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Row(children: [
+            Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
+            Text('Factory reset completed!'),
+          ]),
+          backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Reset error: $e'), backgroundColor: AppColors.error));
+      }
+    }
   }
 
   bool _syncing = false;
