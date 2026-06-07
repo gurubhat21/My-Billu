@@ -152,11 +152,20 @@ class FYService {
     }
   }
 
+  /// Get effective data path (works on both Windows and Android)
+  Future<String?> _getEffectiveDataPath() async {
+    if (DatabaseHelper.dataPath != null) return DatabaseHelper.dataPath;
+    // Android: derive from _androidConfigPath or sqflite
+    if (_androidConfigPath != null) return p.dirname(_androidConfigPath!);
+    try {
+      final dbDir = await _getAndroidDbDir();
+      if (dbDir.isNotEmpty) return dbDir;
+    } catch (_) {}
+    return null;
+  }
+
   /// Ensure DB file exists for a given FY
   Future<void> _ensureDBExists(String fy) async {
-    final dataPath = DatabaseHelper.dataPath;
-    if (dataPath == null) return;
-
     DatabaseHelper.setDBFileName(getDBFileName(fy));
 
     // Opening the database will create it if it doesn't exist
@@ -187,9 +196,6 @@ class FYService {
   Future<void> switchToFY(String fy) async {
     if (fy == _activeFY) return;
 
-    final dataPath = DatabaseHelper.dataPath;
-    if (dataPath == null) return;
-
     // Close current DB
     try {
       final db = await DatabaseHelper.instance.database;
@@ -216,7 +222,7 @@ class FYService {
     required List<Map<String, dynamic>> unpaidBillsData,
     required Map<String, String> settingsToCarry,
   }) async {
-    final dataPath = DatabaseHelper.dataPath;
+    final dataPath = await _getEffectiveDataPath();
     if (dataPath == null) throw Exception('Data path not set');
 
     // Determine new FY
