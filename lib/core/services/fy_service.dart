@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import '../database/database_helper.dart';
+import 'package:sqflite/sqflite.dart';
 
 /// Financial Year Service — manages FY lifecycle, DB switching, year-end close
 class FYService {
@@ -248,41 +249,41 @@ class FYService {
 
     // Carry forward items (with stock)
     for (final item in itemsData) {
-      await newDb.insert('items', item, conflictAlgorithm: 1); // replace
+      await newDb.insert('items', item, conflictAlgorithm: ConflictAlgorithm.replace); // replace
     }
 
     // Carry forward customers (with outstanding balance)
     for (final customer in customersData) {
-      await newDb.insert('customers', customer, conflictAlgorithm: 1);
+      await newDb.insert('customers', customer, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     // Carry forward unpaid bills
     for (final bill in unpaidBillsData) {
       bill['items'] = bill['items'] is String ? bill['items'] : jsonEncode(bill['items']);
-      await newDb.insert('bills', bill, conflictAlgorithm: 1);
+      await newDb.insert('bills', bill, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     // Carry forward settings (business info, preferences — NOT invoice numbers)
     for (final entry in settingsToCarry.entries) {
       await newDb.insert('settings', {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: 1);
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     // Save suppliers, bank accounts, recurring bills as settings JSON
     await newDb.insert('settings', {
       'key': 'suppliers_data',
       'value': jsonEncode(suppliersData),
-    }, conflictAlgorithm: 1);
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     await newDb.insert('settings', {
       'key': 'bank_accounts',
       'value': jsonEncode(bankAccountsData),
-    }, conflictAlgorithm: 1);
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     await newDb.insert('settings', {
       'key': 'recurring_bills_data',
       'value': jsonEncode(recurringBillsData),
-    }, conflictAlgorithm: 1);
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     // Initialize empty JSON data for other entities
     for (final key in [
@@ -290,7 +291,7 @@ class FYService {
       'purchase_returns_data', 'cash_book_entries', 'audit_log',
     ]) {
       await newDb.insert('settings', {'key': key, 'value': '[]'},
-          conflictAlgorithm: 1);
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     // Update FY list
