@@ -10,7 +10,7 @@ import '../models/purchase.dart';
 Future<Database> initDatabase(String fileName) async {
   final dbPath = await getDatabasesPath();
   final path = p.join(dbPath, fileName);
-  return await openDatabase(path, version: 7,
+  return await openDatabase(path, version: 8,
     onCreate: _createDB,
     onUpgrade: _upgradeDB,
   );
@@ -21,7 +21,7 @@ Future<Database> initDatabaseAtPath(String dirPath, [String fileName = 'my_billu
   final dir = Directory(dirPath);
   if (!dir.existsSync()) dir.createSync(recursive: true);
   final dbFile = p.join(dirPath, fileName);
-  return await openDatabase(dbFile, version: 7,
+  return await openDatabase(dbFile, version: 8,
     onCreate: _createDB,
     onUpgrade: _upgradeDB,
   );
@@ -50,7 +50,8 @@ Future<void> _createDB(Database db, int version) async {
       discount REAL DEFAULT 0.0,
       totalTax REAL NOT NULL, totalAmount REAL NOT NULL,
       paidAmount REAL DEFAULT 0.0, paymentMethod TEXT DEFAULT 'cash',
-      status TEXT DEFAULT 'paid', notes TEXT, createdAt TEXT NOT NULL
+      status TEXT DEFAULT 'paid', notes TEXT, createdAt TEXT NOT NULL,
+      updatedAt TEXT
     )
   ''');
   await db.execute('''
@@ -63,7 +64,8 @@ Future<void> _createDB(Database db, int version) async {
       items TEXT NOT NULL, subtotal REAL NOT NULL, totalTax REAL NOT NULL,
       totalAmount REAL NOT NULL, paidAmount REAL DEFAULT 0.0,
       status TEXT DEFAULT 'received', paymentMethod TEXT DEFAULT 'cash',
-      notes TEXT, createdAt TEXT NOT NULL
+      notes TEXT, createdAt TEXT NOT NULL,
+      updatedAt TEXT
     )
   ''');
 }
@@ -97,6 +99,20 @@ Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
   if (oldVersion < 7) {
     try {
       await db.execute('ALTER TABLE items ADD COLUMN marginPercent REAL DEFAULT 0');
+    } catch (_) {}
+  }
+  if (oldVersion < 8) {
+    try {
+      await db.execute('ALTER TABLE bills ADD COLUMN updatedAt TEXT');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE purchases ADD COLUMN updatedAt TEXT');
+    } catch (_) {}
+    try {
+      await db.execute('UPDATE bills SET updatedAt = createdAt WHERE updatedAt IS NULL');
+    } catch (_) {}
+    try {
+      await db.execute('UPDATE purchases SET updatedAt = createdAt WHERE updatedAt IS NULL');
     } catch (_) {}
   }
 }

@@ -10,6 +10,7 @@ class BankAccount {
   String branch;
   String accountHolder;
   double balance;
+  final DateTime updatedAt;
 
   BankAccount({
     String? id,
@@ -19,7 +20,9 @@ class BankAccount {
     this.branch = '',
     this.accountHolder = '',
     this.balance = 0.0,
-  }) : id = id ?? const Uuid().v4();
+    DateTime? updatedAt,
+  }) : id = id ?? const Uuid().v4(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -29,6 +32,7 @@ class BankAccount {
     'branch': branch,
     'accountHolder': accountHolder,
     'balance': balance,
+    'updatedAt': updatedAt.toIso8601String(),
   };
 
   factory BankAccount.fromMap(Map<String, dynamic> map) => BankAccount(
@@ -39,6 +43,7 @@ class BankAccount {
     branch: map['branch'] as String? ?? '',
     accountHolder: map['accountHolder'] as String? ?? '',
     balance: (map['balance'] as num?)?.toDouble() ?? 0.0,
+    updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : null,
   );
 }
 
@@ -51,6 +56,7 @@ class CashBookEntry {
   final String? bankAccountId;
   final String? category;
   final DateTime date;
+  final DateTime updatedAt;
 
   CashBookEntry({
     String? id,
@@ -61,8 +67,10 @@ class CashBookEntry {
     this.bankAccountId,
     this.category,
     DateTime? date,
+    DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
-        date = date ?? DateTime.now();
+        date = date ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   bool get isInflow => type == TransactionType.cashIn || type == TransactionType.bankIn;
 
@@ -85,6 +93,7 @@ class CashBookEntry {
     'bankAccountId': bankAccountId,
     'category': category,
     'date': date.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
   };
 
   factory CashBookEntry.fromMap(Map<String, dynamic> map) => CashBookEntry(
@@ -97,6 +106,7 @@ class CashBookEntry {
     bankAccountId: map['bankAccountId'] as String?,
     category: map['category'] as String?,
     date: DateTime.tryParse(map['date'] as String? ?? '') ?? DateTime.now(),
+    updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : null,
   );
 }
 

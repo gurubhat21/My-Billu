@@ -17,6 +17,7 @@ class Quotation {
   QuotationStatus status;
   String? notes;
   final DateTime createdAt;
+  final DateTime updatedAt;
   DateTime? validUntil;
 
   Quotation({
@@ -33,9 +34,11 @@ class Quotation {
     this.status = QuotationStatus.draft,
     this.notes,
     DateTime? createdAt,
+    DateTime? updatedAt,
     this.validUntil,
   })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   double get totalCgst => totalTax / 2;
   double get totalSgst => totalTax / 2;
@@ -55,6 +58,7 @@ class Quotation {
       'status': status.name,
       'notes': notes,
       'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
       'validUntil': validUntil?.toIso8601String(),
     };
   }
@@ -79,6 +83,7 @@ class Quotation {
       ),
       notes: map['notes'] as String?,
       createdAt: DateTime.parse(map['createdAt'] as String),
+      updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : (map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null),
       validUntil: map['validUntil'] != null ? DateTime.parse(map['validUntil'] as String) : null,
     );
   }

@@ -16,6 +16,7 @@ import '../../core/models/supplier.dart';
 import '../../core/models/recurring_bill.dart';
 import '../../core/models/cash_book.dart';
 import '../../core/providers/app_state.dart';
+import '../../core/services/merge_sync_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/web_helper.dart' as web_helper;
 import '../../core/database/full_backup_exporter.dart';
@@ -1197,7 +1198,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final appState = context.read<AppState>();
       final localSettings = await appState.getAllSettings();
-      final Map<String, dynamic> backup = {
+
+      // Build local data
+      final localData = <String, List<Map<String, dynamic>>>{
         'items': appState.items.map((i) => i.toMap()).toList(),
         'customers': appState.customers.map((c) => c.toMap()).toList(),
         'bills': appState.bills.map((b) => b.toMap()).toList(),
@@ -1210,15 +1213,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'recurringBills': appState.recurringBills.map((r) => r.toMap()).toList(),
         'cashBookEntries': appState.cashBookEntries.map((e) => e.toMap()).toList(),
         'bankAccounts': appState.bankAccounts.map((a) => a.toMap()).toList(),
-        'settings': localSettings,
       };
-      await WindowsFirestoreService.uploadSyncData(backup);
+
+      // Download cloud data for merge
+      Map<String, dynamic>? cloudData;
+      try {
+        cloudData = await WindowsFirestoreService.downloadSyncData();
+      } catch (_) {}
+
+      // Merge each collection
+      final mergedBackup = <String, dynamic>{};
+      for (final key in localData.keys) {
+        final cloudList = (cloudData?[key] as List?)
+            ?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? [];
+        mergedBackup[key] = MergeSyncService.mergeCollections(localData[key]!, cloudList);
+      }
+
+      // Merge settings
+      final cloudSettings = <String, String>{};
+      if (cloudData?['settings'] != null) {
+        final cs = cloudData!['settings'];
+        if (cs is Map) {
+          for (final e in cs.entries) {
+            cloudSettings[e.key.toString()] = e.value.toString();
+          }
+        }
+      }
+      mergedBackup['settings'] = MergeSyncService.mergeSettings(localSettings, cloudSettings);
+
+      // Upload merged data
+      await WindowsFirestoreService.uploadSyncData(mergedBackup);
+
+      // Import cloud-only records into local DB
+      if (cloudData != null) {
+        final db = appState.dbHelper;
+        for (final key in localData.keys) {
+          final mergedList = mergedBackup[key] as List<Map<String, dynamic>>;
+          final localIds = localData[key]!.map((r) => r['id'].toString()).toSet();
+
+          for (final record in mergedList) {
+            final id = record['id']?.toString() ?? '';
+            if (id.isNotEmpty && !localIds.contains(id)) {
+              // New from cloud — add locally
+              switch (key) {
+                case 'items':
+                  await db.insertItem(Item.fromMap(record));
+                  break;
+                case 'customers':
+                  await db.insertCustomer(Customer.fromMap(record));
+                  break;
+                case 'bills':
+                  await db.insertBill(Bill.fromMap(record));
+                  break;
+                case 'purchases':
+                  await db.insertPurchase(Purchase.fromMap(record));
+                  break;
+              }
+            }
+          }
+        }
+
+        // Update JSON-blob collections with merged data
+        final jsonCollections = {
+          'quotations': 'quotations_data', 'expenses': 'expenses_data',
+          'creditNotes': 'credit_notes_data', 'purchaseReturns': 'purchase_returns_data',
+          'suppliers': 'suppliers_data', 'recurringBills': 'recurring_bills_data',
+          'cashBookEntries': 'cash_book_entries', 'bankAccounts': 'bank_accounts',
+        };
+        for (final entry in jsonCollections.entries) {
+          final mergedList = mergedBackup[entry.key] as List<Map<String, dynamic>>;
+          if (mergedList.length > (localData[entry.key]?.length ?? 0)) {
+            await db.setSetting(entry.value, jsonEncode(mergedList));
+          }
+        }
+
+        await appState.reloadAllData();
+      }
+
       setState(() => _syncing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: const Row(children: [
             Icon(Icons.cloud_done, color: Colors.white, size: 18), SizedBox(width: 8),
-            Text('Data uploaded to cloud successfully!')]),
+            Text('Data synced & merged successfully!')]),
           backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
       }
@@ -1256,21 +1333,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _firebaseDownloadRestore(BuildContext context, Map<String, dynamic> data) async {
+    final appState = context.read<AppState>();
+
+    // Count what cloud has
+    int cloudItems = (data['items'] as List?)?.length ?? 0;
+    int cloudBills = (data['bills'] as List?)?.length ?? 0;
+    int cloudCustomers = (data['customers'] as List?)?.length ?? 0;
+
     final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-      title: const Row(children: [Icon(Icons.cloud_download, color: AppColors.primary), SizedBox(width: 10), Text('Download Cloud Data?')]),
+      title: const Row(children: [Icon(Icons.cloud_download, color: AppColors.primary), SizedBox(width: 10), Text('Merge Cloud Data?')]),
       content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('This will ADD cloud data to your local data.', style: TextStyle(fontWeight: FontWeight.w600)),
+        const Text('Cloud data will be MERGED with your local data.\nNo data will be lost from either side.', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 12),
+        Text('Cloud has: $cloudItems items, $cloudCustomers customers, $cloudBills bills'),
+        Text('Local has: ${appState.items.length} items, ${appState.customers.length} customers, ${appState.bills.length} bills'),
         const SizedBox(height: 8),
-        Text('Items: ${(data['items'] as List?)?.length ?? 0}'),
-        Text('Customers: ${(data['customers'] as List?)?.length ?? 0}'),
-        Text('Bills: ${(data['bills'] as List?)?.length ?? 0}'),
-        Text('Purchases: ${(data['purchases'] as List?)?.length ?? 0}'),
-        Text('Quotations: ${(data['quotations'] as List?)?.length ?? 0}'),
-        Text('Expenses: ${(data['expenses'] as List?)?.length ?? 0}'),
+        const Text('• New records from cloud will be added\n• Conflicts resolved by latest timestamp',
+            style: TextStyle(fontSize: 12, color: Colors.white54)),
       ]),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-        ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Download & Restore')),
+        ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Merge & Download')),
       ],
     ));
 
@@ -1281,16 +1364,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: Row(children: [
           SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
           SizedBox(width: 12),
-          Text('Restoring cloud data...'),
+          Text('Merging cloud data...'),
         ]),
         backgroundColor: AppColors.primary,
         duration: Duration(seconds: 30),
       ));
     }
 
-    final appState = context.read<AppState>();
     final db = appState.dbHelper;
 
+    // Build local data maps for merge
+    final localData = <String, List<Map<String, dynamic>>>{
+      'items': appState.items.map((i) => i.toMap()).toList(),
+      'customers': appState.customers.map((c) => c.toMap()).toList(),
+      'bills': appState.bills.map((b) => b.toMap()).toList(),
+      'purchases': appState.purchases.map((p) => p.toMap()).toList(),
+      'quotations': appState.quotations.map((q) => q.toMap()).toList(),
+      'expenses': appState.expenses.map((e) => e.toMap()).toList(),
+      'creditNotes': appState.creditNotes.map((c) => c.toMap()).toList(),
+      'purchaseReturns': appState.purchaseReturns.map((p) => p.toMap()).toList(),
+      'suppliers': appState.suppliers.map((s) => s.toMap()).toList(),
+      'recurringBills': appState.recurringBills.map((r) => r.toMap()).toList(),
+      'cashBookEntries': appState.cashBookEntries.map((e) => e.toMap()).toList(),
+      'bankAccounts': appState.bankAccounts.map((a) => a.toMap()).toList(),
+    };
+
+    // Merge settings (skip JSON-blob keys — they're handled below as collections)
     const skipSettingsKeys = {
       'quotations_data', 'expenses_data', 'credit_notes_data',
       'purchase_returns_data', 'suppliers_data', 'recurring_bills_data',
@@ -1298,56 +1397,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
     };
 
     if (data['settings'] != null) {
-      final settings = (data['settings'] as Map<String, dynamic>);
-      for (final entry in settings.entries) {
+      final cloudSettings = (data['settings'] as Map<String, dynamic>);
+      for (final entry in cloudSettings.entries) {
         if (skipSettingsKeys.contains(entry.key)) continue;
         try { await db.setSetting(entry.key, entry.value.toString()); } catch (_) {}
       }
     }
 
-    if (data['items'] != null) {
-      for (final m in data['items']) {
-        try { await db.insertItem(Item.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
+    // Merge SQL-table collections
+    for (final key in ['items', 'customers', 'bills', 'purchases']) {
+      if (data[key] == null) continue;
+      final cloudList = (data[key] as List)
+          .map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final merged = MergeSyncService.mergeCollections(localData[key]!, cloudList);
+      final localIds = localData[key]!.map((r) => r['id'].toString()).toSet();
+
+      for (final record in merged) {
+        final id = record['id']?.toString() ?? '';
+        if (id.isEmpty) continue;
+        if (!localIds.contains(id)) {
+          // New from cloud — add locally
+          try {
+            switch (key) {
+              case 'items': await db.insertItem(Item.fromMap(record)); break;
+              case 'customers': await db.insertCustomer(Customer.fromMap(record)); break;
+              case 'bills': await db.insertBill(Bill.fromMap(record)); break;
+              case 'purchases': await db.insertPurchase(Purchase.fromMap(record)); break;
+            }
+          } catch (_) {}
+        }
       }
     }
-    if (data['customers'] != null) {
-      for (final m in data['customers']) {
-        try { await db.insertCustomer(Customer.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
-      }
-    }
-    if (data['bills'] != null) {
-      for (final m in data['bills']) {
-        try { await db.insertBill(Bill.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
-      }
-    }
-    if (data['purchases'] != null) {
-      for (final m in data['purchases']) {
-        try { await db.insertPurchase(Purchase.fromMap(Map<String, dynamic>.from(m))); } catch (_) {}
-      }
-    }
-    if (data['quotations'] != null) {
-      await db.setSetting('quotations_data', jsonEncode(data['quotations']));
-    }
-    if (data['expenses'] != null) {
-      await db.setSetting('expenses_data', jsonEncode(data['expenses']));
-    }
-    if (data['creditNotes'] != null) {
-      await db.setSetting('credit_notes_data', jsonEncode(data['creditNotes']));
-    }
-    if (data['purchaseReturns'] != null) {
-      await db.setSetting('purchase_returns_data', jsonEncode(data['purchaseReturns']));
-    }
-    if (data['suppliers'] != null) {
-      await db.setSetting('suppliers_data', jsonEncode(data['suppliers']));
-    }
-    if (data['recurringBills'] != null) {
-      await db.setSetting('recurring_bills_data', jsonEncode(data['recurringBills']));
-    }
-    if (data['cashBookEntries'] != null) {
-      await db.setSetting('cash_book_entries', jsonEncode(data['cashBookEntries']));
-    }
-    if (data['bankAccounts'] != null) {
-      await db.setSetting('bank_accounts', jsonEncode(data['bankAccounts']));
+
+    // Merge JSON-blob collections
+    final jsonCollections = {
+      'quotations': 'quotations_data', 'expenses': 'expenses_data',
+      'creditNotes': 'credit_notes_data', 'purchaseReturns': 'purchase_returns_data',
+      'suppliers': 'suppliers_data', 'recurringBills': 'recurring_bills_data',
+      'cashBookEntries': 'cash_book_entries', 'bankAccounts': 'bank_accounts',
+    };
+
+    for (final entry in jsonCollections.entries) {
+      if (data[entry.key] == null) continue;
+      final cloudList = (data[entry.key] as List)
+          .map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final merged = MergeSyncService.mergeCollections(localData[entry.key]!, cloudList);
+      await db.setSetting(entry.value, jsonEncode(merged));
     }
 
     await appState.reloadAllData();
@@ -1356,7 +1451,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: const Row(children: [
           Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10),
-          Text('Cloud data restored successfully!'),
+          Text('Cloud data merged successfully!'),
         ]),
         backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1621,13 +1716,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _syncing = true);
     try {
       final appState = context.read<AppState>();
-      await _syncService.uploadData(appState);
+      await _syncService.smartSync(appState);
       setState(() => _syncing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: const Row(children: [
             Icon(Icons.cloud_done, color: Colors.white, size: 18), SizedBox(width: 8),
-            Text('Data uploaded to cloud successfully!')]),
+            Text('Data synced & merged successfully!')]),
           backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
       }

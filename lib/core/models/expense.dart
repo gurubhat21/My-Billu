@@ -62,6 +62,7 @@ class Expense {
   final String? notes;
   final DateTime date;
   final DateTime createdAt;
+  final DateTime updatedAt;
 
   Expense({
     String? id,
@@ -71,9 +72,11 @@ class Expense {
     this.notes,
     DateTime? date,
     DateTime? createdAt,
+    DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
         date = date ?? DateTime.now(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -83,6 +86,7 @@ class Expense {
     'notes': notes,
     'date': date.toIso8601String(),
     'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
   };
 
   factory Expense.fromMap(Map<String, dynamic> map) => Expense(
@@ -96,6 +100,7 @@ class Expense {
     notes: map['notes'] as String?,
     date: DateTime.parse(map['date'] as String),
     createdAt: DateTime.parse(map['createdAt'] as String),
+    updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : (map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null),
   );
 }
 

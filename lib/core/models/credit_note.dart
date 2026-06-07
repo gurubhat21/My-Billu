@@ -16,6 +16,7 @@ class CreditNote {
   final String? notes;
   final CreditNoteStatus status;
   final DateTime createdAt;
+  final DateTime updatedAt;
 
   CreditNote({
     String? id,
@@ -32,8 +33,10 @@ class CreditNote {
     this.notes,
     this.status = CreditNoteStatus.issued,
     DateTime? createdAt,
+    DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -50,6 +53,7 @@ class CreditNote {
     'notes': notes,
     'status': status.name,
     'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
   };
 
   factory CreditNote.fromMap(Map<String, dynamic> map) => CreditNote(
@@ -67,6 +71,7 @@ class CreditNote {
     notes: map['notes'] as String?,
     status: CreditNoteStatus.values.firstWhere((e) => e.name == map['status'], orElse: () => CreditNoteStatus.issued),
     createdAt: DateTime.parse(map['createdAt'] as String),
+    updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : DateTime.tryParse(map['createdAt'] as String? ?? ''),
   );
 }
 

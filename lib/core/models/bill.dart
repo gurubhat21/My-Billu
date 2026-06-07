@@ -76,6 +76,7 @@ class Bill {
   BillStatus status;
   String? notes;
   DateTime createdAt;
+  final DateTime updatedAt;
 
   Bill({
     String? id,
@@ -93,8 +94,10 @@ class Bill {
     this.status = BillStatus.paid,
     this.notes,
     DateTime? createdAt,
+    DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   double get balanceDue => totalAmount - paidAmount;
   double get totalCgst => totalTax / 2;
@@ -117,6 +120,7 @@ class Bill {
       'status': status.name,
       'notes': notes,
       'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
@@ -152,6 +156,7 @@ class Bill {
       ),
       notes: map['notes'] as String?,
       createdAt: map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null,
+      updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : (map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null),
     );
   }
 }

@@ -16,6 +16,7 @@ class RecurringBill {
   final DateTime nextDueDate;
   final bool isActive;
   final String? notes;
+  final DateTime updatedAt;
 
   RecurringBill({
     String? id,
@@ -30,7 +31,9 @@ class RecurringBill {
     required this.nextDueDate,
     this.isActive = true,
     this.notes,
-  }) : id = id ?? const Uuid().v4();
+    DateTime? updatedAt,
+  }) : id = id ?? const Uuid().v4(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
     'id': id, 'customerId': customerId, 'customerName': customerName,
@@ -39,6 +42,7 @@ class RecurringBill {
     'paymentMethod': paymentMethod.name, 'startDate': startDate.toIso8601String(),
     'endDate': endDate?.toIso8601String(), 'nextDueDate': nextDueDate.toIso8601String(),
     'isActive': isActive, 'notes': notes,
+    'updatedAt': updatedAt.toIso8601String(),
   };
 
   factory RecurringBill.fromMap(Map<String, dynamic> map) => RecurringBill(
@@ -54,6 +58,7 @@ class RecurringBill {
     nextDueDate: DateTime.parse(map['nextDueDate'] as String),
     isActive: map['isActive'] as bool? ?? true,
     notes: map['notes'] as String?,
+    updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : null,
   );
 
   RecurringBill copyWith({DateTime? nextDueDate, bool? isActive}) => RecurringBill(
@@ -61,7 +66,7 @@ class RecurringBill {
     items: items, totalAmount: totalAmount, frequency: frequency,
     paymentMethod: paymentMethod, startDate: startDate, endDate: endDate,
     nextDueDate: nextDueDate ?? this.nextDueDate,
-    isActive: isActive ?? this.isActive, notes: notes,
+    isActive: isActive ?? this.isActive, notes: notes, updatedAt: updatedAt,
   );
 }
 

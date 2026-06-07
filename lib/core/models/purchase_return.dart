@@ -15,6 +15,7 @@ class PurchaseReturn {
   final String? notes;
   final PurchaseReturnStatus status;
   final DateTime createdAt;
+  final DateTime updatedAt;
 
   PurchaseReturn({
     String? id,
@@ -30,8 +31,10 @@ class PurchaseReturn {
     this.notes,
     this.status = PurchaseReturnStatus.returned,
     DateTime? createdAt,
+    DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -47,6 +50,7 @@ class PurchaseReturn {
     'notes': notes,
     'status': status.name,
     'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
   };
 
   factory PurchaseReturn.fromMap(Map<String, dynamic> map) => PurchaseReturn(
@@ -63,6 +67,7 @@ class PurchaseReturn {
     notes: map['notes'] as String?,
     status: PurchaseReturnStatus.values.firstWhere((e) => e.name == map['status'], orElse: () => PurchaseReturnStatus.returned),
     createdAt: DateTime.parse(map['createdAt'] as String),
+    updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : DateTime.tryParse(map['createdAt'] as String? ?? ''),
   );
 }
 

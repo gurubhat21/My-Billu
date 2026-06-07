@@ -10,6 +10,7 @@ class Supplier {
   double totalPurchases;
   double outstandingBalance;
   DateTime createdAt;
+  final DateTime updatedAt;
 
   Supplier({
     String? id,
@@ -21,13 +22,16 @@ class Supplier {
     this.totalPurchases = 0.0,
     this.outstandingBalance = 0.0,
     DateTime? createdAt,
+    DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
     'id': id, 'name': name, 'phone': phone, 'email': email,
     'address': address, 'gstin': gstin, 'totalPurchases': totalPurchases,
     'outstandingBalance': outstandingBalance, 'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
   };
 
   factory Supplier.fromMap(Map<String, dynamic> map) => Supplier(
@@ -37,6 +41,7 @@ class Supplier {
     totalPurchases: (map['totalPurchases'] as num?)?.toDouble() ?? 0.0,
     outstandingBalance: (map['outstandingBalance'] as num?)?.toDouble() ?? 0.0,
     createdAt: DateTime.parse(map['createdAt'] as String),
+    updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : DateTime.tryParse(map['createdAt'] as String? ?? ''),
   );
 }
 

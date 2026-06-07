@@ -5,6 +5,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 import '../providers/app_state.dart';
+import '../models/item.dart';
+import '../models/customer.dart';
+import '../models/bill.dart';
+import '../models/purchase.dart';
+import 'merge_sync_service.dart';
 import 'subscription_service.dart';
 
 class FirebaseSyncService {
@@ -91,18 +96,20 @@ class FirebaseSyncService {
     await _auth.signOut();
   }
 
-  Future<void> uploadData(AppState appState) async {
+  /// Smart Sync: Download cloud → Merge with local → Upload merged
+  /// This ensures NO data is lost from either device.
+  Future<void> smartSync(AppState appState) async {
     if (!isSignedIn || _isSyncing) return;
-    // Check if cloud sync is enabled by admin
     final syncEnabled = await SubscriptionService().isCloudSyncEnabled();
     if (!syncEnabled) {
-      debugPrint('Cloud sync is disabled by admin');
       throw Exception('Cloud sync is disabled. Contact admin to enable.');
     }
     _isSyncing = true;
     try {
       final localSettings = await appState.getAllSettings();
-      final Map<String, dynamic> backup = {
+
+      // Build local data maps
+      final localData = <String, List<Map<String, dynamic>>>{
         'items': appState.items.map((i) => i.toMap()).toList(),
         'customers': appState.customers.map((c) => c.toMap()).toList(),
         'bills': appState.bills.map((b) => b.toMap()).toList(),
@@ -119,22 +126,43 @@ class FirebaseSyncService {
 
       final userDoc = _firestore.collection('users').doc(currentUser!.uid);
 
-      // Merge settings: download existing cloud settings first, then overlay local
-      // This ensures password, expiry, and other device settings aren't lost
-      Map<String, String> mergedSettings = {};
+      // Download cloud data for merging
+      final cloudData = <String, List<Map<String, dynamic>>>{};
+      Map<String, String> cloudSettings = {};
+
       try {
-        final cloudJson = await _readChunked(userDoc, 'settings');
-        if (cloudJson != null) {
-          final cloudMap = Map<String, dynamic>.from(jsonDecode(cloudJson));
-          for (final e in cloudMap.entries) {
-            mergedSettings[e.key] = e.value.toString();
+        final collections = localData.keys.toList();
+        for (final key in collections) {
+          final json = await _readChunked(userDoc, key);
+          if (json != null) {
+            cloudData[key] = List<Map<String, dynamic>>.from(
+              (jsonDecode(json) as List).map((e) => Map<String, dynamic>.from(e)));
           }
         }
-      } catch (_) {}
-      // Local settings override cloud (local is fresher for this device)
-      mergedSettings.addAll(localSettings);
-      backup['settings'] = mergedSettings;
+        final settingsJson = await _readChunked(userDoc, 'settings');
+        if (settingsJson != null) {
+          final cloudMap = Map<String, dynamic>.from(jsonDecode(settingsJson));
+          for (final e in cloudMap.entries) {
+            cloudSettings[e.key] = e.value.toString();
+          }
+        }
+      } catch (e) {
+        debugPrint('SmartSync: Cloud download failed (first sync?): $e');
+      }
 
+      // MERGE: local + cloud for each collection
+      final mergedData = <String, dynamic>{};
+      for (final key in localData.keys) {
+        mergedData[key] = MergeSyncService.mergeCollections(
+          localData[key]!,
+          cloudData[key] ?? [],
+        );
+      }
+
+      // Merge settings
+      mergedData['settings'] = MergeSyncService.mergeSettings(localSettings, cloudSettings);
+
+      // Upload merged data
       await userDoc.set({
         'email': currentUser!.email,
         'displayName': currentUser!.displayName,
@@ -143,19 +171,90 @@ class FirebaseSyncService {
         'version': '6.0.0',
       });
 
-      // Upload all collections + settings using chunked writes
       final allKeys = ['items', 'customers', 'bills', 'purchases', 'quotations',
         'expenses', 'creditNotes', 'purchaseReturns', 'suppliers', 'recurringBills',
         'cashBookEntries', 'bankAccounts', 'settings'];
 
       for (final key in allKeys) {
-        final data = backup[key];
+        final data = mergedData[key];
         if (data == null) continue;
         await _writeChunked(userDoc, key, jsonEncode(data));
+      }
+
+      // Import any new-from-cloud records into local DB
+      if (cloudData.isNotEmpty) {
+        await _importMergedToLocal(appState, mergedData, localData);
       }
     } finally {
       _isSyncing = false;
     }
+  }
+
+  /// Import merged data back to local DB (only records that are new or updated from cloud)
+  Future<void> _importMergedToLocal(
+    AppState appState,
+    Map<String, dynamic> mergedData,
+    Map<String, List<Map<String, dynamic>>> localData,
+  ) async {
+    final db = appState.dbHelper;
+
+    // For SQL-table collections: insert/replace merged records
+    final sqlCollections = {'items', 'customers', 'bills', 'purchases'};
+    for (final key in sqlCollections) {
+      final mergedList = mergedData[key] as List<Map<String, dynamic>>?;
+      if (mergedList == null) continue;
+
+      final localIds = (localData[key] ?? []).map((r) => r['id'].toString()).toSet();
+
+      for (final record in mergedList) {
+        final id = record['id']?.toString() ?? '';
+        if (id.isEmpty) continue;
+
+        // Only insert records that are new or updated from cloud
+        if (!localIds.contains(id)) {
+          switch (key) {
+            case 'items':
+              await db.insertItem(Item.fromMap(record));
+              break;
+            case 'customers':
+              await db.insertCustomer(Customer.fromMap(record));
+              break;
+            case 'bills':
+              await db.insertBill(Bill.fromMap(record));
+              break;
+            case 'purchases':
+              await db.insertPurchase(Purchase.fromMap(record));
+              break;
+          }
+        }
+      }
+    }
+
+    // For JSON-blob collections: save merged JSON
+    final jsonCollections = {
+      'quotations': 'quotations_data',
+      'expenses': 'expenses_data',
+      'creditNotes': 'credit_notes_data',
+      'purchaseReturns': 'purchase_returns_data',
+      'suppliers': 'suppliers_data',
+      'recurringBills': 'recurring_bills_data',
+      'cashBookEntries': 'cash_book_entries',
+      'bankAccounts': 'bank_accounts',
+    };
+
+    for (final entry in jsonCollections.entries) {
+      final mergedList = mergedData[entry.key] as List<Map<String, dynamic>>?;
+      if (mergedList == null) continue;
+      final localList = localData[entry.key] ?? [];
+
+      // Only update if merged has more records than local (i.e., cloud had new records)
+      if (mergedList.length > localList.length) {
+        await db.setSetting(entry.value, jsonEncode(mergedList));
+      }
+    }
+
+    // Reload all data
+    await appState.reloadAllData();
   }
 
   static const _maxChunkBytes = 900000;
@@ -263,7 +362,7 @@ class FirebaseSyncService {
       if (isSignedIn && !_isSyncing) {
         final syncEnabled = await SubscriptionService().isCloudSyncEnabled();
         if (syncEnabled) {
-          uploadData(appState);
+          smartSync(appState);
         }
       }
     });

@@ -67,6 +67,7 @@ class Purchase {
   PaymentMethod paymentMethod;
   String? notes;
   DateTime createdAt;
+  final DateTime updatedAt;
 
   Purchase({
     String? id,
@@ -84,8 +85,10 @@ class Purchase {
     this.paymentMethod = PaymentMethod.cash,
     this.notes,
     DateTime? createdAt,
+    DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   double get balanceDue => totalAmount - paidAmount;
 
@@ -105,6 +108,7 @@ class Purchase {
     'paymentMethod': paymentMethod.name,
     'notes': notes,
     'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
   };
 
   factory Purchase.fromMap(Map<String, dynamic> map) => Purchase(
@@ -131,6 +135,7 @@ class Purchase {
     ),
     notes: map['notes'] as String?,
     createdAt: DateTime.parse(map['createdAt'] as String),
+    updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : (map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null),
   );
 }
 
