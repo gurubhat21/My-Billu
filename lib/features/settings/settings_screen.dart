@@ -697,62 +697,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
               )),
             ])),
 
-          // Account (Username & Password)
-          GlassCard(padding: const EdgeInsets.all(20), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.admin_panel_settings, size: 22, color: AppColors.error)),
-                const SizedBox(width: 12),
-                Text('Account', style: Theme.of(context).textTheme.titleLarge),
-              ]),
-              const SizedBox(height: 16),
-              // Current username display
-              FutureBuilder<String?>(
-                future: context.read<AppState>().getSetting('loginUsername'),
-                builder: (ctx, snap) {
-                  final username = snap.data ?? 'admin';
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.04),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.08))),
-                    child: Row(children: [
-                      const Icon(Icons.person, size: 20, color: AppColors.primary),
-                      const SizedBox(width: 10),
-                      const Text('Username: ', style: TextStyle(fontSize: 13)),
-                      Text(username, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.primary)),
-                    ]));
-                }),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(child: OutlinedButton.icon(
-                  onPressed: () => _showChangeUsername(context),
-                  icon: const Icon(Icons.person_outline, size: 20),
-                  label: const Text('Change Username'),
+          // Account & Security (collapsible)
+          GlassCard(padding: EdgeInsets.zero, child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              initiallyExpanded: false,
+              tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              leading: Container(padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.admin_panel_settings, size: 22, color: AppColors.error)),
+              title: Text('Account & Security', style: Theme.of(context).textTheme.titleLarge),
+              subtitle: Text('Username, password & factory reset', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4))),
+              children: [
+                // Current username display
+                FutureBuilder<String?>(
+                  future: context.read<AppState>().getSetting('loginUsername'),
+                  builder: (ctx, snap) {
+                    final username = snap.data ?? 'admin';
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.08))),
+                      child: Row(children: [
+                        const Icon(Icons.person, size: 20, color: AppColors.primary),
+                        const SizedBox(width: 10),
+                        const Text('Username: ', style: TextStyle(fontSize: 13)),
+                        Text(username, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.primary)),
+                      ]));
+                  }),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: OutlinedButton.icon(
+                    onPressed: () => _showChangeUsername(context),
+                    icon: const Icon(Icons.person_outline, size: 20),
+                    label: const Text('Change Username'),
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(child: OutlinedButton.icon(
+                    onPressed: () => _showChangePassword(context),
+                    icon: const Icon(Icons.key, size: 20),
+                    label: const Text('Change Password'),
+                  )),
+                ]),
+                const SizedBox(height: 12),
+                // Admin Panel
+                SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                  onPressed: () => _openAdminPanel(context),
+                  icon: const Icon(Icons.admin_panel_settings, size: 20, color: AppColors.error),
+                  label: const Text('Admin Panel (Subscriptions)'),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppColors.error.withValues(alpha: 0.3)),
+                  ),
                 )),
-                const SizedBox(width: 12),
-                Expanded(child: OutlinedButton.icon(
-                  onPressed: () => _showChangePassword(context),
-                  icon: const Icon(Icons.key, size: 20),
-                  label: const Text('Change Password'),
+                const SizedBox(height: 16),
+                // Divider
+                Divider(color: Colors.white.withValues(alpha: 0.1), height: 1),
+                const SizedBox(height: 16),
+                // Factory Data Reset
+                Row(children: [
+                  const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.error),
+                  const SizedBox(width: 8),
+                  Text('Danger Zone', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.error)),
+                ]),
+                const SizedBox(height: 8),
+                Text('Clear all app data permanently. This action cannot be undone.',
+                  style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+                const SizedBox(height: 12),
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  onPressed: () => _showFactoryResetDialog(context),
+                  icon: const Icon(Icons.delete_forever, size: 20),
+                  label: const Text('Factory Reset'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error.withValues(alpha: 0.2),
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error, width: 1),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                 )),
-              ]),
-              const SizedBox(height: 12),
-              // Admin Panel (master password protected)
-              SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                onPressed: () => _openAdminPanel(context),
-                icon: const Icon(Icons.admin_panel_settings, size: 20, color: AppColors.error),
-                label: const Text('Admin Panel (Subscriptions)'),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.error.withValues(alpha: 0.3)),
-                ),
-              )),
-            ])),
-          const SizedBox(height: 20),
-          // Backup & Restore
+              ],
+            ),
+          )),
           GlassCard(padding: const EdgeInsets.all(20), child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
@@ -843,33 +870,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _aboutRow('Created By', 'Sumukha Tech Solutions'),
               _aboutRow('Mobile', '9449831316'),
               _aboutRow('Email', 'sumukhatech21@gmail.com'),
-            ])),
-          const SizedBox(height: 20),
-          // Factory Data Reset
-          GlassCard(padding: const EdgeInsets.all(20), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.warning_amber_rounded, size: 22, color: AppColors.error)),
-                const SizedBox(width: 12),
-                Text('Factory Data Reset', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppColors.error)),
-              ]),
-              const SizedBox(height: 12),
-              Text('Clear all app data permanently. This action cannot be undone.',
-                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
-              const SizedBox(height: 16),
-              SizedBox(width: double.infinity, child: ElevatedButton.icon(
-                onPressed: () => _showFactoryResetDialog(context),
-                icon: const Icon(Icons.delete_forever, size: 20),
-                label: const Text('Factory Reset'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.error.withValues(alpha: 0.2),
-                  foregroundColor: AppColors.error,
-                  side: const BorderSide(color: AppColors.error, width: 1),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              )),
             ])),
         ]),
       );
