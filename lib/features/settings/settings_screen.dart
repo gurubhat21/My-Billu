@@ -889,17 +889,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Row(children: [
           Icon(Icons.lock, color: AppColors.error, size: 24),
           SizedBox(width: 10),
-          Text('Admin Password Required'),
+          Text('Master Password Required'),
         ]),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Enter admin password to proceed with factory reset.',
+          const Text('Enter master password to proceed with factory reset.',
             style: TextStyle(fontSize: 13)),
           const SizedBox(height: 16),
           TextField(
             controller: passwordCtrl,
             obscureText: !showPassword,
             decoration: InputDecoration(
-              labelText: 'Admin Password',
+              labelText: 'Master Password',
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
@@ -913,13 +913,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () async {
-              final appState = ctx.read<AppState>();
-              final savedPassword = await appState.getSetting('loginPassword') ?? '12345';
-              if (passwordCtrl.text == savedPassword || passwordCtrl.text == AppConstants.masterPassword) {
+            onPressed: () {
+              if (passwordCtrl.text == AppConstants.masterPassword) {
                 Navigator.pop(ctx, true);
               } else {
-                setDialogState(() => error = 'Wrong password');
+                setDialogState(() => error = 'Wrong master password');
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
