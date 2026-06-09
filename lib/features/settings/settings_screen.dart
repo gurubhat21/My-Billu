@@ -48,6 +48,7 @@ import '../../core/services/windows_firestore_service.dart';
 import '../admin/admin_panel_screen.dart';
 import 'year_close_screen.dart';
 import '../../core/services/fy_service.dart';
+import '../../core/services/device_id_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -823,6 +824,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _aboutRow('Version', '6.0.0'),
               _aboutRow('Tax System', 'GST (India)'),
               _aboutRow('Currency', '\u20b9 INR'),
+              const SizedBox(height: 8),
+              // Device Bound section
+              Builder(builder: (ctx) {
+                final deviceService = DeviceIdService();
+                final deviceId = deviceService.deviceId ?? 'N/A';
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.success.withValues(alpha: 0.2))),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.link, size: 18, color: AppColors.success),
+                      const SizedBox(width: 6),
+                      Text('Device Bound', style: TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.success)),
+                      const SizedBox(width: 6),
+                      const Text('✅', style: TextStyle(fontSize: 14)),
+                    ]),
+                    const SizedBox(height: 8),
+                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.smartphone, size: 14, color: Colors.white.withValues(alpha: 0.5)),
+                      const SizedBox(width: 6),
+                      Flexible(child: SelectableText(deviceId,
+                        style: TextStyle(fontSize: 12, fontFamily: 'monospace',
+                          color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5))),
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: deviceId));
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: const Text('Device ID copied!'),
+                            backgroundColor: AppColors.success,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            duration: const Duration(seconds: 2)));
+                        },
+                        child: Icon(Icons.copy, size: 14, color: Colors.white.withValues(alpha: 0.4))),
+                    ]),
+                  ]),
+                );
+              }),
               if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.android))
                 FutureBuilder<String?>(
                   future: context.read<AppState>().getSetting('app_expiry_date'),
