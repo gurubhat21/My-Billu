@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../services/tombstone_service.dart';
 import '../database/database_helper.dart';
 import '../models/item.dart';
 import '../models/customer.dart';
@@ -166,6 +167,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteItem(String id) async {
+    await TombstoneService.recordDeletion('items', id);
     final item = _items.firstWhere((i) => i.id == id, orElse: () => Item(name: 'Unknown', price: 0));
     await _db.deleteItem(id);
     await logAudit(AuditAction.deleted, AuditEntity.item, item.name);
@@ -199,6 +201,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteCustomer(String id) async {
+    await TombstoneService.recordDeletion('customers', id);
     final cust = _customers.firstWhere((c) => c.id == id, orElse: () => Customer(name: 'Unknown'));
     await _db.deleteCustomer(id);
     await logAudit(AuditAction.deleted, AuditEntity.customer, cust.name);
@@ -257,6 +260,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deletePurchase(String id) async {
+    await TombstoneService.recordDeletion('purchases', id);
     final p = _purchases.firstWhere((p) => p.id == id, orElse: () => Purchase(purchaseNumber: '?', supplierName: '?', items: [], subtotal: 0, totalTax: 0, totalAmount: 0));
     
     // Reverse stock changes for received purchases
@@ -373,6 +377,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteBill(String id) async {
+    await TombstoneService.recordDeletion('bills', id);
     final bill = _bills.firstWhere((b) => b.id == id, orElse: () => Bill(billNumber: '?', items: [], subtotal: 0, totalTax: 0, totalAmount: 0));
 
     // Reverse all cash/bank book entries linked to this bill
@@ -530,6 +535,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteQuotation(String id) async {
+    await TombstoneService.recordDeletion('quotations', id);
     _quotations.removeWhere((e) => e.id == id);
     await _saveQuotations();
     notifyListeners();
@@ -571,6 +577,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteExpense(String id) async {
+    await TombstoneService.recordDeletion('expenses', id);
     _expenses.removeWhere((e) => e.id == id);
     await _saveExpenses();
     notifyListeners();
@@ -611,6 +618,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteCreditNote(String id) async {
+    await TombstoneService.recordDeletion('creditNotes', id);
     _creditNotes.removeWhere((e) => e.id == id);
     await _saveCreditNotes();
     notifyListeners();
@@ -655,6 +663,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deletePurchaseReturn(String id) async {
+    await TombstoneService.recordDeletion('purchaseReturns', id);
     _purchaseReturns.removeWhere((e) => e.id == id);
     await _savePurchaseReturns();
     notifyListeners();
@@ -714,6 +723,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteSupplier(String id) async {
+    await TombstoneService.recordDeletion('suppliers', id);
     _suppliers.removeWhere((e) => e.id == id);
     await _saveSuppliers();
     notifyListeners();
@@ -751,6 +761,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteRecurringBill(String id) async {
+    await TombstoneService.recordDeletion('recurringBills', id);
     _recurringBills.removeWhere((e) => e.id == id);
     await _saveRecurringBills();
     notifyListeners();
@@ -835,6 +846,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteCashBookEntry(String id) async {
+    await TombstoneService.recordDeletion('cashBookEntries', id);
     final entry = _cashBookEntries.firstWhere((e) => e.id == id, orElse: () => CashBookEntry(type: TransactionType.cashIn, amount: 0, description: ''));
     // Reverse bank balance
     if (entry.bankAccountId != null) {
@@ -886,6 +898,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteBankAccount(String id) async {
+    await TombstoneService.recordDeletion('bankAccounts', id);
     final acc = _bankAccounts.firstWhere((a) => a.id == id, orElse: () => BankAccount(bankName: '?', accountNumber: '?'));
     _bankAccounts.removeWhere((a) => a.id == id);
     await _saveBankAccounts();

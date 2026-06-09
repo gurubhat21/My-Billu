@@ -11,6 +11,7 @@ import '../models/bill.dart';
 import '../models/purchase.dart';
 import 'merge_sync_service.dart';
 import 'subscription_service.dart';
+import 'tombstone_service.dart';
 
 class FirebaseSyncService {
   static final FirebaseSyncService _instance = FirebaseSyncService._();
@@ -150,6 +151,16 @@ class FirebaseSyncService {
         debugPrint('SmartSync: Cloud download failed (first sync?): $e');
       }
 
+      // Merge cloud tombstones with local
+      try {
+        final tombstonesJson = await _readChunked(userDoc, '_tombstones');
+        if (tombstonesJson != null) {
+          final cloudTombstones = Map<String, dynamic>.from(jsonDecode(tombstonesJson) as Map);
+          await TombstoneService.mergeFromCloud(cloudTombstones);
+        }
+      } catch (_) {}
+      final allTombstones = await TombstoneService.getAll();
+
       // MERGE: local + cloud for each collection
       // Use specialized merge for collections with unique numbers
       final mergedData = <String, dynamic>{};
@@ -175,6 +186,10 @@ class FirebaseSyncService {
           default:
             mergedData[key] = MergeSyncService.mergeCollections(local, cloud);
         }
+        // Filter out tombstoned records
+        mergedData[key] = TombstoneService.filterDeleted(
+            mergedData[key] as List<Map<String, dynamic>>,
+            allTombstones[key] ?? {});
       }
 
       // Merge settings
@@ -199,6 +214,10 @@ class FirebaseSyncService {
         await _writeChunked(userDoc, key, jsonEncode(data));
       }
 
+      // Upload tombstones
+      final updatedTombstones = await TombstoneService.toSerializable();
+      await _writeChunked(userDoc, '_tombstones', jsonEncode(updatedTombstones));
+
       // Import any new-from-cloud records into local DB
       if (cloudData.isNotEmpty) {
         await _importMergedToLocal(appState, mergedData, localData);
@@ -216,6 +235,9 @@ class FirebaseSyncService {
   ) async {
     final db = appState.dbHelper;
 
+    // Get tombstones to filter
+    final allTombstones = await TombstoneService.getAll();
+
     // For SQL-table collections: insert/replace merged records
     final sqlCollections = {'items', 'customers', 'bills', 'purchases'};
     for (final key in sqlCollections) {
@@ -223,10 +245,11 @@ class FirebaseSyncService {
       if (mergedList == null) continue;
 
       final localIds = (localData[key] ?? []).map((r) => r['id'].toString()).toSet();
+      final deletedIds = allTombstones[key] ?? {};
 
       for (final record in mergedList) {
         final id = record['id']?.toString() ?? '';
-        if (id.isEmpty) continue;
+        if (id.isEmpty || deletedIds.contains(id)) continue;
 
         // Only insert records that are new or updated from cloud
         if (!localIds.contains(id)) {
@@ -244,6 +267,20 @@ class FirebaseSyncService {
               await db.insertPurchase(Purchase.fromMap(record));
               break;
           }
+        }
+      }
+
+      // Delete locally any records that were deleted on other devices
+      for (final id in deletedIds) {
+        if (localIds.contains(id)) {
+          try {
+            switch (key) {
+              case 'items': await db.deleteItem(id); break;
+              case 'customers': await db.deleteCustomer(id); break;
+              case 'bills': await db.deleteBill(id); break;
+              case 'purchases': await db.deletePurchase(id); break;
+            }
+          } catch (_) {}
         }
       }
     }
@@ -349,6 +386,12 @@ class FirebaseSyncService {
         }
       }
 
+      // Download tombstones
+      final tombstonesJson = await _readChunked(userDoc, '_tombstones');
+      if (tombstonesJson != null) {
+        backup['_tombstones'] = Map<String, dynamic>.from(jsonDecode(tombstonesJson) as Map);
+      }
+
       final settingsJson = await _readChunked(userDoc, 'settings');
       if (settingsJson != null) {
         backup['settings'] = Map<String, dynamic>.from(jsonDecode(settingsJson));
@@ -398,7 +441,7 @@ class FirebaseSyncService {
       final userDoc = _firestore.collection('users').doc(currentUser!.uid);
       final collections = ['items', 'customers', 'bills', 'purchases', 'quotations',
         'expenses', 'creditNotes', 'purchaseReturns', 'suppliers', 'recurringBills',
-        'cashBookEntries', 'bankAccounts', 'settings'];
+        'cashBookEntries', 'bankAccounts', 'settings', '_tombstones'];
 
       for (final key in collections) {
         // Delete main doc

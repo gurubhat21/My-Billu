@@ -49,6 +49,7 @@ import '../admin/admin_panel_screen.dart';
 import 'year_close_screen.dart';
 import '../../core/services/fy_service.dart';
 import '../../core/services/device_id_service.dart';
+import '../../core/services/tombstone_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -1232,6 +1233,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
 
       // Reload app
+      await TombstoneService.clearAll();
       await appState.reloadAllData();
 
       if (mounted) {
@@ -1626,6 +1628,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         cloudData = await WindowsFirestoreService.downloadSyncData();
       } catch (_) {}
 
+      // Merge cloud tombstones with local
+      if (cloudData != null && cloudData['_tombstones'] != null) {
+        await TombstoneService.mergeFromCloud(
+          Map<String, dynamic>.from(cloudData['_tombstones'] as Map));
+      }
+      final allTombstones = await TombstoneService.getAll();
+
       // Merge each collection (use specialized merge for numbered collections)
       final mergedBackup = <String, dynamic>{};
       for (final key in localData.keys) {
@@ -1650,6 +1659,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           default:
             mergedBackup[key] = MergeSyncService.mergeCollections(localData[key]!, cloudList);
         }
+        // Filter out tombstoned records
+        mergedBackup[key] = TombstoneService.filterDeleted(
+            mergedBackup[key] as List<Map<String, dynamic>>,
+            allTombstones[key] ?? {});
       }
 
       // Merge settings
@@ -1664,6 +1677,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       mergedBackup['settings'] = MergeSyncService.mergeSettings(localSettings, cloudSettings);
 
+      // Include tombstones in upload
+      final tombstones = await TombstoneService.toSerializable();
+      mergedBackup['_tombstones'] = tombstones;
+
       // Upload merged data
       await WindowsFirestoreService.uploadSyncData(mergedBackup);
 
@@ -1676,7 +1693,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           for (final record in mergedList) {
             final id = record['id']?.toString() ?? '';
-            if (id.isNotEmpty && !localIds.contains(id)) {
+            if (id.isNotEmpty && !localIds.contains(id) && !(allTombstones[key]?.contains(id) ?? false)) {
               // New from cloud — add locally
               switch (key) {
                 case 'items':
@@ -1692,6 +1709,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   await db.insertPurchase(Purchase.fromMap(record));
                   break;
               }
+            }
+          }
+
+          // Delete locally any records that were deleted on other devices
+          final deletedIds = allTombstones[key] ?? {};
+          for (final id in deletedIds) {
+            if (localIds.contains(id)) {
+              try {
+                switch (key) {
+                  case 'items': await db.deleteItem(id); break;
+                  case 'customers': await db.deleteCustomer(id); break;
+                  case 'bills': await db.deleteBill(id); break;
+                  case 'purchases': await db.deletePurchase(id); break;
+                }
+              } catch (_) {}
             }
           }
         }
@@ -1796,6 +1828,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final db = appState.dbHelper;
 
+    // Merge cloud tombstones
+    if (data['_tombstones'] != null) {
+      await TombstoneService.mergeFromCloud(
+        Map<String, dynamic>.from(data['_tombstones'] as Map));
+    }
+    final allTombstones = await TombstoneService.getAll();
+
     // Build local data maps for merge
     final localData = <String, List<Map<String, dynamic>>>{
       'items': appState.items.map((i) => i.toMap()).toList(),
@@ -1845,6 +1884,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       final localIds = localData[key]!.map((r) => r['id'].toString()).toSet();
 
+      // Filter out tombstoned records from merged
+      merged = TombstoneService.filterDeleted(merged, allTombstones[key] ?? {});
+
       for (final record in merged) {
         final id = record['id']?.toString() ?? '';
         if (id.isEmpty) continue;
@@ -1856,6 +1898,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               case 'customers': await db.insertCustomer(Customer.fromMap(record)); break;
               case 'bills': await db.insertBill(Bill.fromMap(record)); break;
               case 'purchases': await db.insertPurchase(Purchase.fromMap(record)); break;
+            }
+          } catch (_) {}
+        }
+      }
+
+      // Delete locally any records that were deleted on other devices
+      final deletedIds = allTombstones[key] ?? {};
+      for (final id in deletedIds) {
+        if (localIds.contains(id)) {
+          try {
+            switch (key) {
+              case 'items': await db.deleteItem(id); break;
+              case 'customers': await db.deleteCustomer(id); break;
+              case 'bills': await db.deleteBill(id); break;
+              case 'purchases': await db.deletePurchase(id); break;
             }
           } catch (_) {}
         }
@@ -1888,6 +1945,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         default:
           merged = MergeSyncService.mergeCollections(localData[entry.key]!, cloudList);
       }
+      // Filter tombstoned records from JSON-blob merge
+      merged = TombstoneService.filterDeleted(merged, allTombstones[entry.key] ?? {});
       await db.setSetting(entry.value, jsonEncode(merged));
     }
 
