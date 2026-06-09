@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'package:android_id/android_id.dart';
 
 /// Service to generate, persist, and retrieve a unique device ID + device info
 class DeviceIdService {
@@ -32,6 +33,8 @@ class DeviceIdService {
     return 'unknown';
   }
 
+  static const _hwIdMigrated = 'billu_hw_id_v2';
+
   /// Initialize device ID — call once during app startup
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -39,8 +42,14 @@ class DeviceIdService {
     _deviceName = prefs.getString(_deviceNameKey);
     _deviceModel = prefs.getString(_deviceModelKey);
 
-    if (_deviceId == null) {
+    // Force regenerate on Android if still using old format (build ID + serial)
+    final migrated = prefs.getBool(_hwIdMigrated) ?? false;
+    if (!kIsWeb && !migrated && defaultTargetPlatform == TargetPlatform.android) {
       await _generateAndPersist(prefs);
+      await prefs.setBool(_hwIdMigrated, true);
+    } else if (_deviceId == null) {
+      await _generateAndPersist(prefs);
+      await prefs.setBool(_hwIdMigrated, true);
     }
   }
 
@@ -54,8 +63,13 @@ class DeviceIdService {
       _deviceModel = webInfo.userAgent ?? 'Web Browser';
     } else if (Platform.isAndroid) {
       final androidInfo = await deviceInfo.androidInfo;
-      // Use Android ID (survives app reinstall, unique per device+user)
-      _deviceId = 'and_${androidInfo.id}_${androidInfo.serialNumber}';
+      // Use ANDROID_ID (Settings.Secure) — true hardware-bound ID
+      // Survives app reinstall, unique per device+app, no permissions needed
+      String? androidId;
+      try {
+        androidId = await const AndroidId().getId();
+      } catch (_) {}
+      _deviceId = 'and_${androidId ?? androidInfo.id}';
       _deviceName = '${androidInfo.brand} ${androidInfo.model}';
       _deviceModel = androidInfo.model;
     } else if (Platform.isWindows) {

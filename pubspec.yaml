@@ -47,6 +47,7 @@ dependencies:
   # Device & Subscription
   device_info_plus: ^11.0.0
   shared_preferences: ^2.3.0
+  android_id: ^0.5.1
 
 dev_dependencies:
   flutter_test:
