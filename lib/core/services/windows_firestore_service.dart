@@ -776,12 +776,41 @@ class WindowsFirestoreService {
     return null;
   }
 
-  /// Get last sync time
+  /// Get last sync time (local cache)
   static Future<DateTime?> getLastSyncTime() async {
     final prefs = await SharedPreferences.getInstance();
     final str = prefs.getString(_syncLastSyncKey);
     if (str == null) return null;
     return DateTime.tryParse(str);
+  }
+
+  /// Get cloud's last sync timestamp from Firestore (to detect if another device synced)
+  static Future<DateTime?> getCloudLastSyncTime() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString(_syncUidKey);
+      if (uid == null) return null;
+
+      final token = await _getFreshToken();
+      if (token == null) return null;
+
+      final url = '$_baseUrl/users/$uid?key=$_apiKey';
+      final resp = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (resp.statusCode != 200) return null;
+
+      final data = jsonDecode(resp.body);
+      final fields = data['fields'] as Map<String, dynamic>? ?? {};
+      final lastSyncAt = fields['lastSyncAt']?['timestampValue'];
+      if (lastSyncAt != null) {
+        return DateTime.tryParse(lastSyncAt.toString());
+      }
+    } catch (e) {
+      debugPrint('getCloudLastSyncTime error: $e');
+    }
+    return null;
   }
 
   /// Delete all cloud sync data for the current user

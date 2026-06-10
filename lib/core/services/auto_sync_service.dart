@@ -143,15 +143,19 @@ class AutoSyncService {
 
     try {
       if (isWindows) {
-        // Check cloud timestamp
-        final cloudSyncTime = await WindowsFirestoreService.getLastSyncTime();
-        if (cloudSyncTime != null && lastSyncTime.value != null) {
-          if (cloudSyncTime.isAfter(lastSyncTime.value!.add(const Duration(seconds: 5)))) {
-            debugPrint('AutoSync: Cloud has newer data, downloading...');
+        // Read the CLOUD's lastSyncAt timestamp (set by any device that synced)
+        final cloudSyncTime = await WindowsFirestoreService.getCloudLastSyncTime();
+        // Compare against our LOCAL last sync time
+        final localSyncTime = lastSyncTime.value;
+
+        if (cloudSyncTime != null && localSyncTime != null) {
+          if (cloudSyncTime.isAfter(localSyncTime.add(const Duration(seconds: 5)))) {
+            debugPrint('AutoSync: Cloud has newer data (cloud: $cloudSyncTime, local: $localSyncTime), syncing...');
             await _performSync();
           }
-        } else if (cloudSyncTime != null && lastSyncTime.value == null) {
-          // First sync — download
+        } else if (cloudSyncTime != null && localSyncTime == null) {
+          // First sync — cloud has data we don't have yet
+          debugPrint('AutoSync: First sync — downloading cloud data...');
           await _performSync();
         }
       } else if (isAndroid) {
