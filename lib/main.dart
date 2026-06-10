@@ -47,6 +47,7 @@ import 'core/services/subscription_service.dart';
 import 'core/services/windows_firestore_service.dart';
 import 'core/services/windows_google_auth.dart';
 import 'core/services/fy_service.dart';
+import 'core/services/auto_sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -1251,6 +1252,7 @@ class _MainShellState extends State<MainShell> {
   List<ShortcutBinding> _customShortcuts = [];
   bool _shortcutsLoaded = false;
   bool _fakeQuoteEnabled = false;
+  bool _autoSyncInitialized = false;
 
   // All screens indexed
   static const _allScreens = [
@@ -1345,6 +1347,18 @@ class _MainShellState extends State<MainShell> {
       _shortcutsLoaded = true;
       _loadCustomShortcuts();
     }
+    if (!_autoSyncInitialized) {
+      _autoSyncInitialized = true;
+      _initAutoSync();
+    }
+  }
+
+  Future<void> _initAutoSync() async {
+    final appState = context.read<AppState>();
+    final autoSync = AutoSyncService();
+    await autoSync.init(appState);
+    appState.setAutoSync(autoSync);
+    await autoSync.refreshStatus();
   }
 
   Future<void> _loadCustomShortcuts() async {
@@ -1772,6 +1786,52 @@ class _MainShellState extends State<MainShell> {
             const SizedBox(height: 4),
             Text('Smart Billing Software', style: TextStyle(
               fontSize: 12, color: Colors.white.withValues(alpha: 0.5), fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            // Auto-sync status indicator
+            ValueListenableBuilder<SyncStatus>(
+              valueListenable: AutoSyncService().syncStatus,
+              builder: (_, status, __) {
+                if (status == SyncStatus.disabled) return const SizedBox.shrink();
+                final Color dotColor;
+                final String label;
+                final IconData icon;
+                switch (status) {
+                  case SyncStatus.synced:
+                    dotColor = const Color(0xFF00F5A0);
+                    label = 'Synced';
+                    icon = Icons.cloud_done;
+                  case SyncStatus.syncing:
+                    dotColor = const Color(0xFF00D9F5);
+                    label = 'Syncing...';
+                    icon = Icons.sync;
+                  case SyncStatus.pending:
+                    dotColor = const Color(0xFFFFA726);
+                    label = 'Changes pending';
+                    icon = Icons.cloud_upload;
+                  case SyncStatus.error:
+                    dotColor = const Color(0xFFEF5350);
+                    label = 'Sync error';
+                    icon = Icons.cloud_off;
+                  case SyncStatus.disabled:
+                    dotColor = Colors.grey;
+                    label = '';
+                    icon = Icons.cloud_off;
+                }
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: dotColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: dotColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(icon, size: 14, color: dotColor),
+                    const SizedBox(width: 6),
+                    Text(label, style: TextStyle(fontSize: 11, color: dotColor, fontWeight: FontWeight.w600)),
+                  ]),
+                );
+              },
+            ),
           ]),
         ),
 

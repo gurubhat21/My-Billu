@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../services/tombstone_service.dart';
+import '../services/auto_sync_service.dart';
 import '../database/database_helper.dart';
 import '../models/item.dart';
 import '../models/customer.dart';
@@ -18,6 +19,11 @@ import 'dart:convert';
 class AppState extends ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
   DatabaseHelper get dbHelper => _db;
+
+  // Auto-sync integration
+  AutoSyncService? _autoSync;
+  void setAutoSync(AutoSyncService service) => _autoSync = service;
+  void _notifySync() => _autoSync?.markDirty();
 
   List<Item> _items = [];
   List<Customer> _customers = [];
@@ -158,12 +164,14 @@ class AppState extends ChangeNotifier {
     await logAudit(AuditAction.created, AuditEntity.item, item.name, details: '₹${item.price.toStringAsFixed(2)}, Stock: ${item.stockQuantity}');
     await loadItems();
     await loadDashboardStats();
+    _notifySync();
   }
 
   Future<void> updateItem(Item item) async {
     await _db.updateItem(item);
     await logAudit(AuditAction.updated, AuditEntity.item, item.name);
     await loadItems();
+    _notifySync();
   }
 
   Future<void> deleteItem(String id) async {
@@ -173,6 +181,7 @@ class AppState extends ChangeNotifier {
     await logAudit(AuditAction.deleted, AuditEntity.item, item.name);
     await loadItems();
     await loadDashboardStats();
+    _notifySync();
   }
 
   Future<List<Item>> searchItems(String query) async {
@@ -192,12 +201,14 @@ class AppState extends ChangeNotifier {
     await logAudit(AuditAction.created, AuditEntity.customer, customer.name, details: customer.phone);
     await loadCustomers();
     await loadDashboardStats();
+    _notifySync();
   }
 
   Future<void> updateCustomer(Customer customer) async {
     await _db.updateCustomer(customer);
     await logAudit(AuditAction.updated, AuditEntity.customer, customer.name);
     await loadCustomers();
+    _notifySync();
   }
 
   Future<void> deleteCustomer(String id) async {
@@ -207,6 +218,7 @@ class AppState extends ChangeNotifier {
     await logAudit(AuditAction.deleted, AuditEntity.customer, cust.name);
     await loadCustomers();
     await loadDashboardStats();
+    _notifySync();
   }
 
   Future<List<Customer>> searchCustomers(String query) async {
@@ -257,6 +269,7 @@ class AppState extends ChangeNotifier {
       loadItems(),
       loadDashboardStats(),
     ]);
+    _notifySync();
   }
 
   Future<void> deletePurchase(String id) async {
@@ -285,6 +298,7 @@ class AppState extends ChangeNotifier {
       loadItems(),
       loadDashboardStats(),
     ]);
+    _notifySync();
   }
 
   Future<void> updatePurchase(Purchase purchase) async {
@@ -292,6 +306,7 @@ class AppState extends ChangeNotifier {
     await logAudit(AuditAction.updated, AuditEntity.purchase, purchase.purchaseNumber, details: 'Paid: ₹${purchase.paidAmount.toStringAsFixed(2)} / ₹${purchase.totalAmount.toStringAsFixed(2)}');
     await loadPurchases();
     notifyListeners();
+    _notifySync();
   }
 
   // ===== BILLS =====
@@ -374,6 +389,7 @@ class AppState extends ChangeNotifier {
       loadCustomers(),
       loadDashboardStats(),
     ]);
+    _notifySync();
   }
 
   Future<void> deleteBill(String id) async {
@@ -388,6 +404,7 @@ class AppState extends ChangeNotifier {
     await _db.deleteBill(id);
     await logAudit(AuditAction.deleted, AuditEntity.bill, bill.billNumber);
     await Future.wait([loadBills(), loadDashboardStats()]);
+    _notifySync();
   }
 
   Future<void> collectPayment(String billId, double amount, {String paymentType = 'cash', String? bankAccountId}) async {
@@ -432,6 +449,7 @@ class AppState extends ChangeNotifier {
     await addCashBookEntry(entry);
 
     await Future.wait([loadBills(), loadCustomers(), loadDashboardStats()]);
+    _notifySync();
   }
   Future<List<Bill>> getBillsByDate(DateTime date) async {
     return await _db.getBillsByDate(date);
@@ -456,6 +474,7 @@ class AppState extends ChangeNotifier {
 
     await _db.updateBill(bill);
     await Future.wait([loadBills(), loadDashboardStats()]);
+    _notifySync();
   }
 
   /// Remove all cash/bank book entries that reference the given bill number
@@ -525,6 +544,7 @@ class AppState extends ChangeNotifier {
     _quotations.insert(0, q);
     await _saveQuotations();
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> updateQuotation(Quotation q) async {
@@ -532,6 +552,7 @@ class AppState extends ChangeNotifier {
     if (idx >= 0) _quotations[idx] = q;
     await _saveQuotations();
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> deleteQuotation(String id) async {
@@ -539,6 +560,7 @@ class AppState extends ChangeNotifier {
     _quotations.removeWhere((e) => e.id == id);
     await _saveQuotations();
     notifyListeners();
+    _notifySync();
   }
 
   String getNextQuotationNumber() {
@@ -567,6 +589,7 @@ class AppState extends ChangeNotifier {
     _expenses.insert(0, e);
     await _saveExpenses();
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> updateExpense(Expense e) async {
@@ -574,6 +597,7 @@ class AppState extends ChangeNotifier {
     if (idx >= 0) _expenses[idx] = e;
     await _saveExpenses();
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> deleteExpense(String id) async {
@@ -581,6 +605,7 @@ class AppState extends ChangeNotifier {
     _expenses.removeWhere((e) => e.id == id);
     await _saveExpenses();
     notifyListeners();
+    _notifySync();
   }
 
   double get totalExpenses => _expenses.fold(0, (s, e) => s + e.amount);
@@ -615,6 +640,7 @@ class AppState extends ChangeNotifier {
     await _saveCreditNotes();
     await loadItems();
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> deleteCreditNote(String id) async {
@@ -622,6 +648,7 @@ class AppState extends ChangeNotifier {
     _creditNotes.removeWhere((e) => e.id == id);
     await _saveCreditNotes();
     notifyListeners();
+    _notifySync();
   }
 
   String getNextCreditNoteNumber() {
@@ -660,6 +687,7 @@ class AppState extends ChangeNotifier {
     await _savePurchaseReturns();
     await loadItems();
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> deletePurchaseReturn(String id) async {
@@ -667,6 +695,7 @@ class AppState extends ChangeNotifier {
     _purchaseReturns.removeWhere((e) => e.id == id);
     await _savePurchaseReturns();
     notifyListeners();
+    _notifySync();
   }
 
   String getNextPurchaseReturnNumber() {
@@ -713,6 +742,7 @@ class AppState extends ChangeNotifier {
     _suppliers.add(s);
     await _saveSuppliers();
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> updateSupplier(Supplier s) async {
@@ -720,6 +750,7 @@ class AppState extends ChangeNotifier {
     if (idx >= 0) _suppliers[idx] = s;
     await _saveSuppliers();
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> deleteSupplier(String id) async {
@@ -727,6 +758,7 @@ class AppState extends ChangeNotifier {
     _suppliers.removeWhere((e) => e.id == id);
     await _saveSuppliers();
     notifyListeners();
+    _notifySync();
   }
 
   // ===== RECURRING BILLS =====
@@ -749,6 +781,7 @@ class AppState extends ChangeNotifier {
     _recurringBills.add(rb);
     await _saveRecurringBills();
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> toggleRecurringBill(String id) async {
@@ -765,6 +798,7 @@ class AppState extends ChangeNotifier {
     _recurringBills.removeWhere((e) => e.id == id);
     await _saveRecurringBills();
     notifyListeners();
+    _notifySync();
   }
 
   /// Generate bills for all due recurring bills
@@ -841,8 +875,9 @@ class AppState extends ChangeNotifier {
       }
     }
     await _saveCashBook();
-    await logAudit(AuditAction.created, AuditEntity.item, entry.description, details: '${entry.typeLabel}: \u20b9${entry.amount.toStringAsFixed(2)}');
+    await logAudit(AuditAction.created, AuditEntity.item, entry.description, details: '${entry.typeLabel}: ₹${entry.amount.toStringAsFixed(2)}');
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> deleteCashBookEntry(String id) async {
@@ -863,6 +898,7 @@ class AppState extends ChangeNotifier {
     _cashBookEntries.removeWhere((e) => e.id == id);
     await _saveCashBook();
     notifyListeners();
+    _notifySync();
   }
 
   // ===== BANK ACCOUNTS =====
@@ -887,6 +923,7 @@ class AppState extends ChangeNotifier {
     await _saveBankAccounts();
     await logAudit(AuditAction.created, AuditEntity.setting, account.bankName, details: 'Bank account added');
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> updateBankAccount(BankAccount account) async {
@@ -895,6 +932,7 @@ class AppState extends ChangeNotifier {
     await _saveBankAccounts();
     await logAudit(AuditAction.updated, AuditEntity.setting, account.bankName, details: 'Bank account updated');
     notifyListeners();
+    _notifySync();
   }
 
   Future<void> deleteBankAccount(String id) async {
@@ -904,6 +942,7 @@ class AppState extends ChangeNotifier {
     await _saveBankAccounts();
     await logAudit(AuditAction.deleted, AuditEntity.setting, acc.bankName, details: 'Bank account deleted');
     notifyListeners();
+    _notifySync();
   }
 }
 
