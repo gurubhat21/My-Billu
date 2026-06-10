@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/app_state.dart';
 import '../models/item.dart';
 import '../models/customer.dart';
@@ -22,6 +23,7 @@ class FirebaseSyncService {
   FirebaseFirestore? _firestoreInstance;
   Timer? _autoSyncTimer;
   bool _isSyncing = false;
+  static const _autoSyncKey = 'firebase_auto_sync_enabled';
 
   FirebaseAuth get _auth {
     _authInstance ??= FirebaseAuth.instance;
@@ -420,18 +422,39 @@ class FirebaseSyncService {
   void startAutoSync(AppState appState) {
     stopAutoSync();
     _autoSyncTimer = Timer.periodic(const Duration(minutes: 5), (_) async {
-      if (isSignedIn && !_isSyncing) {
-        final syncEnabled = await SubscriptionService().isCloudSyncEnabled();
-        if (syncEnabled) {
-          smartSync(appState);
+      try {
+        if (isSignedIn && !_isSyncing) {
+          final syncEnabled = await SubscriptionService().isCloudSyncEnabled();
+          if (syncEnabled) {
+            await smartSync(appState);
+          }
         }
+      } catch (e) {
+        debugPrint('AutoSync timer error (ignored): $e');
       }
     });
+    // Persist the toggle state
+    SharedPreferences.getInstance().then((prefs) => prefs.setBool(_autoSyncKey, true));
   }
 
   void stopAutoSync() {
     _autoSyncTimer?.cancel();
     _autoSyncTimer = null;
+    // Persist the toggle state
+    SharedPreferences.getInstance().then((prefs) => prefs.setBool(_autoSyncKey, false));
+  }
+
+  /// Check if auto-sync was enabled by user (persisted)
+  static Future<bool> wasAutoSyncEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_autoSyncKey) ?? false;
+  }
+
+  /// Restore auto-sync if it was previously enabled
+  Future<void> restoreAutoSync(AppState appState) async {
+    if (isSignedIn && await wasAutoSyncEnabled()) {
+      startAutoSync(appState);
+    }
   }
 
   /// Delete all cloud sync data for the current user

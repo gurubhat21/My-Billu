@@ -48,6 +48,7 @@ import 'core/services/windows_firestore_service.dart';
 import 'core/services/windows_google_auth.dart';
 import 'core/services/fy_service.dart';
 import 'core/services/auto_sync_service.dart';
+import 'core/services/firebase_sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -1359,6 +1360,14 @@ class _MainShellState extends State<MainShell> {
     await autoSync.init(appState);
     appState.setAutoSync(autoSync);
     await autoSync.refreshStatus();
+
+    // Restore Firebase auto-sync timer if previously enabled (Android only)
+    if (!kIsWeb && defaultTargetPlatform != TargetPlatform.windows) {
+      try {
+        final syncService = FirebaseSyncService();
+        await syncService.restoreAutoSync(appState);
+      } catch (_) {}
+    }
   }
 
   Future<void> _loadCustomShortcuts() async {

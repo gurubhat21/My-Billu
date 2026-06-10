@@ -2157,26 +2157,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.03),
                   borderRadius: BorderRadius.circular(10)),
-                child: Row(children: [
-                  Icon(Icons.autorenew, size: 18, color: _syncService.isAutoSyncActive ? AppColors.success : Colors.white.withValues(alpha: 0.4)),
-                  const SizedBox(width: 10),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Auto-Sync', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    Text('Upload every 5 minutes', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.35))),
-                  ])),
-                  Switch(
-                    value: _syncService.isAutoSyncActive,
-                    activeColor: AppColors.success,
-                    onChanged: (v) {
-                      final appState = context.read<AppState>();
-                      if (v) {
-                        _syncService.startAutoSync(appState);
-                      } else {
-                        _syncService.stopAutoSync();
-                      }
-                      setState(() {});
-                    }),
-                ])),
+                child: FutureBuilder<bool>(
+                  future: FirebaseSyncService.wasAutoSyncEnabled(),
+                  builder: (ctx, snap) {
+                    final isActive = snap.data ?? _syncService.isAutoSyncActive;
+                    return Row(children: [
+                      Icon(Icons.autorenew, size: 18, color: isActive ? AppColors.success : Colors.white.withValues(alpha: 0.4)),
+                      const SizedBox(width: 10),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Auto-Sync', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text('Upload every 5 minutes', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.35))),
+                      ])),
+                      Switch(
+                        value: isActive,
+                        activeColor: AppColors.success,
+                        onChanged: (v) {
+                          final appState = context.read<AppState>();
+                          if (v) {
+                            _syncService.startAutoSync(appState);
+                          } else {
+                            _syncService.stopAutoSync();
+                          }
+                          setState(() {});
+                        }),
+                    ]);
+                  },
+                )),
             ],
           ]));
       });
