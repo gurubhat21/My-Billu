@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'dart:typed_data';
-import 'dart:io' show File;
+import 'dart:io' show Directory, File, Process;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -430,6 +430,15 @@ class ReportPdfExporter {
   static Future<void> shareReport(Uint8List bytes, String filename) async {
     if (kIsWeb) {
       await Printing.sharePdf(bytes: bytes, filename: filename);
+    } else if (defaultTargetPlatform == TargetPlatform.windows) {
+      final docsDir = await getApplicationDocumentsDirectory();
+      final exportDir = Directory('${docsDir.path}/MyBillu/Exports');
+      if (!await exportDir.exists()) {
+        await exportDir.create(recursive: true);
+      }
+      final file = File('${exportDir.path}/$filename');
+      await file.writeAsBytes(bytes);
+      await Process.run('cmd', ['/c', 'start', '', file.path]);
     } else {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/$filename');

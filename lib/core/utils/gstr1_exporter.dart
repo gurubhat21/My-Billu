@@ -1,12 +1,12 @@
 import 'dart:typed_data';
-import 'dart:io' show File;
+import 'dart:io' show Directory, File, Process;
 import 'package:excel/excel.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import '../models/bill.dart';
 import '../models/customer.dart';
 
@@ -680,6 +680,8 @@ class GSTR1Exporter {
   static Future<void> shareExcel(Uint8List bytes, String filename) async {
     if (kIsWeb) {
       await Printing.sharePdf(bytes: bytes, filename: filename);
+    } else if (defaultTargetPlatform == TargetPlatform.windows) {
+      await _saveAndOpenWindows(bytes, filename);
     } else {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/$filename');
@@ -691,11 +693,26 @@ class GSTR1Exporter {
   static Future<void> sharePdf(Uint8List bytes, String filename) async {
     if (kIsWeb) {
       await Printing.sharePdf(bytes: bytes, filename: filename);
+    } else if (defaultTargetPlatform == TargetPlatform.windows) {
+      await _saveAndOpenWindows(bytes, filename);
     } else {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/$filename');
       await file.writeAsBytes(bytes);
       await Share.shareXFiles([XFile(file.path, mimeType: 'application/pdf')]);
     }
+  }
+
+  /// Save file to Documents/MyBillu and open with default Windows app
+  static Future<void> _saveAndOpenWindows(Uint8List bytes, String filename) async {
+    final docsDir = await getApplicationDocumentsDirectory();
+    final exportDir = Directory('${docsDir.path}/MyBillu/Exports');
+    if (!await exportDir.exists()) {
+      await exportDir.create(recursive: true);
+    }
+    final file = File('${exportDir.path}/$filename');
+    await file.writeAsBytes(bytes);
+    // Open the file with default Windows application
+    await Process.run('cmd', ['/c', 'start', '', file.path]);
   }
 }
