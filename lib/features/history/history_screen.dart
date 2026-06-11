@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
@@ -552,6 +553,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
   void _showEditBill(BuildContext context, Bill bill) {
     final customerCtrl = TextEditingController(text: bill.customerName ?? '');
+    final phoneCtrl = TextEditingController(text: bill.customerPhone ?? '');
     final notesCtrl = TextEditingController(text: bill.notes ?? '');
     final discountCtrl = TextEditingController(text: bill.discount.toStringAsFixed(2));
     final paidCtrl = TextEditingController(text: bill.paidAmount.toStringAsFixed(2));
@@ -620,6 +622,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
           const SizedBox(height: 12),
           TextField(controller: customerCtrl,
             decoration: const InputDecoration(labelText: 'Customer Name', prefixIcon: Icon(Icons.person_outline))),
+          const SizedBox(height: 12),
+          TextField(controller: phoneCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Phone Number', prefixIcon: Icon(Icons.phone_outlined)),
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          ),
           const SizedBox(height: 16),
 
           // ===== GST MODE TOGGLE =====
@@ -820,7 +828,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               final updatedBill = Bill(
                 id: bill.id, billNumber: bill.billNumber, customerId: bill.customerId,
                 customerName: customerCtrl.text.trim().isEmpty ? null : customerCtrl.text.trim(),
-                customerPhone: bill.customerPhone,
+                customerPhone: phoneCtrl.text.trim().isEmpty ? bill.customerPhone : phoneCtrl.text.trim(),
                 items: billItems, subtotal: newSubtotal, discount: newDiscount,
                 totalTax: newTax, totalAmount: newTotal, paidAmount: paid,
                 paymentMethod: bill.paymentMethod,
