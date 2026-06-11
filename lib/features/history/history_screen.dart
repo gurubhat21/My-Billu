@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/bill.dart';
+import '../../core/models/customer.dart';
 import '../../core/models/item.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
@@ -111,6 +112,59 @@ class _HistoryScreenState extends State<HistoryScreen> {
       content: SizedBox(width: 450, child: SingleChildScrollView(child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           _detailRow('Customer', bill.customerName ?? 'Walk-in'),
+          if (bill.customerPhone != null && bill.customerPhone!.isNotEmpty)
+            _detailRow('Phone', bill.customerPhone!),
+          // Save walk-in customer to customers list
+          if (bill.customerName != null && bill.customerName!.isNotEmpty && bill.customerId == null)
+            Builder(builder: (_) {
+              final existingCustomer = appState.customers.any((c) =>
+                c.name.toLowerCase() == bill.customerName!.toLowerCase() ||
+                (bill.customerPhone != null && bill.customerPhone!.isNotEmpty && c.phone == bill.customerPhone));
+              if (existingCustomer) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 6, bottom: 4),
+                child: SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final customer = Customer(
+                      name: bill.customerName!,
+                      phone: bill.customerPhone,
+                    );
+                    await appState.addCustomer(customer);
+                    // Link this bill to the new customer
+                    final updatedBill = Bill(
+                      id: bill.id, billNumber: bill.billNumber,
+                      customerId: customer.id,
+                      customerName: bill.customerName,
+                      customerPhone: bill.customerPhone,
+                      items: bill.items, subtotal: bill.subtotal,
+                      discount: bill.discount, totalTax: bill.totalTax,
+                      totalAmount: bill.totalAmount, paidAmount: bill.paidAmount,
+                      paymentMethod: bill.paymentMethod, status: bill.status,
+                      notes: bill.notes, createdAt: bill.createdAt,
+                    );
+                    await appState.updateBillRecord(updatedBill);
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Row(children: [
+                          const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 10),
+                          Text('${bill.customerName} added to Customers list'),
+                        ]),
+                        backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ));
+                    }
+                  },
+                  icon: const Icon(Icons.person_add, size: 16, color: AppColors.success),
+                  label: const Text('Save to Customers', style: TextStyle(fontSize: 12, color: AppColors.success)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppColors.success.withValues(alpha: 0.4)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                )),
+              );
+            }),
           InkWell(
             onTap: () async {
               final picked = await showDatePicker(
