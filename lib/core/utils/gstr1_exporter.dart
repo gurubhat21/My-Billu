@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 import 'dart:io' show Directory, File, Process;
 import 'package:excel/excel.dart';
 import 'package:pdf/pdf.dart';
@@ -34,9 +34,12 @@ class GSTR1Exporter {
   static String _ms(int m) =>
       ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1];
 
-  // ═══════════════════════════════════════
+  /// Round to 2 decimal places for Excel cells
+  static DoubleCellValue _dv(double v) => DoubleCellValue(double.parse(v.toStringAsFixed(2)));
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   //  SHARED STYLES
-  // ═══════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   static CellStyle get _headerStyle => CellStyle(
     bold: true,
     backgroundColorHex: ExcelColor.fromHexString('#1a1a2e'),
@@ -74,9 +77,9 @@ class GSTR1Exporter {
     }
   }
 
-  // ═══════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   //  GSTR1 EXCEL EXPORT
-  // ═══════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   static Future<Uint8List> generateExcel({
     required List<Bill> bills,
     required List<Customer> customers,
@@ -130,14 +133,14 @@ class GSTR1Exporter {
       return '${code}-${states[code] ?? ''}';
     }
 
-    // ══════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     //  B2B SHEET
-    // ══════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     final b2bSheet = excel['B2B'];
     excel.setDefaultSheet('B2B');
 
     // Title
-    b2bSheet.appendRow([TextCellValue('GSTR-1 B2B Invoices — $businessName — $period')]);
+    b2bSheet.appendRow([TextCellValue('GSTR-1 B2B Invoices â€” $businessName â€” $period')]);
     b2bSheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = _titleStyle;
     b2bSheet.appendRow([TextCellValue('Invoices issued to Registered Dealers (with GSTIN)')]);
     b2bSheet.appendRow([]);
@@ -173,10 +176,10 @@ class GSTR1Exporter {
         b2bSheet.appendRow([
           TextCellValue(gstin), TextCellValue(b.customerName ?? 'N/A'),
           TextCellValue(b.billNumber), TextCellValue(_fd(b.createdAt)),
-          DoubleCellValue(b.totalAmount), TextCellValue(state),
+          _dv(b.totalAmount), TextCellValue(state),
           TextCellValue('N'), TextCellValue('Regular'),
-          DoubleCellValue(rate), DoubleCellValue(taxable),
-          DoubleCellValue(0), DoubleCellValue(cgst), DoubleCellValue(sgst),
+          _dv(rate), _dv(taxable),
+          _dv(0), _dv(cgst), _dv(sgst),
         ]);
         _styleNumCols(b2bSheet, row, b2bNumCols);
         row++;
@@ -186,20 +189,20 @@ class GSTR1Exporter {
     b2bSheet.appendRow([
       TextCellValue('TOTAL'), TextCellValue('${b2bBills.length} invoices'),
       TextCellValue(''), TextCellValue(''),
-      DoubleCellValue(b2bTotalValue), TextCellValue(''), TextCellValue(''), TextCellValue(''),
-      TextCellValue(''), DoubleCellValue(b2bTotalTaxable),
-      DoubleCellValue(0), DoubleCellValue(b2bTotalCgst), DoubleCellValue(b2bTotalSgst),
+      _dv(b2bTotalValue), TextCellValue(''), TextCellValue(''), TextCellValue(''),
+      TextCellValue(''), _dv(b2bTotalTaxable),
+      _dv(0), _dv(b2bTotalCgst), _dv(b2bTotalSgst),
     ]);
     _styleRow(b2bSheet, row, b2bHeaders.length, _totalStyle);
 
-    // ══════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     //  B2C SHEET
-    // ══════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     final b2cSheet = excel['B2C'];
 
-    b2cSheet.appendRow([TextCellValue('GSTR-1 B2C Summary — $businessName — $period')]);
+    b2cSheet.appendRow([TextCellValue('GSTR-1 B2C Summary â€” $businessName â€” $period')]);
     b2cSheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = _titleStyle;
-    b2cSheet.appendRow([TextCellValue('Sales to Unregistered Consumers (without GSTIN) — Rate-wise')]);
+    b2cSheet.appendRow([TextCellValue('Sales to Unregistered Consumers (without GSTIN) â€” Rate-wise')]);
     b2cSheet.appendRow([]);
 
     const b2cHeaders = ['Type', 'Rate %', 'No. of Invoices', 'Taxable Value', 'CGST', 'SGST', 'Total Tax', 'Total Value'];
@@ -237,10 +240,10 @@ class GSTR1Exporter {
       b2cSumSgst += sgst;
       b2cSumTotal += total;
       b2cSheet.appendRow([
-        TextCellValue('OE'), DoubleCellValue(rate),
+        TextCellValue('OE'), _dv(rate),
         IntCellValue(b2cCountByRate[rate] ?? 0),
-        DoubleCellValue(taxable), DoubleCellValue(cgst), DoubleCellValue(sgst),
-        DoubleCellValue(cgst + sgst), DoubleCellValue(total),
+        _dv(taxable), _dv(cgst), _dv(sgst),
+        _dv(cgst + sgst), _dv(total),
       ]);
       _styleNumCols(b2cSheet, b2cRow, b2cNumCols);
       b2cRow++;
@@ -248,17 +251,17 @@ class GSTR1Exporter {
     b2cSheet.appendRow([
       TextCellValue('TOTAL'), TextCellValue(''),
       IntCellValue(b2cBills.length),
-      DoubleCellValue(b2cSumTaxable), DoubleCellValue(b2cSumCgst), DoubleCellValue(b2cSumSgst),
-      DoubleCellValue(b2cSumCgst + b2cSumSgst), DoubleCellValue(b2cSumTotal),
+      _dv(b2cSumTaxable), _dv(b2cSumCgst), _dv(b2cSumSgst),
+      _dv(b2cSumCgst + b2cSumSgst), _dv(b2cSumTotal),
     ]);
     _styleRow(b2cSheet, b2cRow, b2cHeaders.length, _totalStyle);
 
-    // ══════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     //  SALES SUMMARY SHEET
-    // ══════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     final summarySheet = excel['Sales Summary'];
 
-    summarySheet.appendRow([TextCellValue('GSTR-1 Sales Summary — $businessName')]);
+    summarySheet.appendRow([TextCellValue('GSTR-1 Sales Summary â€” $businessName')]);
     summarySheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = _titleStyle;
     summarySheet.appendRow([TextCellValue(businessAddress)]);
     summarySheet.appendRow([TextCellValue('Period: $period | Generated: ${_fd(DateTime.now())}')]);
@@ -297,17 +300,17 @@ class GSTR1Exporter {
       final d = b2bRates[rate]!;
       b2bSumTaxable += d[0]; b2bSumCgst += d[1]; b2bSumSgst += d[2];
       summarySheet.appendRow([
-        DoubleCellValue(rate), DoubleCellValue(d[0]),
-        DoubleCellValue(0), DoubleCellValue(d[1]),
-        DoubleCellValue(d[2]), DoubleCellValue(0),
+        _dv(rate), _dv(d[0]),
+        _dv(0), _dv(d[1]),
+        _dv(d[2]), _dv(0),
       ]);
       _styleNumCols(summarySheet, sRow, [0,1,2,3,4,5]);
       sRow++;
     }
     summarySheet.appendRow([
-      TextCellValue('Total'), DoubleCellValue(b2bSumTaxable),
-      DoubleCellValue(0), DoubleCellValue(b2bSumCgst),
-      DoubleCellValue(b2bSumSgst), DoubleCellValue(0),
+      TextCellValue('Total'), _dv(b2bSumTaxable),
+      _dv(0), _dv(b2bSumCgst),
+      _dv(b2bSumSgst), _dv(0),
     ]);
     _styleRow(summarySheet, sRow, sumHeaders.length, _totalStyle);
     sRow++;
@@ -328,17 +331,17 @@ class GSTR1Exporter {
       b2cSumCgst2 += b2cCgstByRate[rate] ?? 0;
       b2cSumSgst2 += b2cSgstByRate[rate] ?? 0;
       summarySheet.appendRow([
-        DoubleCellValue(rate), DoubleCellValue(b2cByRate[rate]!),
-        DoubleCellValue(0), DoubleCellValue(b2cCgstByRate[rate] ?? 0),
-        DoubleCellValue(b2cSgstByRate[rate] ?? 0), DoubleCellValue(0),
+        _dv(rate), _dv(b2cByRate[rate]!),
+        _dv(0), _dv(b2cCgstByRate[rate] ?? 0),
+        _dv(b2cSgstByRate[rate] ?? 0), _dv(0),
       ]);
       _styleNumCols(summarySheet, sRow, [0,1,2,3,4,5]);
       sRow++;
     }
     summarySheet.appendRow([
-      TextCellValue('Total'), DoubleCellValue(b2cSumTaxable2),
-      DoubleCellValue(0), DoubleCellValue(b2cSumCgst2),
-      DoubleCellValue(b2cSumSgst2), DoubleCellValue(0),
+      TextCellValue('Total'), _dv(b2cSumTaxable2),
+      _dv(0), _dv(b2cSumCgst2),
+      _dv(b2cSumSgst2), _dv(0),
     ]);
     _styleRow(summarySheet, sRow, sumHeaders.length, _totalStyle);
     sRow++;
@@ -356,9 +359,9 @@ class GSTR1Exporter {
     return Uint8List.fromList(excel.encode()!);
   }
 
-  // ═══════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   //  GSTR1 PDF EXPORT
-  // ═══════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   static Future<Uint8List> generatePdf({
     required List<Bill> bills,
     required List<Customer> customers,
@@ -405,7 +408,7 @@ class GSTR1Exporter {
         pw.SizedBox(height: 2),
         pw.Text(businessAddress, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey400)),
         pw.SizedBox(height: 4),
-        pw.Text('GSTR-1 $title — $period', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.amber200)),
+        pw.Text('GSTR-1 $title â€” $period', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.amber200)),
       ]),
     );
 
@@ -425,7 +428,7 @@ class GSTR1Exporter {
       );
     }
 
-    // ── B2B PAGE ──
+    // â”€â”€ B2B PAGE â”€â”€
     pdf.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4.landscape,
       margin: const pw.EdgeInsets.all(20),
@@ -450,7 +453,7 @@ class GSTR1Exporter {
       ],
     ));
 
-    // ── B2C PAGE ──
+    // â”€â”€ B2C PAGE â”€â”€
     final b2cRates = <double, List<double>>{};
     for (final b in b2cBills) {
       for (final item in b.items) {
@@ -479,7 +482,7 @@ class GSTR1Exporter {
       ]),
     ));
 
-    // ── SALES SUMMARY PAGE ──
+    // â”€â”€ SALES SUMMARY PAGE â”€â”€
     final b2bSumRates = <double, List<double>>{};
     for (final b in b2bBills) {
       for (final item in b.items) {
@@ -534,9 +537,9 @@ class GSTR1Exporter {
     return pdf.save();
   }
 
-  // ═══════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   //  SALES REGISTER EXCEL EXPORT
-  // ═══════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   static Future<Uint8List> generateSalesExcel({
     required List<Bill> bills,
     required String businessName,
@@ -544,14 +547,14 @@ class GSTR1Exporter {
   }) async {
     final excel = Excel.createExcel();
 
-    // ── Sales Register Sheet ──
+    // â”€â”€ Sales Register Sheet â”€â”€
     final sheet = excel['Sales Register'];
     excel.setDefaultSheet('Sales Register');
 
     // Title
     sheet.appendRow([TextCellValue(businessName)]);
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = _titleStyle;
-    sheet.appendRow([TextCellValue('Sales Register — $period')]);
+    sheet.appendRow([TextCellValue('Sales Register â€” $period')]);
     sheet.appendRow([TextCellValue('Generated: ${_fd(DateTime.now())}')]);
     sheet.appendRow([]);
 
@@ -579,12 +582,12 @@ class GSTR1Exporter {
         TextCellValue(b.customerName ?? 'Walk-in'),
         TextCellValue(b.customerPhone ?? ''),
         IntCellValue(b.items.length),
-        DoubleCellValue(b.subtotal),
-        DoubleCellValue(b.totalTax),
-        DoubleCellValue(b.discount),
-        DoubleCellValue(b.totalAmount),
-        DoubleCellValue(b.paidAmount),
-        DoubleCellValue(b.balanceDue),
+        _dv(b.subtotal),
+        _dv(b.totalTax),
+        _dv(b.discount),
+        _dv(b.totalAmount),
+        _dv(b.paidAmount),
+        _dv(b.balanceDue),
         TextCellValue(b.paymentMethod.name.toUpperCase()),
         TextCellValue(b.status.name.toUpperCase()),
       ]);
@@ -596,14 +599,14 @@ class GSTR1Exporter {
     sheet.appendRow([
       TextCellValue('TOTAL'), TextCellValue(''),
       TextCellValue('${bills.length} Bills'), TextCellValue(''), TextCellValue(''),
-      DoubleCellValue(totalSub), DoubleCellValue(totalTax),
-      DoubleCellValue(totalDisc), DoubleCellValue(totalAmt),
-      DoubleCellValue(totalPaid), DoubleCellValue(totalDue),
+      _dv(totalSub), _dv(totalTax),
+      _dv(totalDisc), _dv(totalAmt),
+      _dv(totalPaid), _dv(totalDue),
       TextCellValue(''), TextCellValue(''),
     ]);
     _styleRow(sheet, dRow, headers.length, _totalStyle);
 
-    // ── Item Details Sheet ──
+    // â”€â”€ Item Details Sheet â”€â”€
     final itemSheet = excel['Item Details'];
     const iHeaders = ['Bill No', 'Date', 'Customer', 'Item Name', 'Qty', 'Unit',
       'Unit Price', 'Subtotal', 'Tax Rate %', 'CGST', 'SGST', 'Total'];
@@ -619,20 +622,20 @@ class GSTR1Exporter {
           TextCellValue(b.customerName ?? 'Walk-in'),
           TextCellValue(item.itemName),
           IntCellValue(item.quantity), TextCellValue(item.unit),
-          DoubleCellValue(item.unitPrice), DoubleCellValue(item.subtotal),
-          DoubleCellValue(item.taxRate), DoubleCellValue(item.cgst),
-          DoubleCellValue(item.sgst), DoubleCellValue(item.total),
+          _dv(item.unitPrice), _dv(item.subtotal),
+          _dv(item.taxRate), _dv(item.cgst),
+          _dv(item.sgst), _dv(item.total),
         ]);
         _styleNumCols(itemSheet, iRow, [6,7,8,9,10,11]);
         iRow++;
       }
     }
 
-    // ── Summary Sheet ──
+    // â”€â”€ Summary Sheet â”€â”€
     final sumSheet = excel['Summary'];
     sumSheet.appendRow([TextCellValue(businessName)]);
     sumSheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = _titleStyle;
-    sumSheet.appendRow([TextCellValue('Sales Summary — $period')]);
+    sumSheet.appendRow([TextCellValue('Sales Summary â€” $period')]);
     sumSheet.appendRow([]);
     _setColWidths(sumSheet, [24, 18, 18]);
 
@@ -666,7 +669,7 @@ class GSTR1Exporter {
       methodMap[m]![1] += b.totalAmount;
     }
     for (final e in methodMap.entries) {
-      sumSheet.appendRow([TextCellValue(e.key), DoubleCellValue(e.value[0]), DoubleCellValue(e.value[1])]);
+      sumSheet.appendRow([TextCellValue(e.key), _dv(e.value[0]), _dv(e.value[1])]);
     }
 
     if (excel.sheets.containsKey('Sheet1')) excel.delete('Sheet1');
