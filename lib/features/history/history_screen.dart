@@ -556,6 +556,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final discountCtrl = TextEditingController(text: bill.discount.toStringAsFixed(2));
     final paidCtrl = TextEditingController(text: bill.paidAmount.toStringAsFixed(2));
     String status = bill.status.name;
+    bool gstInclusive = false;
+
+    // Load saved GST mode
+    context.read<AppState>().getSetting('billing_gst_inclusive').then((v) {
+      if (v == 'true') {
+        gstInclusive = true;
+      }
+    });
 
     // Editable copy of items
     final editItems = bill.items.map((i) => <String, dynamic>{
@@ -571,12 +579,36 @@ class _HistoryScreenState extends State<HistoryScreen> {
       TextEditingController(text: (i['taxRate'] as double).toStringAsFixed(1)),
     ]).toList();
 
-    double calcSubtotal() => editItems.fold(0.0, (s, i) => s + (i['unitPrice'] as double) * (i['quantity'] as int));
-    double calcTax() => editItems.fold(0.0, (s, i) => s + (i['unitPrice'] as double) * (i['quantity'] as int) * (i['taxRate'] as double) / 100);
+    // When GST exclusive: subtotal = price * qty, tax = subtotal * rate/100
+    // When GST inclusive: price already includes GST, so extract it
+    double calcSubtotal(bool inclusive) {
+      if (inclusive) {
+        return editItems.fold(0.0, (s, i) {
+          final price = i['unitPrice'] as double;
+          final qty = i['quantity'] as int;
+          final rate = i['taxRate'] as double;
+          final basePrice = price / (1 + rate / 100);
+          return s + basePrice * qty;
+        });
+      }
+      return editItems.fold(0.0, (s, i) => s + (i['unitPrice'] as double) * (i['quantity'] as int));
+    }
+    double calcTax(bool inclusive) {
+      if (inclusive) {
+        return editItems.fold(0.0, (s, i) {
+          final price = i['unitPrice'] as double;
+          final qty = i['quantity'] as int;
+          final rate = i['taxRate'] as double;
+          final basePrice = price / (1 + rate / 100);
+          return s + basePrice * qty * rate / 100;
+        });
+      }
+      return editItems.fold(0.0, (s, i) => s + (i['unitPrice'] as double) * (i['quantity'] as int) * (i['taxRate'] as double) / 100);
+    }
 
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setEditState) {
-      final subtotal = calcSubtotal();
-      final tax = calcTax();
+      final subtotal = calcSubtotal(gstInclusive);
+      final tax = calcTax(gstInclusive);
       final discount = double.tryParse(discountCtrl.text) ?? 0;
       final total = subtotal - discount + tax;
 
@@ -588,6 +620,35 @@ class _HistoryScreenState extends State<HistoryScreen> {
           const SizedBox(height: 12),
           TextField(controller: customerCtrl,
             decoration: const InputDecoration(labelText: 'Customer Name', prefixIcon: Icon(Icons.person_outline))),
+          const SizedBox(height: 16),
+
+          // ===== GST MODE TOGGLE =====
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: gstInclusive ? AppColors.success.withValues(alpha: 0.08) : AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: gstInclusive ? AppColors.success.withValues(alpha: 0.3) : AppColors.primary.withValues(alpha: 0.3)),
+            ),
+            child: Row(children: [
+              Icon(Icons.receipt_long, size: 18,
+                color: gstInclusive ? AppColors.success : AppColors.primary),
+              const SizedBox(width: 8),
+              Text(gstInclusive ? 'GST Inclusive' : 'GST Exclusive',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13,
+                  color: gstInclusive ? AppColors.success : AppColors.primary)),
+              const Spacer(),
+              Switch(
+                value: gstInclusive,
+                activeColor: AppColors.success,
+                onChanged: (v) async {
+                  setEditState(() => gstInclusive = v);
+                  final appState = context.read<AppState>();
+                  await appState.saveSetting('billing_gst_inclusive', v.toString());
+                },
+              ),
+            ]),
+          ),
           const SizedBox(height: 16),
 
           // ===== ITEMS SECTION =====
@@ -691,7 +752,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               borderRadius: BorderRadius.circular(10)),
             child: Column(children: [
               _detailRow('Subtotal', '₹${subtotal.toStringAsFixed(2)}'),
-              _detailRow('Tax', '₹${tax.toStringAsFixed(2)}'),
+              _detailRow('GST${gstInclusive ? ' (Inclusive)' : ''}', '₹${tax.toStringAsFixed(2)}'),
               const SizedBox(height: 4),
               Row(children: [
                 const Text('Discount', style: TextStyle(fontSize: 13)),
@@ -732,12 +793,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton.icon(
             onPressed: editItems.isEmpty ? null : () async {
-              final billItems = editItems.map((i) => BillItem(
-                itemId: i['itemId'] as String, itemName: i['itemName'] as String,
-                unitPrice: i['unitPrice'] as double, quantity: i['quantity'] as int,
-                taxRate: i['taxRate'] as double, unit: i['unit'] as String? ?? 'pcs',
-                description: i['description'] as String?, serialNumber: i['serialNumber'] as String?,
-              )).toList();
+              // When GST inclusive, store base price (without GST) so BillItem getters calculate correctly
+              final billItems = editItems.map((i) {
+                double price = i['unitPrice'] as double;
+                if (gstInclusive) {
+                  final rate = i['taxRate'] as double;
+                  price = price / (1 + rate / 100);
+                }
+                return BillItem(
+                  itemId: i['itemId'] as String, itemName: i['itemName'] as String,
+                  unitPrice: price, quantity: i['quantity'] as int,
+                  taxRate: i['taxRate'] as double, unit: i['unit'] as String? ?? 'pcs',
+                  description: i['description'] as String?, serialNumber: i['serialNumber'] as String?,
+                );
+              }).toList();
               final newSubtotal = billItems.fold(0.0, (s, i) => s + i.subtotal);
               final newTax = billItems.fold(0.0, (s, i) => s + i.taxAmount);
               final newDiscount = double.tryParse(discountCtrl.text) ?? 0;
