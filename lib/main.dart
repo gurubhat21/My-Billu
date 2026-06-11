@@ -1519,6 +1519,54 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
                 Divider(height: 1, color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
+                // Auto-sync status indicator
+                ValueListenableBuilder<SyncStatus>(
+                  valueListenable: AutoSyncService().syncStatus,
+                  builder: (_, status, __) {
+                    if (status == SyncStatus.disabled) return const SizedBox.shrink();
+                    final Color dotColor;
+                    final String label;
+                    final IconData icon;
+                    switch (status) {
+                      case SyncStatus.synced:
+                        dotColor = const Color(0xFF00F5A0);
+                        label = 'Synced';
+                        icon = Icons.cloud_done;
+                      case SyncStatus.syncing:
+                        dotColor = const Color(0xFF00D9F5);
+                        label = 'Syncing...';
+                        icon = Icons.sync;
+                      case SyncStatus.pending:
+                        dotColor = const Color(0xFFFFA726);
+                        label = 'Changes pending';
+                        icon = Icons.cloud_upload;
+                      case SyncStatus.error:
+                        dotColor = const Color(0xFFEF5350);
+                        label = 'Sync error';
+                        icon = Icons.cloud_off;
+                      case SyncStatus.disabled:
+                        dotColor = Colors.grey;
+                        label = '';
+                        icon = Icons.cloud_off;
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: dotColor.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: dotColor.withValues(alpha: 0.25)),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(icon, size: 14, color: dotColor),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(label, style: TextStyle(fontSize: 11, color: dotColor, fontWeight: FontWeight.w600))),
+                        ]),
+                      ),
+                    );
+                  },
+                ),
                 // Scrollable menu items
                 Expanded(
                   child: SingleChildScrollView(
