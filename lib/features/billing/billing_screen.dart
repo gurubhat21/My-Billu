@@ -1135,6 +1135,7 @@ class _BillingScreenState extends State<BillingScreen> {
         // Offer to print invoice with paper size selection
         final settings = await appState.getAllSettings();
         String selectedSize = settings['pdf_paper_size'] ?? 'a4';
+        String selectedTemplate = settings['pdf_template'] ?? 'modern';
 
         if (!mounted) return;
         final action = await showDialog<String>(context: context, builder: (ctx) => StatefulBuilder(
@@ -1165,6 +1166,41 @@ class _BillingScreenState extends State<BillingScreen> {
                     setDialogState(() => selectedSize = v);
                     await appState.saveSetting('pdf_paper_size', v);
                   }),
+                ]),
+              ),
+              const SizedBox(height: 8),
+              // Template selector
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10)),
+                child: Row(children: [
+                  const Icon(Icons.style, size: 16, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  const Text('Template: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  ...[('Modern', 'modern'), ('Classic', 'classic'), ('Minimal', 'minimal'), ('GST', 'gstInvoice'), ('Simple', 'simple')].map((t) => Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: InkWell(
+                      onTap: () async {
+                        setDialogState(() => selectedTemplate = t.$2);
+                        await appState.saveSetting('pdf_template', t.$2);
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: selectedTemplate == t.$2 ? AppColors.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: selectedTemplate == t.$2 ? AppColors.primary : Colors.grey.withValues(alpha: 0.4)),
+                        ),
+                        child: Text(t.$1, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                          color: selectedTemplate == t.$2 ? Colors.white : Colors.grey)),
+                      ),
+                    ),
+                  )),
                 ]),
               ),
             ]),
@@ -1202,7 +1238,7 @@ class _BillingScreenState extends State<BillingScreen> {
 
         if (action != null && action != 'skip' && mounted) {
           final s = await appState.getAllSettings();
-          final template = _parseTemplate(s['pdf_template']);
+          final template = _parseTemplate(selectedTemplate);
           final paperSize = selectedSize == 'a5' ? PaperSize.a5 : PaperSize.a4;
           final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
           final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
