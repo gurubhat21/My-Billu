@@ -99,18 +99,27 @@ class InvoiceGenerator {
         final docTitle = documentTitle;
         final tyMsg = thankYouMessage;
         final tc = termsConditions;
+        pw.Widget templateWidget;
         switch (template) {
           case InvoiceTemplate.modern:
-            return _buildModernTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
+            templateWidget = _buildModernTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
           case InvoiceTemplate.classic:
-            return _buildClassicTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
+            templateWidget = _buildClassicTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
           case InvoiceTemplate.minimal:
-            return _buildMinimalTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
+            templateWidget = _buildMinimalTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
           case InvoiceTemplate.gstInvoice:
-            return _buildGstInvoiceTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
+            templateWidget = _buildGstInvoiceTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
           case InvoiceTemplate.simple:
-            return _buildSimpleTemplate(bill, businessName, businessAddress, businessPhone, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
+            templateWidget = _buildSimpleTemplate(bill, businessName, businessAddress, businessPhone, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
         }
+        // Wrap in outer border so all content stays inside
+        return pw.Container(
+          padding: pw.EdgeInsets.all(isA5 ? 10 : 14),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey600, width: 1.5),
+          ),
+          child: templateWidget,
+        );
       },
     ));
     return pdf.save();
