@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:printing/printing.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
@@ -1221,6 +1223,11 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           OutlinedButton.icon(
+            onPressed: () => Navigator.pop(ctx, 'preview'),
+            icon: const Icon(Icons.visibility, size: 18),
+            label: const Text('Preview'),
+          ),
+          OutlinedButton.icon(
             onPressed: () => Navigator.pop(ctx, 'save'),
             icon: const Icon(Icons.save, size: 18),
             label: const Text('Save PDF'),
@@ -1256,7 +1263,26 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
     // Use address from settings if available, but override name/phone/gstin
     final businessAddress = _currentCompanyAddress;
 
-    if (action == 'print') {
+    if (action == 'preview') {
+      if (!context.mounted) return;
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => _FakeQuotePreviewPage(
+          bill: bill,
+          businessName: businessName,
+          businessAddress: businessAddress,
+          businessPhone: businessPhone,
+          businessGstin: businessGstin,
+          businessBankName: s['businessBankName'] ?? '',
+          businessBankAccount: s['businessBankAccount'] ?? '',
+          businessBankIfsc: s['businessBankIfsc'] ?? '',
+          businessUpiId: s['businessUpiId'] ?? '',
+          template: template, paperSize: paperSize,
+          documentTitle: 'QUOTATION',
+          thankYouMessage: s['pdf_thank_you_message'],
+          termsConditions: s['pdf_terms_conditions'],
+        ),
+      ));
+    } else if (action == 'print') {
       await InvoiceGenerator.generateAndPrint(bill,
         businessName: businessName,
         businessAddress: businessAddress,
@@ -1357,5 +1383,151 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
       case 'simple': return InvoiceTemplate.simple;
       default: return InvoiceTemplate.modern;
     }
+  }
+}
+
+// ========== FAKE QUOTE PREVIEW PAGE ==========
+
+class _FakeQuotePreviewPage extends StatefulWidget {
+  final Bill bill;
+  final String businessName;
+  final String businessAddress;
+  final String businessPhone;
+  final String businessGstin;
+  final String businessBankName;
+  final String businessBankAccount;
+  final String businessBankIfsc;
+  final String businessUpiId;
+  final InvoiceTemplate template;
+  final PaperSize paperSize;
+  final String? documentTitle;
+  final String? thankYouMessage;
+  final String? termsConditions;
+
+  const _FakeQuotePreviewPage({
+    required this.bill,
+    required this.businessName,
+    required this.businessAddress,
+    required this.businessPhone,
+    required this.businessGstin,
+    required this.businessBankName,
+    required this.businessBankAccount,
+    required this.businessBankIfsc,
+    this.businessUpiId = '',
+    required this.template,
+    required this.paperSize,
+    this.documentTitle,
+    this.thankYouMessage,
+    this.termsConditions,
+  });
+
+  @override
+  State<_FakeQuotePreviewPage> createState() => _FakeQuotePreviewPageState();
+}
+
+class _FakeQuotePreviewPageState extends State<_FakeQuotePreviewPage> {
+  Uint8List? _pdfBytes;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _generatePdf();
+  }
+
+  Future<void> _generatePdf() async {
+    final bytes = await InvoiceGenerator.generatePdfBytes(
+      widget.bill,
+      businessName: widget.businessName,
+      businessAddress: widget.businessAddress,
+      businessPhone: widget.businessPhone,
+      businessGstin: widget.businessGstin,
+      businessBankName: widget.businessBankName,
+      businessBankAccount: widget.businessBankAccount,
+      businessBankIfsc: widget.businessBankIfsc,
+      businessUpiId: widget.businessUpiId,
+      logoBytes: null, sealBytes: null,
+      template: widget.template,
+      paperSize: widget.paperSize,
+      documentTitle: widget.documentTitle,
+      thankYouMessage: widget.thankYouMessage,
+      termsConditions: widget.termsConditions,
+    );
+    if (mounted) setState(() { _pdfBytes = bytes; _loading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.documentTitle ?? 'Quotation Preview'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: 'Share',
+            onPressed: _pdfBytes == null ? null : () async {
+              try {
+                await InvoiceGenerator.shareInvoice(
+                  widget.bill,
+                  businessName: widget.businessName,
+                  businessAddress: widget.businessAddress,
+                  businessPhone: widget.businessPhone,
+                  businessGstin: widget.businessGstin,
+                  businessBankName: widget.businessBankName,
+                  businessBankAccount: widget.businessBankAccount,
+                  businessBankIfsc: widget.businessBankIfsc,
+                  businessUpiId: widget.businessUpiId,
+                  logoBytes: null, sealBytes: null,
+                  template: widget.template,
+                  paperSize: widget.paperSize,
+                  documentTitle: widget.documentTitle,
+                  thankYouMessage: widget.thankYouMessage,
+                  termsConditions: widget.termsConditions,
+                );
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Share error: $e'), backgroundColor: AppColors.error));
+                }
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: _pdfBytes == null ? null : () async {
+                await Printing.layoutPdf(onLayout: (_) async => _pdfBytes!);
+              },
+              icon: const Icon(Icons.print, size: 18),
+              label: const Text('Print'),
+            ),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generating preview...', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              ]))
+          : _pdfBytes != null
+              ? PdfPreview(
+                  build: (_) async => _pdfBytes!,
+                  allowSharing: true,
+                  allowPrinting: true,
+                  canChangePageFormat: false,
+                  canChangeOrientation: false,
+                  canDebug: false,
+                  pdfFileName: '${widget.documentTitle ?? "Quotation"}_${widget.bill.billNumber}.pdf',
+                )
+              : const Center(child: Text('Error generating preview')),
+    );
   }
 }
