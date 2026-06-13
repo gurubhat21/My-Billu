@@ -97,8 +97,8 @@ class InvoiceGenerator {
       margin: margin,
       build: (context) {
         final docTitle = documentTitle;
-        final tyMsg = thankYouMessage;
-        final tc = termsConditions;
+        final tyMsg = (thankYouMessage != null && thankYouMessage.isNotEmpty) ? thankYouMessage : null;
+        final tc = (termsConditions != null && termsConditions.isNotEmpty) ? termsConditions : null;
         pw.Widget templateWidget;
         switch (template) {
           case InvoiceTemplate.modern:
@@ -252,13 +252,17 @@ class InvoiceGenerator {
     Uint8List? sealBytes,
     InvoiceTemplate template = InvoiceTemplate.modern,
     PaperSize paperSize = PaperSize.a4,
+    String? documentTitle,
+    String? thankYouMessage,
+    String? termsConditions,
   }) async {
     final bytes = await generatePdfBytes(bill,
       businessName: businessName, businessAddress: businessAddress,
       businessPhone: businessPhone, businessGstin: businessGstin,
       businessBankName: businessBankName, businessBankAccount: businessBankAccount,
       businessBankIfsc: businessBankIfsc, businessUpiId: businessUpiId, logoBytes: logoBytes, sealBytes: sealBytes,
-      template: template, paperSize: paperSize);
+      template: template, paperSize: paperSize, documentTitle: documentTitle,
+      thankYouMessage: thankYouMessage, termsConditions: termsConditions);
 
     final itemsList = bill.items.map((i) =>
       '  ${i.itemName} x${i.quantity} - ${_cur(i.total)}').join('\n');

@@ -3044,11 +3044,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             prefixIcon: const Icon(Icons.edit_note, size: 20),
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
-          onChanged: (v) async {
-            final appState = context.read<AppState>();
-            await appState.saveSetting('pdf_thank_you_message', v.trim());
-          },
         ),
+        const SizedBox(height: 8),
+        Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(
+          onPressed: () async {
+            final appState = context.read<AppState>();
+            await appState.saveSetting('pdf_thank_you_message', _thankYouMsgCtrl.text.trim());
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: const Row(children: [Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10), Text('Thank you message saved!')]),
+                backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                duration: const Duration(seconds: 2)));
+            }
+          },
+          icon: const Icon(Icons.save, size: 16),
+          label: const Text('Save'),
+          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+        )),
         const Divider(height: 24),
         // Terms & Conditions
         Row(children: [
@@ -3070,11 +3083,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             prefixIcon: const Padding(padding: EdgeInsets.only(bottom: 36), child: Icon(Icons.article_outlined, size: 20)),
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
-          onChanged: (v) async {
-            final appState = context.read<AppState>();
-            await appState.saveSetting('pdf_terms_conditions', v.trim());
-          },
         ),
+        const SizedBox(height: 8),
+        Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(
+          onPressed: () async {
+            final appState = context.read<AppState>();
+            await appState.saveSetting('pdf_terms_conditions', _termsConditionsCtrl.text.trim());
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: const Row(children: [Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 10), Text('Terms & conditions saved!')]),
+                backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                duration: const Duration(seconds: 2)));
+            }
+          },
+          icon: const Icon(Icons.save, size: 16),
+          label: const Text('Save'),
+          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+        )),
         const Divider(height: 24),
         // PDF Save Path
         Row(children: [
