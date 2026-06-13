@@ -541,7 +541,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           if (sealBytes != null)
             pw.Padding(
               padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
-              child: pw.Image(pw.MemoryImage(sealBytes), width: 100 * fs, height: 50 * fs, fit: pw.BoxFit.contain),
+              child: pw.Image(pw.MemoryImage(sealBytes), width: 150 * fs, height: 75 * fs, fit: pw.BoxFit.contain),
             )
           else
             pw.SizedBox(height: 24 * fs),
@@ -631,7 +631,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           if (sealBytes != null)
             pw.Padding(
               padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
-              child: pw.Image(pw.MemoryImage(sealBytes), width: 100 * fs, height: 50 * fs, fit: pw.BoxFit.contain),
+              child: pw.Image(pw.MemoryImage(sealBytes), width: 150 * fs, height: 75 * fs, fit: pw.BoxFit.contain),
             )
           else
             pw.SizedBox(height: 24 * fs),
@@ -731,7 +731,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           if (sealBytes != null)
             pw.Padding(
               padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
-              child: pw.Image(pw.MemoryImage(sealBytes), width: 100 * fs, height: 50 * fs, fit: pw.BoxFit.contain),
+              child: pw.Image(pw.MemoryImage(sealBytes), width: 150 * fs, height: 75 * fs, fit: pw.BoxFit.contain),
             )
           else
             pw.SizedBox(height: 24 * fs),
@@ -1073,7 +1073,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           if (sealBytes != null)
             pw.Padding(
               padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
-              child: pw.Image(pw.MemoryImage(sealBytes), width: 100 * fs, height: 50 * fs, fit: pw.BoxFit.contain),
+              child: pw.Image(pw.MemoryImage(sealBytes), width: 150 * fs, height: 75 * fs, fit: pw.BoxFit.contain),
             )
           else
             pw.SizedBox(height: 24 * fs),
@@ -1333,7 +1333,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
               if (sealBytes != null)
                 pw.Padding(
                   padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
-                  child: pw.Image(pw.MemoryImage(sealBytes), width: 100 * fs, height: 50 * fs, fit: pw.BoxFit.contain),
+                  child: pw.Image(pw.MemoryImage(sealBytes), width: 150 * fs, height: 75 * fs, fit: pw.BoxFit.contain),
                 )
               else
                 pw.SizedBox(height: 24 * fs),
