@@ -113,14 +113,21 @@ class InvoiceGenerator {
             templateWidget = _buildSimpleTemplate(bill, businessName, businessAddress, businessPhone, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
         }
         final fs = isA5 ? 0.8 : 1.0;
-        // Wrap in outer border with footer text outside
+        final thankYouText = tyMsg ?? 'Thank you..... visit again.';
+        // Wrap in outer border with thank you inside and footer text outside
         return pw.Column(children: [
           pw.Expanded(child: pw.Container(
             padding: pw.EdgeInsets.all(isA5 ? 10 : 14),
             decoration: pw.BoxDecoration(
               border: pw.Border.all(color: PdfColors.grey600, width: 1.5),
             ),
-            child: templateWidget,
+            child: pw.Column(children: [
+              pw.Expanded(child: templateWidget),
+              pw.Divider(color: PdfColors.grey300),
+              pw.SizedBox(height: 4 * fs),
+              pw.Center(child: pw.Text(thankYouText, style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo))),
+              pw.SizedBox(height: 2 * fs),
+            ]),
           )),
           pw.SizedBox(height: 4 * fs),
           pw.Center(child: pw.Text('This is a computer generated invoice',
@@ -553,10 +560,6 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
         ]),
       ]),
-      pw.SizedBox(height: 14 * fs),
-      pw.Divider(color: PdfColors.grey300),
-      pw.SizedBox(height: 6 * fs),
-      pw.Center(child: pw.Text(thankYouMsg ?? 'Thank you..... visit again.', style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo))),
     ]);
   }
 
@@ -643,8 +646,6 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
         ]),
       ]),
-      pw.SizedBox(height: 8 * fs),
-      pw.Center(child: pw.Text(thankYouMsg ?? 'Thank you..... visit again.', style: pw.TextStyle(fontSize: 10 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700))),
     ]);
   }
 
@@ -743,10 +744,6 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
         ]),
       ]),
-      pw.Spacer(),
-      pw.Container(height: 1, color: PdfColors.grey200),
-      pw.SizedBox(height: 6),
-      pw.Center(child: pw.Text(thankYouMsg ?? 'Thank you..... visit again.', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.blue400))),
     ]);
   }
 
@@ -1085,10 +1082,6 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
         ]),
       ]),
-      pw.SizedBox(height: 14 * fs),
-      pw.Divider(color: PdfColors.grey300),
-      pw.SizedBox(height: 6 * fs),
-      pw.Center(child: pw.Text(thankYouMsg ?? 'Thank you..... visit again.', style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.teal700))),
     ]);
   }
 
@@ -1353,14 +1346,6 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           child: _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
         ),
 
-        // ---- Footer ----
-        pw.Container(
-          width: double.infinity,
-          padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
-          decoration: pw.BoxDecoration(border: pw.Border(top: bdr)),
-          child: pw.Center(child: pw.Text(thankYouMsg ?? 'Thank you..... visit again.',
-            style: pw.TextStyle(fontSize: 9 * fs, fontStyle: pw.FontStyle.italic, color: PdfColors.grey600))),
-        ),
       ]),
     );
   }
