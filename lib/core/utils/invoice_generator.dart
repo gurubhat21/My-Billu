@@ -1115,28 +1115,30 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
         // ---- Header: Company Name, Address, GSTIN, Phone, TAX INVOICE ----
         pw.Container(
-          padding: pw.EdgeInsets.all(8 * fs),
+          padding: pw.EdgeInsets.all(6 * fs),
           decoration: pw.BoxDecoration(border: pw.Border(bottom: bdr)),
           child: pw.Column(children: [
-            if (logo != null) ...[pw.Center(child: pw.Container(
-              width: isA5 ? 50 : 70, height: isA5 ? 50 : 70,
-              child: pw.Image(logo, fit: pw.BoxFit.contain),
-            )), pw.SizedBox(height: 4)],
-            pw.Center(child: pw.Text(bName.toUpperCase(),
-              style: pw.TextStyle(fontSize: 16 * fs, fontWeight: pw.FontWeight.bold))),
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.center, children: [
+              if (logo != null) ...[pw.Container(
+                width: isA5 ? 35 : 40, height: isA5 ? 35 : 40,
+                child: pw.Image(logo, fit: pw.BoxFit.contain),
+              ), pw.SizedBox(width: 8 * fs)],
+              pw.Text(bName.toUpperCase(),
+                style: pw.TextStyle(fontSize: 14 * fs, fontWeight: pw.FontWeight.bold)),
+            ]),
             if (bAddr.isNotEmpty)
-              pw.Center(child: pw.Text(bAddr, style: pw.TextStyle(fontSize: 9 * fs), textAlign: pw.TextAlign.center)),
+              pw.Center(child: pw.Text(bAddr, style: pw.TextStyle(fontSize: 8 * fs), textAlign: pw.TextAlign.center)),
             pw.SizedBox(height: 2 * fs),
             pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-              if (bGstin.isNotEmpty) pw.Text('GSTIN: $bGstin', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold)),
-              if (bPhone.isNotEmpty) pw.Text('Ph: $bPhone', style: pw.TextStyle(fontSize: 9 * fs)),
+              if (bGstin.isNotEmpty) pw.Text('GSTIN: $bGstin', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold)),
+              if (bPhone.isNotEmpty) pw.Text('Ph: $bPhone', style: pw.TextStyle(fontSize: 8 * fs)),
             ]),
             pw.Container(
-              margin: pw.EdgeInsets.only(top: 4 * fs),
-              padding: pw.EdgeInsets.symmetric(vertical: 2 * fs),
+              margin: pw.EdgeInsets.only(top: 3 * fs),
+              padding: pw.EdgeInsets.symmetric(vertical: 1 * fs),
               decoration: const pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5), bottom: pw.BorderSide(width: 0.5))),
               child: pw.Center(child: pw.Text(docTitle ?? 'TAX INVOICE',
-                style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold, letterSpacing: 1))),
+                style: pw.TextStyle(fontSize: 10 * fs, fontWeight: pw.FontWeight.bold, letterSpacing: 1))),
             ),
           ]),
         ),
