@@ -247,10 +247,14 @@ class _QuotationScreenState extends State<QuotationScreen> {
     if (existing != null) {
       for (final bi in existing.items) {
         final item = appState.items.where((it) => it.id == bi.itemId).firstOrNull;
+        // When GST inclusive, convert stored base price to inclusive for display
+        final displayPrice = gstMode
+            ? bi.unitPrice * (1 + bi.taxRate / 100)
+            : bi.unitPrice;
         cart.add(_QuotCartItem(
-          item: item ?? Item(id: bi.itemId, name: bi.itemName, price: bi.unitPrice, taxRate: bi.taxRate, unit: bi.unit),
+          item: item ?? Item(id: bi.itemId, name: bi.itemName, price: displayPrice, taxRate: bi.taxRate, unit: bi.unit),
           quantity: bi.quantity,
-          price: bi.unitPrice,
+          price: displayPrice,
           description: bi.description ?? '',
           serialNumbers: bi.serialNumber != null ? [...bi.serialNumber!.split(', '), ''] : [''],
         ));
@@ -400,6 +404,16 @@ class _QuotationScreenState extends State<QuotationScreen> {
                     value: gstInclusive,
                     activeColor: Colors.greenAccent,
                     onChanged: (v) async {
+                      // Convert prices between inclusive/exclusive
+                      for (final c in cart) {
+                        if (v) {
+                          // Switching to inclusive: base → inclusive
+                          c.price = c.price * (1 + c.item.taxRate / 100);
+                        } else {
+                          // Switching to exclusive: inclusive → base
+                          c.price = c.price / (1 + c.item.taxRate / 100);
+                        }
+                      }
                       setDialogState(() => gstInclusive = v);
                       await appState.saveSetting('billing_gst_inclusive', v.toString());
                     },
