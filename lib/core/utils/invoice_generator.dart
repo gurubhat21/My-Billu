@@ -502,15 +502,15 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       // Logo centered at top
       if (logo != null) ...[
         pw.Center(child: pw.Container(
-          width: isA5 ? 50 : 70, height: isA5 ? 50 : 70,
+          width: isA5 ? 35 : 40, height: isA5 ? 35 : 40,
           child: pw.Image(logo, fit: pw.BoxFit.contain),
         )),
-        pw.SizedBox(height: 8 * fs),
+        pw.SizedBox(height: 4 * fs),
       ],
       // Header with colored badge
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          pw.Text(bName, style: pw.TextStyle(fontSize: 24 * fs, fontWeight: pw.FontWeight.bold)),
+          pw.Text(bName, style: pw.TextStyle(fontSize: 18 * fs, fontWeight: pw.FontWeight.bold)),
           if (bAddr.isNotEmpty) pw.Text(bAddr, style: pw.TextStyle(fontSize: 10 * fs, color: PdfColors.grey700)),
           if (bPhone.isNotEmpty) pw.Text('Phone: $bPhone', style: pw.TextStyle(fontSize: 10 * fs, color: PdfColors.grey700)),
           if (bGstin.isNotEmpty) pw.Text('GSTIN: $bGstin', style: pw.TextStyle(fontSize: 10 * fs, fontWeight: pw.FontWeight.bold)),
@@ -525,15 +525,15 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           pw.Text('Date: ${_fmtDate(bill.createdAt)}', style: pw.TextStyle(fontSize: 10 * fs, color: PdfColors.grey700)),
         ]),
       ]),
-      pw.SizedBox(height: 16 * fs),
+      pw.SizedBox(height: 8 * fs),
       pw.Divider(color: PdfColors.indigo200),
-      pw.SizedBox(height: 10 * fs),
+      pw.SizedBox(height: 6 * fs),
       // Customer
       pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
         pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
           pw.Text('Bill To:', style: pw.TextStyle(fontSize: 10 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
           pw.SizedBox(height: 4),
-          pw.Text(bill.customerName ?? 'Walk-in Customer', style: pw.TextStyle(fontSize: 13 * fs, fontWeight: pw.FontWeight.bold)),
+          pw.Text(bill.customerName ?? 'Walk-in Customer', style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold)),
           if (bill.customerPhone != null && bill.customerPhone!.isNotEmpty)
             pw.Text('Ph: ${bill.customerPhone}', style: pw.TextStyle(fontSize: 9 * fs, color: PdfColors.grey600)),
         ])),
@@ -544,19 +544,19 @@ ${thankYouMessage ?? 'Thank you for your business!'}
               color: bill.status == BillStatus.paid ? PdfColors.green700 : PdfColors.red700)),
         ]),
       ]),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Items table
       _buildItemsTable(bill, PdfColors.indigo, PdfColors.white, fs),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Totals
       _buildTotalsBox(bill, PdfColors.grey100, PdfColors.grey300, PdfColors.indigo, fs, isQuotation: isQuotation),
       pw.SizedBox(height: 6 * fs),
       pw.Text('Amount in words: ${_amountToWords(bill.totalAmount)} Only',
         style: pw.TextStyle(fontSize: 8.5 * fs, fontStyle: pw.FontStyle.italic, color: PdfColors.grey700)),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Bank Details
       _bankDetailsBlock(fs, bk, accent: PdfColors.indigo),
-      pw.SizedBox(height: 8 * fs),
+      pw.SizedBox(height: 4 * fs),
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
 
@@ -571,20 +571,20 @@ ${thankYouMessage ?? 'Thank you for your business!'}
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
       // Outer border effect header
       pw.Container(
-        padding: pw.EdgeInsets.all(16 * fs),
+        padding: pw.EdgeInsets.all(8 * fs),
         decoration: pw.BoxDecoration(
           border: pw.Border.all(color: PdfColors.grey800, width: 2),
           borderRadius: pw.BorderRadius.circular(4)),
         child: pw.Column(children: [
           if (logo != null) ...[
             pw.Center(child: pw.Container(
-              width: isA5 ? 50 : 70, height: isA5 ? 50 : 70,
+              width: isA5 ? 35 : 40, height: isA5 ? 35 : 40,
               child: pw.Image(logo, fit: pw.BoxFit.contain),
             )),
-            pw.SizedBox(height: 6),
+            pw.SizedBox(height: 2),
           ],
           pw.Center(child: pw.Text(bName.toUpperCase(),
-            style: pw.TextStyle(fontSize: 22 * fs, fontWeight: pw.FontWeight.bold, letterSpacing: 2))),
+            style: pw.TextStyle(fontSize: 16 * fs, fontWeight: pw.FontWeight.bold, letterSpacing: 2))),
           if (bAddr.isNotEmpty) pw.Center(child: pw.Text(bAddr, style: pw.TextStyle(fontSize: 9 * fs, color: PdfColors.grey600))),
           pw.SizedBox(height: 4),
           pw.Row(mainAxisAlignment: pw.MainAxisAlignment.center, children: [
@@ -593,10 +593,10 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           ]),
           pw.Divider(color: PdfColors.grey800, thickness: 1.5),
           pw.SizedBox(height: 4),
-          pw.Center(child: pw.Text(docTitle ?? 'TAX INVOICE', style: pw.TextStyle(fontSize: 16 * fs, fontWeight: pw.FontWeight.bold, letterSpacing: 3))),
+          pw.Center(child: pw.Text(docTitle ?? 'TAX INVOICE', style: pw.TextStyle(fontSize: 12 * fs, fontWeight: pw.FontWeight.bold, letterSpacing: 3))),
         ]),
       ),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Invoice details row
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -610,23 +610,23 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           if (!isQuotation) pw.Text('Payment: ${bill.paymentMethod.name.toUpperCase()} | ${bill.status.name.toUpperCase()}', style: pw.TextStyle(fontSize: 10 * fs)),
         ]),
       ]),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Items
       _buildItemsTable(bill, PdfColors.grey800, PdfColors.white, fs),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Totals
       _buildTotalsBox(bill, PdfColors.amber50, PdfColors.amber200, PdfColors.grey800, fs, isQuotation: isQuotation),
       pw.SizedBox(height: 6 * fs),
       pw.Text('Amount in words: ${_amountToWords(bill.totalAmount)} Only',
         style: pw.TextStyle(fontSize: 8.5 * fs, fontStyle: pw.FontStyle.italic, color: PdfColors.grey700)),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Bank Details
       _bankDetailsBlock(fs, bk, accent: PdfColors.grey800),
-      pw.SizedBox(height: 8 * fs),
+      pw.SizedBox(height: 4 * fs),
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
 
-      pw.SizedBox(height: 18 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Signature line
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -646,15 +646,15 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       // Logo at top
       if (logo != null) ...[
         pw.Center(child: pw.Container(
-          width: isA5 ? 44 : 60, height: isA5 ? 44 : 60,
+          width: isA5 ? 35 : 40, height: isA5 ? 35 : 40,
           child: pw.Image(logo, fit: pw.BoxFit.contain),
         )),
-        pw.SizedBox(height: 8 * fs),
+        pw.SizedBox(height: 4 * fs),
       ],
       // Simple clean header
       pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          pw.Text(bName, style: pw.TextStyle(fontSize: 20 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey800)),
+          pw.Text(bName, style: pw.TextStyle(fontSize: 16 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey800)),
           if (bAddr.isNotEmpty) pw.Text(bAddr, style: pw.TextStyle(fontSize: 9 * fs, color: PdfColors.grey500)),
         ]),
       ]),
@@ -665,11 +665,11 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       ]),
       pw.SizedBox(height: 6 * fs),
       pw.Container(height: 3, color: PdfColors.blue400),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Invoice meta + customer in 2 columns
       pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
         pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          pw.Text(docTitle ?? 'INVOICE', style: pw.TextStyle(fontSize: 18 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.blue400, letterSpacing: 2)),
+          pw.Text(docTitle ?? 'INVOICE', style: pw.TextStyle(fontSize: 14 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.blue400, letterSpacing: 2)),
           pw.SizedBox(height: 6),
           _metaLine('Number', bill.billNumber, fs),
           _metaLine('Date', _fmtDate(bill.createdAt), fs),
@@ -685,10 +685,10 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           if (!isQuotation) pw.Text('Payment: ${bill.paymentMethod.name.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, color: PdfColors.grey500)),
         ])),
       ]),
-      pw.SizedBox(height: 16 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Simple items table
       _buildItemsTable(bill, PdfColors.blue400, PdfColors.white, fs),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Right-aligned totals
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
         pw.SizedBox(
@@ -706,13 +706,13 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           ]),
         ),
       ]),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       pw.Text('Amount in words: ${_amountToWords(bill.totalAmount)} Only',
         style: pw.TextStyle(fontSize: 8.5 * fs, fontStyle: pw.FontStyle.italic, color: PdfColors.grey700)),
-      pw.SizedBox(height: 10 * fs),
+      pw.SizedBox(height: 6 * fs),
       // Bank Details
       _bankDetailsBlock(fs, bk, accent: PdfColors.blue400),
-      pw.SizedBox(height: 8 * fs),
+      pw.SizedBox(height: 4 * fs),
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
 
@@ -949,15 +949,15 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       // Logo
       if (logo != null) ...[
         pw.Center(child: pw.Container(
-          width: isA5 ? 50 : 70, height: isA5 ? 50 : 70,
+          width: isA5 ? 35 : 40, height: isA5 ? 35 : 40,
           child: pw.Image(logo, fit: pw.BoxFit.contain),
         )),
-        pw.SizedBox(height: 8 * fs),
+        pw.SizedBox(height: 4 * fs),
       ],
       // Header
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          pw.Text(bName, style: pw.TextStyle(fontSize: 22 * fs, fontWeight: pw.FontWeight.bold)),
+          pw.Text(bName, style: pw.TextStyle(fontSize: 18 * fs, fontWeight: pw.FontWeight.bold)),
           if (bAddr.isNotEmpty) pw.Text(bAddr, style: pw.TextStyle(fontSize: 10 * fs, color: PdfColors.grey700)),
           if (bPhone.isNotEmpty) pw.Text('Phone: $bPhone', style: pw.TextStyle(fontSize: 10 * fs, color: PdfColors.grey700)),
         ]),
@@ -971,15 +971,15 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           pw.Text('Date: ${_fmtDate(bill.createdAt)}', style: pw.TextStyle(fontSize: 10 * fs, color: PdfColors.grey700)),
         ]),
       ]),
-      pw.SizedBox(height: 16 * fs),
+      pw.SizedBox(height: 8 * fs),
       pw.Divider(color: PdfColors.teal200),
-      pw.SizedBox(height: 10 * fs),
+      pw.SizedBox(height: 6 * fs),
       // Customer
       pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
         pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
           pw.Text('Bill To:', style: pw.TextStyle(fontSize: 10 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
           pw.SizedBox(height: 4),
-          pw.Text(bill.customerName ?? 'Walk-in Customer', style: pw.TextStyle(fontSize: 13 * fs, fontWeight: pw.FontWeight.bold)),
+          pw.Text(bill.customerName ?? 'Walk-in Customer', style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold)),
           if (bill.customerPhone != null && bill.customerPhone!.isNotEmpty)
             pw.Text('Ph: ${bill.customerPhone}', style: pw.TextStyle(fontSize: 9 * fs, color: PdfColors.grey600)),
         ])),
@@ -990,10 +990,10 @@ ${thankYouMessage ?? 'Thank you for your business!'}
               color: bill.status == BillStatus.paid ? PdfColors.green700 : PdfColors.red700)),
         ]),
       ]),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Simple items table (no GST columns)
       _buildSimpleItemsTable(bill, fs),
-      pw.SizedBox(height: 14 * fs),
+      pw.SizedBox(height: 8 * fs),
       // Totals (no CGST/SGST)
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
         pw.Container(
