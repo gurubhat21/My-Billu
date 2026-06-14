@@ -1012,6 +1012,7 @@ class _BillingScreenState extends State<BillingScreen> {
         discount: _discount,
         totalTax: _totalTax, totalAmount: _totalAmount,
         createdAt: _billDate,
+        gstInclusive: _gstInclusive,
         paidAmount: _isPartial ? _totalAmount : (_paymentMethod == PaymentMethod.credit ? _creditPaidAmount : _totalAmount),
         paymentMethod: _isPartial ? _partialMethod1 : (_paymentMethod == PaymentMethod.credit && _creditPaidAmount > 0 ? _creditPaymentMethod : _paymentMethod),
         status: _isPartial ? BillStatus.paid : (_paymentMethod == PaymentMethod.credit ? (_creditPaidAmount >= _totalAmount ? BillStatus.paid : BillStatus.unpaid) : BillStatus.paid));

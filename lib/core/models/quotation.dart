@@ -19,6 +19,7 @@ class Quotation {
   final DateTime createdAt;
   final DateTime updatedAt;
   DateTime? validUntil;
+  final bool gstInclusive;
 
   Quotation({
     String? id,
@@ -36,6 +37,7 @@ class Quotation {
     DateTime? createdAt,
     DateTime? updatedAt,
     this.validUntil,
+    this.gstInclusive = false,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
@@ -60,6 +62,7 @@ class Quotation {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'validUntil': validUntil?.toIso8601String(),
+      'gstInclusive': gstInclusive,
     };
   }
 
@@ -85,6 +88,7 @@ class Quotation {
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : (map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null),
       validUntil: map['validUntil'] != null ? DateTime.parse(map['validUntil'] as String) : null,
+      gstInclusive: map['gstInclusive'] as bool? ?? false,
     );
   }
 }

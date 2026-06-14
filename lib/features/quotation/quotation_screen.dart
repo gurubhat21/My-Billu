@@ -266,7 +266,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
     final notesCtrl = TextEditingController(text: existing?.notes ?? '');
     final discountCtrl = TextEditingController(text: (existing?.discount ?? 0).toString());
     String? selectedCustomerId = existing?.customerId;
-    bool gstInclusive = gstMode;
+    bool gstInclusive = isEdit ? existing!.gstInclusive : gstMode;
     Customer? selectedCustomer;
 
     if (selectedCustomerId != null) {
@@ -457,6 +457,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
                 totalAmount: totalAmount,
                 status: existing?.status ?? QuotationStatus.draft,
                 notes: notesCtrl.text.isEmpty ? null : notesCtrl.text,
+                gstInclusive: gstInclusive,
                 createdAt: existing?.createdAt ?? _quoteDate,
               );
               if (isEdit) {

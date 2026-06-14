@@ -77,6 +77,7 @@ class Bill {
   String? notes;
   DateTime createdAt;
   final DateTime updatedAt;
+  final bool gstInclusive;
 
   Bill({
     String? id,
@@ -95,6 +96,7 @@ class Bill {
     this.notes,
     DateTime? createdAt,
     DateTime? updatedAt,
+    this.gstInclusive = false,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
@@ -119,6 +121,7 @@ class Bill {
       'paymentMethod': paymentMethod.name,
       'status': status.name,
       'notes': notes,
+      'gstInclusive': gstInclusive,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -155,6 +158,7 @@ class Bill {
         orElse: () => BillStatus.paid,
       ),
       notes: map['notes'] as String?,
+      gstInclusive: map['gstInclusive'] as bool? ?? false,
       createdAt: map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null,
       updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : (map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null),
     );

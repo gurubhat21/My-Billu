@@ -359,7 +359,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
     final notesCtrl = TextEditingController(text: existingBill.notes ?? '');
     final discountCtrl = TextEditingController(text: existingBill.discount.toString());
     String? selectedCustomerId = existingBill.customerId;
-    bool gstInclusive = gstMode;
+    bool gstInclusive = existingBill.gstInclusive;
     Customer? selectedCustomer;
     if (selectedCustomerId != null) {
       selectedCustomer = appState.customers.where((c) => c.id == selectedCustomerId).firstOrNull;
@@ -524,6 +524,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
                 paymentMethod: PaymentMethod.cash,
                 status: BillStatus.unpaid,
                 notes: notesCtrl.text.isEmpty ? null : notesCtrl.text,
+                gstInclusive: gstInclusive,
                 createdAt: record.createdAt,
               );
 
@@ -832,6 +833,7 @@ class _FakeQuoteScreenState extends State<FakeQuoteScreen> {
                 paymentMethod: PaymentMethod.cash,
                 status: BillStatus.unpaid,
                 notes: notesCtrl.text.isEmpty ? null : notesCtrl.text,
+                gstInclusive: gstInclusive,
                 createdAt: _fakeQuoteDate,
               );
 

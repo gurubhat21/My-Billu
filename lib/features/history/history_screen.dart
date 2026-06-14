@@ -659,14 +659,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final discountCtrl = TextEditingController(text: bill.discount.toStringAsFixed(2));
     final paidCtrl = TextEditingController(text: bill.paidAmount.toStringAsFixed(2));
     String status = bill.status.name;
-    bool gstInclusive = false;
-
-    // Load saved GST mode
-    context.read<AppState>().getSetting('billing_gst_inclusive').then((v) {
-      if (v == 'true') {
-        gstInclusive = true;
-      }
-    });
+    bool gstInclusive = bill.gstInclusive;
 
     // Editable copy of items
     final editItems = bill.items.map((i) => <String, dynamic>{
@@ -959,6 +952,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 paymentMethod: bill.paymentMethod,
                 status: BillStatus.values.firstWhere((e) => e.name == finalStatus, orElse: () => bill.status),
                 notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                gstInclusive: gstInclusive,
                 createdAt: bill.createdAt,
               );
               Navigator.pop(ctx);
