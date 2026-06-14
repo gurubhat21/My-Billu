@@ -114,6 +114,7 @@ class InvoiceGenerator {
         }
         final fs = isA5 ? 0.8 : 1.0;
         final thankYouText = tyMsg ?? 'Thank you..... visit again.';
+        final isQuotation = documentTitle != null;
         // Wrap in outer border with thank you inside and footer text outside
         return pw.Column(children: [
           pw.Expanded(child: pw.Container(
@@ -123,6 +124,8 @@ class InvoiceGenerator {
             ),
             child: pw.Column(children: [
               pw.Expanded(child: templateWidget),
+              // UPI QR - always visible (not for quotations)
+              if (upiId.isNotEmpty && !isQuotation) _upiQrBlock(upiId, businessName, bill.totalAmount, bill.billNumber, fs),
               // Signature with Seal - always visible
               pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
                 pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
@@ -559,7 +562,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       pw.SizedBox(height: 8 * fs),
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
-      if (upiId.isNotEmpty && !isQuotation) _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
+
     ]);
   }
 
@@ -625,7 +628,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       pw.SizedBox(height: 8 * fs),
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
-      if (upiId.isNotEmpty && !isQuotation) _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
+
       pw.SizedBox(height: 18 * fs),
       // Signature line
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
@@ -715,7 +718,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       pw.SizedBox(height: 8 * fs),
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
-      if (upiId.isNotEmpty && !isQuotation) _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
+
     ]);
   }
 
@@ -1037,7 +1040,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
       pw.SizedBox(height: 8 * fs),
       pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
       pw.Text(termsText != null && termsText.isNotEmpty ? termsText : 'Goods once sold cannot be taken back.', style: pw.TextStyle(fontSize: 7.5 * fs, color: PdfColors.grey600)),
-      if (upiId.isNotEmpty && !isQuotation) _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
+
     ]);
   }
 
@@ -1289,11 +1292,7 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           ]),
         ),
 
-        // ---- UPI QR ----
-        if (upiId.isNotEmpty && !isQuotation) pw.Padding(
-          padding: pw.EdgeInsets.symmetric(horizontal: 8 * fs),
-          child: _upiQrBlock(upiId, bName, bill.totalAmount, bill.billNumber, fs),
-        ),
+
 
       ]),
     );
