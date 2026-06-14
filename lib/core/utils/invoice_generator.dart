@@ -1089,7 +1089,13 @@ ${thankYouMessage ?? 'Thank you for your business!'}
               pw.Padding(padding: pad, child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: nameChildren)),
-              pw.Padding(padding: pad, child: pw.Text(_cur(item.unitPrice), style: cellStyle)),
+              pw.Padding(padding: pad, child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(_cur(item.unitPrice), style: cellStyle),
+                  if (item.quantity > 1) pw.Text('(${_cur(item.subtotal)})', style: subStyle),
+                ],
+              )),
               pw.Padding(padding: pad, child: pw.Text('${item.quantity} ${item.unit}', style: cellStyle)),
               pw.Padding(padding: pad, child: pw.Text(_cur(item.total),
                 style: pw.TextStyle(fontSize: 8.5 * fs, fontWeight: pw.FontWeight.bold))),
