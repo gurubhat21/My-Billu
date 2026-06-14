@@ -92,9 +92,41 @@ class InvoiceGenerator {
     final logoImage = logoBytes != null ? pw.MemoryImage(logoBytes) : null;
     final sealImage = sealBytes;
 
-    pdf.addPage(pw.Page(
+    pdf.addPage(pw.MultiPage(
       pageFormat: pageFormat,
       margin: margin,
+      footer: (context) {
+        // Only show full footer on the last page
+        if (context.pageNumber < context.pagesCount) return pw.SizedBox();
+        final fs = isA5 ? 0.8 : 1.0;
+        final thankYouText = (thankYouMessage != null && thankYouMessage.isNotEmpty) ? thankYouMessage : 'Thank you..... visit again.';
+        final isQuotation = documentTitle != null;
+        return pw.Column(children: [
+          // UPI QR - always visible (not for quotations)
+          if (upiId.isNotEmpty && !isQuotation) _upiQrBlock(upiId, businessName, bill.totalAmount, bill.billNumber, fs),
+          // Signature with Seal
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
+            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+              pw.Text('FOR ${businessName.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
+              if (sealImage != null)
+                pw.Padding(
+                  padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
+                  child: pw.Image(pw.MemoryImage(sealImage), width: 150 * fs, height: 75 * fs, fit: pw.BoxFit.contain),
+                )
+              else
+                pw.SizedBox(height: 24 * fs),
+              pw.Container(width: 120 * fs, child: pw.Divider(color: PdfColors.grey400)),
+              pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
+            ]),
+          ]),
+          pw.Divider(color: PdfColors.grey300),
+          pw.SizedBox(height: 4 * fs),
+          pw.Center(child: pw.Text(thankYouText, style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo))),
+          pw.SizedBox(height: 4 * fs),
+          pw.Center(child: pw.Text('This is a computer generated invoice',
+            style: pw.TextStyle(fontSize: 7 * fs, color: PdfColors.grey500, fontStyle: pw.FontStyle.italic))),
+        ]);
+      },
       build: (context) {
         final docTitle = documentTitle;
         final tyMsg = (thankYouMessage != null && thankYouMessage.isNotEmpty) ? thankYouMessage : null;
@@ -112,45 +144,7 @@ class InvoiceGenerator {
           case InvoiceTemplate.simple:
             templateWidget = _buildSimpleTemplate(bill, businessName, businessAddress, businessPhone, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
         }
-        final fs = isA5 ? 0.8 : 1.0;
-        final thankYouText = tyMsg ?? 'Thank you..... visit again.';
-        final isQuotation = documentTitle != null;
-        // Wrap in outer border with thank you inside and footer text outside
-        return pw.Column(children: [
-          pw.Expanded(child: pw.Container(
-            padding: pw.EdgeInsets.all(isA5 ? 10 : 14),
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.grey600, width: 1.5),
-            ),
-            child: pw.Column(children: [
-              pw.Expanded(child: templateWidget),
-              // UPI QR - always visible (not for quotations)
-              if (upiId.isNotEmpty && !isQuotation) _upiQrBlock(upiId, businessName, bill.totalAmount, bill.billNumber, fs),
-              // Signature with Seal - always visible
-              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
-                pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                  pw.Text('FOR ${businessName.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
-                  if (sealImage != null)
-                    pw.Padding(
-                      padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
-                      child: pw.Image(pw.MemoryImage(sealImage), width: 150 * fs, height: 75 * fs, fit: pw.BoxFit.contain),
-                    )
-                  else
-                    pw.SizedBox(height: 24 * fs),
-                  pw.Container(width: 120 * fs, child: pw.Divider(color: PdfColors.grey400)),
-                  pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
-                ]),
-              ]),
-              pw.Divider(color: PdfColors.grey300),
-              pw.SizedBox(height: 4 * fs),
-              pw.Center(child: pw.Text(thankYouText, style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo))),
-              pw.SizedBox(height: 2 * fs),
-            ]),
-          )),
-          pw.SizedBox(height: 4 * fs),
-          pw.Center(child: pw.Text('This is a computer generated invoice',
-            style: pw.TextStyle(fontSize: 7 * fs, color: PdfColors.grey500, fontStyle: pw.FontStyle.italic))),
-        ]);
+        return [templateWidget];
       },
     ));
     return pdf.save();
