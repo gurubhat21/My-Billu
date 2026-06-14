@@ -95,14 +95,29 @@ class InvoiceGenerator {
     pdf.addPage(pw.MultiPage(
       pageFormat: pageFormat,
       margin: margin,
-      footer: (context) {
-        // Only show full footer on the last page
-        if (context.pageNumber < context.pagesCount) return pw.SizedBox();
+      build: (context) {
+        final docTitle = documentTitle;
+        final tyMsg = (thankYouMessage != null && thankYouMessage.isNotEmpty) ? thankYouMessage : null;
+        final tc = (termsConditions != null && termsConditions.isNotEmpty) ? termsConditions : null;
         final fs = isA5 ? 0.8 : 1.0;
-        final thankYouText = (thankYouMessage != null && thankYouMessage.isNotEmpty) ? thankYouMessage : 'Thank you..... visit again.';
+        final thankYouText = tyMsg ?? 'Thank you..... visit again.';
         final isQuotation = documentTitle != null;
-        return pw.Column(children: [
-          // UPI QR - always visible (not for quotations)
+        pw.Widget templateWidget;
+        switch (template) {
+          case InvoiceTemplate.modern:
+            templateWidget = _buildModernTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
+          case InvoiceTemplate.classic:
+            templateWidget = _buildClassicTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
+          case InvoiceTemplate.minimal:
+            templateWidget = _buildMinimalTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
+          case InvoiceTemplate.gstInvoice:
+            templateWidget = _buildGstInvoiceTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
+          case InvoiceTemplate.simple:
+            templateWidget = _buildSimpleTemplate(bill, businessName, businessAddress, businessPhone, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
+        }
+        return [
+          templateWidget,
+          // UPI QR (not for quotations)
           if (upiId.isNotEmpty && !isQuotation) _upiQrBlock(upiId, businessName, bill.totalAmount, bill.billNumber, fs),
           // Signature with Seal
           pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
@@ -125,26 +140,7 @@ class InvoiceGenerator {
           pw.SizedBox(height: 4 * fs),
           pw.Center(child: pw.Text('This is a computer generated invoice',
             style: pw.TextStyle(fontSize: 7 * fs, color: PdfColors.grey500, fontStyle: pw.FontStyle.italic))),
-        ]);
-      },
-      build: (context) {
-        final docTitle = documentTitle;
-        final tyMsg = (thankYouMessage != null && thankYouMessage.isNotEmpty) ? thankYouMessage : null;
-        final tc = (termsConditions != null && termsConditions.isNotEmpty) ? termsConditions : null;
-        pw.Widget templateWidget;
-        switch (template) {
-          case InvoiceTemplate.modern:
-            templateWidget = _buildModernTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
-          case InvoiceTemplate.classic:
-            templateWidget = _buildClassicTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
-          case InvoiceTemplate.minimal:
-            templateWidget = _buildMinimalTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
-          case InvoiceTemplate.gstInvoice:
-            templateWidget = _buildGstInvoiceTemplate(bill, businessName, businessAddress, businessPhone, businessGstin, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
-          case InvoiceTemplate.simple:
-            templateWidget = _buildSimpleTemplate(bill, businessName, businessAddress, businessPhone, isA5, bk, logoImage, docTitle, tyMsg, tc, upiId, sealImage);
-        }
-        return [templateWidget];
+        ];
       },
     ));
     return pdf.save();
