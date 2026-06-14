@@ -675,6 +675,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
       'description': i.description, 'serialNumber': i.serialNumber,
     }).toList();
 
+    // When GST inclusive, convert stored base prices to inclusive display prices
+    if (gstInclusive) {
+      for (final item in editItems) {
+        final basePrice = item['unitPrice'] as double;
+        final rate = item['taxRate'] as double;
+        item['unitPrice'] = basePrice * (1 + rate / 100);
+      }
+    }
+
     // Create controllers once per item
     final List<List<TextEditingController>> itemCtrls = editItems.map((i) => [
       TextEditingController(text: (i['unitPrice'] as double).toStringAsFixed(2)),
@@ -751,6 +760,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 value: gstInclusive,
                 activeColor: AppColors.success,
                 onChanged: (v) async {
+                  // Convert prices between inclusive/exclusive when toggle changes
+                  for (int idx = 0; idx < editItems.length; idx++) {
+                    final price = editItems[idx]['unitPrice'] as double;
+                    final rate = editItems[idx]['taxRate'] as double;
+                    double newPrice;
+                    if (v) {
+                      // Switching to inclusive: base → inclusive
+                      newPrice = price * (1 + rate / 100);
+                    } else {
+                      // Switching to exclusive: inclusive → base
+                      newPrice = price / (1 + rate / 100);
+                    }
+                    editItems[idx]['unitPrice'] = newPrice;
+                    itemCtrls[idx][0].text = newPrice.toStringAsFixed(2);
+                  }
                   setEditState(() => gstInclusive = v);
                   final appState = context.read<AppState>();
                   await appState.saveSetting('billing_gst_inclusive', v.toString());
@@ -824,7 +848,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 const SizedBox(height: 8),
                 Row(children: [
                   Expanded(child: TextField(controller: ctrls[0], keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Price', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                    decoration: InputDecoration(labelText: gstInclusive ? 'Price (incl. GST)' : 'Price', isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
                     onChanged: (v) {
                       editItems[idx]['unitPrice'] = double.tryParse(v) ?? 0.0;
                       setEditState(() {});
