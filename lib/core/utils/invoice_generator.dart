@@ -117,34 +117,37 @@ class InvoiceGenerator {
         }
         return [
           templateWidget,
-          pw.SizedBox(height: 8 * fs),
-          // QR on left, Seal/Signature on right — in one row
-          pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-            // Left: UPI QR (not for quotations)
-            if (upiId.isNotEmpty && !isQuotation)
-              pw.Expanded(child: _upiQrBlock(upiId, businessName, bill.totalAmount, bill.billNumber, fs))
-            else
-              pw.Expanded(child: pw.SizedBox()),
-            // Right: Signature with Seal
-            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-              pw.Text('FOR ${businessName.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
-              if (sealImage != null)
-                pw.Padding(
-                  padding: pw.EdgeInsets.symmetric(vertical: 4 * fs),
-                  child: pw.Image(pw.MemoryImage(sealImage), width: 150 * fs, height: 75 * fs, fit: pw.BoxFit.contain),
-                )
+          // All footer elements in one block so they don't split across pages
+          pw.Column(children: [
+            pw.SizedBox(height: 6 * fs),
+            // QR on left, Seal/Signature on right
+            pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+              // Left: UPI QR (not for quotations)
+              if (upiId.isNotEmpty && !isQuotation)
+                pw.Expanded(child: _upiQrBlock(upiId, businessName, bill.totalAmount, bill.billNumber, fs))
               else
-                pw.SizedBox(height: 24 * fs),
-              pw.Container(width: 120 * fs, child: pw.Divider(color: PdfColors.grey400)),
-              pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
+                pw.Expanded(child: pw.SizedBox()),
+              // Right: Signature with Seal
+              pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+                pw.Text('FOR ${businessName.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
+                if (sealImage != null)
+                  pw.Padding(
+                    padding: pw.EdgeInsets.symmetric(vertical: 3 * fs),
+                    child: pw.Image(pw.MemoryImage(sealImage), width: 150 * fs, height: 75 * fs, fit: pw.BoxFit.contain),
+                  )
+                else
+                  pw.SizedBox(height: 20 * fs),
+                pw.Container(width: 120 * fs, child: pw.Divider(color: PdfColors.grey400)),
+                pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
+              ]),
             ]),
+            pw.Divider(color: PdfColors.grey300),
+            pw.SizedBox(height: 2 * fs),
+            pw.Center(child: pw.Text(thankYouText, style: pw.TextStyle(fontSize: 10 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo))),
+            pw.SizedBox(height: 2 * fs),
+            pw.Center(child: pw.Text('This is a computer generated invoice',
+              style: pw.TextStyle(fontSize: 7 * fs, color: PdfColors.grey500, fontStyle: pw.FontStyle.italic))),
           ]),
-          pw.Divider(color: PdfColors.grey300),
-          pw.SizedBox(height: 4 * fs),
-          pw.Center(child: pw.Text(thankYouText, style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo))),
-          pw.SizedBox(height: 4 * fs),
-          pw.Center(child: pw.Text('This is a computer generated invoice',
-            style: pw.TextStyle(fontSize: 7 * fs, color: PdfColors.grey500, fontStyle: pw.FontStyle.italic))),
         ];
       },
     ));
