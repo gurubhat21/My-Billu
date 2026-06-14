@@ -1118,14 +1118,12 @@ ${thankYouMessage ?? 'Thank you for your business!'}
           padding: pw.EdgeInsets.all(6 * fs),
           decoration: pw.BoxDecoration(border: pw.Border(bottom: bdr)),
           child: pw.Column(children: [
-            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.center, children: [
-              if (logo != null) ...[pw.Container(
-                width: isA5 ? 35 : 40, height: isA5 ? 35 : 40,
-                child: pw.Image(logo, fit: pw.BoxFit.contain),
-              ), pw.SizedBox(width: 8 * fs)],
-              pw.Text(bName.toUpperCase(),
-                style: pw.TextStyle(fontSize: 14 * fs, fontWeight: pw.FontWeight.bold)),
-            ]),
+            if (logo != null) ...[pw.Center(child: pw.Container(
+              width: isA5 ? 35 : 40, height: isA5 ? 35 : 40,
+              child: pw.Image(logo, fit: pw.BoxFit.contain),
+            )), pw.SizedBox(height: 2 * fs)],
+            pw.Center(child: pw.Text(bName.toUpperCase(),
+              style: pw.TextStyle(fontSize: 14 * fs, fontWeight: pw.FontWeight.bold))),
             if (bAddr.isNotEmpty)
               pw.Center(child: pw.Text(bAddr, style: pw.TextStyle(fontSize: 8 * fs), textAlign: pw.TextAlign.center)),
             pw.SizedBox(height: 2 * fs),
