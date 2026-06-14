@@ -117,10 +117,15 @@ class InvoiceGenerator {
         }
         return [
           templateWidget,
-          // UPI QR (not for quotations)
-          if (upiId.isNotEmpty && !isQuotation) _upiQrBlock(upiId, businessName, bill.totalAmount, bill.billNumber, fs),
-          // Signature with Seal
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
+          pw.SizedBox(height: 8 * fs),
+          // QR on left, Seal/Signature on right — in one row
+          pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+            // Left: UPI QR (not for quotations)
+            if (upiId.isNotEmpty && !isQuotation)
+              pw.Expanded(child: _upiQrBlock(upiId, businessName, bill.totalAmount, bill.billNumber, fs))
+            else
+              pw.Expanded(child: pw.SizedBox()),
+            // Right: Signature with Seal
             pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
               pw.Text('FOR ${businessName.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
               if (sealImage != null)
