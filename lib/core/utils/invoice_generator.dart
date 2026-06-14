@@ -119,7 +119,7 @@ class InvoiceGenerator {
           templateWidget,
           // All footer elements in one block so they don't split across pages
           pw.Column(children: [
-            pw.SizedBox(height: 6 * fs),
+            pw.SizedBox(height: 4 * fs),
             // QR on left, Seal/Signature on right
             pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
               // Left: UPI QR (not for quotations)
@@ -129,24 +129,23 @@ class InvoiceGenerator {
                 pw.Expanded(child: pw.SizedBox()),
               // Right: Signature with Seal
               pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                pw.Text('FOR ${businessName.toUpperCase()}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
+                pw.Text('FOR ${businessName.toUpperCase()}', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
                 if (sealImage != null)
                   pw.Padding(
-                    padding: pw.EdgeInsets.symmetric(vertical: 3 * fs),
-                    child: pw.Image(pw.MemoryImage(sealImage), width: 150 * fs, height: 75 * fs, fit: pw.BoxFit.contain),
+                    padding: pw.EdgeInsets.symmetric(vertical: 2 * fs),
+                    child: pw.Image(pw.MemoryImage(sealImage), width: 100 * fs, height: 50 * fs, fit: pw.BoxFit.contain),
                   )
                 else
-                  pw.SizedBox(height: 20 * fs),
-                pw.Container(width: 120 * fs, child: pw.Divider(color: PdfColors.grey400)),
-                pw.Text('Proprietor', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey500)),
+                  pw.SizedBox(height: 16 * fs),
+                pw.Container(width: 100 * fs, child: pw.Divider(color: PdfColors.grey400)),
+                pw.Text('Proprietor', style: pw.TextStyle(fontSize: 7 * fs, color: PdfColors.grey500)),
               ]),
             ]),
-            pw.Divider(color: PdfColors.grey300),
             pw.SizedBox(height: 2 * fs),
-            pw.Center(child: pw.Text(thankYouText, style: pw.TextStyle(fontSize: 10 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo))),
-            pw.SizedBox(height: 2 * fs),
+            pw.Center(child: pw.Text(thankYouText, style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo))),
+            pw.SizedBox(height: 1 * fs),
             pw.Center(child: pw.Text('This is a computer generated invoice',
-              style: pw.TextStyle(fontSize: 7 * fs, color: PdfColors.grey500, fontStyle: pw.FontStyle.italic))),
+              style: pw.TextStyle(fontSize: 6 * fs, color: PdfColors.grey500, fontStyle: pw.FontStyle.italic))),
           ]),
         ];
       },
@@ -423,28 +422,28 @@ ${thankYouMessage ?? 'Thank you for your business!'}
   static pw.Widget _upiQrBlock(String upiId, String businessName, double amount, String billNumber, double fs) {
     final upiUri = 'upi://pay?pa=${Uri.encodeComponent(upiId)}&pn=${Uri.encodeComponent(businessName)}&am=${amount.toStringAsFixed(2)}&cu=INR&tn=${Uri.encodeComponent('Payment for $billNumber')}';
     return pw.Container(
-      margin: pw.EdgeInsets.only(top: 8 * fs, bottom: 8 * fs),
-      padding: pw.EdgeInsets.all(10 * fs),
+      margin: pw.EdgeInsets.only(top: 2 * fs, bottom: 2 * fs),
+      padding: pw.EdgeInsets.all(6 * fs),
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey300),
-        borderRadius: pw.BorderRadius.circular(6),
+        borderRadius: pw.BorderRadius.circular(4),
       ),
-      child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.center, children: [
+      child: pw.Row(mainAxisSize: pw.MainAxisSize.min, children: [
         pw.BarcodeWidget(
           barcode: pw.Barcode.qrCode(),
           data: upiUri,
-          width: 75 * fs,
-          height: 75 * fs,
+          width: 55 * fs,
+          height: 55 * fs,
         ),
-        pw.SizedBox(width: 12 * fs),
+        pw.SizedBox(width: 8 * fs),
         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          pw.Text('Scan to Pay', style: pw.TextStyle(fontSize: 11 * fs, fontWeight: pw.FontWeight.bold)),
-          pw.SizedBox(height: 4 * fs),
-          pw.Text('UPI: $upiId', style: pw.TextStyle(fontSize: 8 * fs, color: PdfColors.grey700)),
+          pw.Text('Scan to Pay', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 2 * fs),
-          pw.Text('Amount: \u20b9${amount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9 * fs, fontWeight: pw.FontWeight.bold)),
-          pw.SizedBox(height: 2 * fs),
-          pw.Text('Ref: $billNumber', style: pw.TextStyle(fontSize: 7 * fs, color: PdfColors.grey500)),
+          pw.Text('UPI: $upiId', style: pw.TextStyle(fontSize: 7 * fs, color: PdfColors.grey700)),
+          pw.SizedBox(height: 1 * fs),
+          pw.Text('Amount: \u20b9${amount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 8 * fs, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 1 * fs),
+          pw.Text('Ref: $billNumber', style: pw.TextStyle(fontSize: 6 * fs, color: PdfColors.grey500)),
         ]),
       ]),
     );
