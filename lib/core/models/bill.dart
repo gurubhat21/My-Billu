@@ -121,7 +121,7 @@ class Bill {
       'paymentMethod': paymentMethod.name,
       'status': status.name,
       'notes': notes,
-      'gstInclusive': gstInclusive,
+      'gstInclusive': gstInclusive ? 1 : 0,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -158,7 +158,7 @@ class Bill {
         orElse: () => BillStatus.paid,
       ),
       notes: map['notes'] as String?,
-      gstInclusive: map['gstInclusive'] as bool? ?? false,
+      gstInclusive: (map['gstInclusive'] is bool) ? (map['gstInclusive'] as bool) : ((map['gstInclusive'] as num?)?.toInt() ?? 0) == 1,
       createdAt: map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null,
       updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : (map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null),
     );

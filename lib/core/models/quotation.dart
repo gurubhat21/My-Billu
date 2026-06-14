@@ -62,7 +62,7 @@ class Quotation {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'validUntil': validUntil?.toIso8601String(),
-      'gstInclusive': gstInclusive,
+      'gstInclusive': gstInclusive ? 1 : 0,
     };
   }
 
@@ -88,7 +88,7 @@ class Quotation {
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt'] as String) : (map['createdAt'] != null ? DateTime.tryParse(map['createdAt'] as String) : null),
       validUntil: map['validUntil'] != null ? DateTime.parse(map['validUntil'] as String) : null,
-      gstInclusive: map['gstInclusive'] as bool? ?? false,
+      gstInclusive: (map['gstInclusive'] is bool) ? (map['gstInclusive'] as bool) : ((map['gstInclusive'] as num?)?.toInt() ?? 0) == 1,
     );
   }
 }
