@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/purchase_return.dart';
 import '../../core/models/purchase.dart';
+import '../../core/models/bill.dart';
 import '../../core/providers/app_state.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/invoice_generator.dart';
 import '../../widgets/common_widgets.dart';
 
 class PurchaseReturnScreen extends StatefulWidget {
@@ -68,7 +70,10 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: GlassCard(
       padding: const EdgeInsets.all(16),
-      child: Row(children: [
+      child: InkWell(
+        onTap: () => _showDetailDialog(context, pr, appState),
+        borderRadius: BorderRadius.circular(16),
+        child: Row(children: [
         Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(
           color: statusColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
           child: Icon(Icons.keyboard_return, color: statusColor, size: 22)),
@@ -91,20 +96,148 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
           const SizedBox(height: 4),
           Text(AppFormatters.date(pr.createdAt), style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.4))),
         ]),
-        const SizedBox(width: 8),
-        IconButton(icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
-          onPressed: () async {
-            final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-              title: const Text('Delete Return?'),
-              actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete'))],
-            ));
-            if (ok == true) await appState.deletePurchaseReturn(pr.id);
-          }),
       ]),
+    )));
+  }
+
+  // ===== DETAIL DIALOG =====
+  void _showDetailDialog(BuildContext context, PurchaseReturn pr, AppState appState) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Row(children: [
+        const Icon(Icons.keyboard_return, color: AppColors.warning),
+        const SizedBox(width: 8),
+        Text(pr.returnNumber),
+        const Spacer(),
+        IconButton(icon: const Icon(Icons.close, size: 18), onPressed: () => Navigator.pop(ctx)),
+      ]),
+      content: SizedBox(width: 550, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _infoRow('Supplier', pr.supplierName),
+        if (pr.purchaseNumber != null) _infoRow('Against Purchase', pr.purchaseNumber!),
+        _infoRow('Date', AppFormatters.dateTime(pr.createdAt)),
+        _infoRow('Status', pr.status.name.toUpperCase()),
+        _infoRow('Reason', pr.reason),
+        if (pr.notes != null && pr.notes!.isNotEmpty) _infoRow('Notes', pr.notes!),
+        const Divider(height: 20),
+        const Text('Return Items:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+        const SizedBox(height: 8),
+        ...pr.items.map((item) => Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(children: [
+            Expanded(child: Text(item.itemName, style: const TextStyle(fontSize: 13))),
+            Text('${item.quantity} ${item.unit}', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6))),
+            const SizedBox(width: 12),
+            Text(AppFormatters.currency(item.total), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          ]),
+        )),
+        const Divider(height: 16),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          Text('Total: ', style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.6))),
+          Text(AppFormatters.currency(pr.totalAmount), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.error)),
+        ]),
+      ]))),
+      actions: [
+        TextButton.icon(icon: const Icon(Icons.edit, size: 16), label: const Text('Edit'),
+          onPressed: () { Navigator.pop(ctx); _showEditDialog(context, pr, appState); }),
+        TextButton.icon(icon: const Icon(Icons.print, size: 16), label: const Text('Print'),
+          onPressed: () => _printReturn(pr, appState)),
+        TextButton.icon(icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.error), label: const Text('Delete', style: TextStyle(color: AppColors.error)),
+          onPressed: () async {
+            final ok = await showDialog<bool>(context: ctx, builder: (c) => AlertDialog(
+              title: const Text('Delete Return?'),
+              actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete'))],
+            ));
+            if (ok == true) { await appState.deletePurchaseReturn(pr.id); if (ctx.mounted) Navigator.pop(ctx); }
+          }),
+      ],
     ));
   }
 
+  Widget _infoRow(String label, String value) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      SizedBox(width: 130, child: Text(label, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5)))),
+      Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+    ]),
+  );
+
+  // ===== EDIT DIALOG =====
+  void _showEditDialog(BuildContext context, PurchaseReturn pr, AppState appState) {
+    final reasonCtrl = TextEditingController(text: pr.reason);
+    final notesCtrl = TextEditingController(text: pr.notes ?? '');
+    var status = pr.status;
+
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
+      return AlertDialog(
+        title: Text('Edit ${pr.returnNumber}'),
+        content: SizedBox(width: 450, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: reasonCtrl, decoration: const InputDecoration(labelText: 'Reason', border: OutlineInputBorder())),
+          const SizedBox(height: 12),
+          TextField(controller: notesCtrl, decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder()), maxLines: 2),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<PurchaseReturnStatus>(
+            value: status,
+            decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
+            items: PurchaseReturnStatus.values.map((s) => DropdownMenuItem(value: s, child: Text(s.name.toUpperCase()))).toList(),
+            onChanged: (v) => setDialogState(() => status = v ?? status),
+          ),
+        ]))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () async {
+            final updated = PurchaseReturn(
+              id: pr.id, returnNumber: pr.returnNumber,
+              purchaseId: pr.purchaseId, purchaseNumber: pr.purchaseNumber,
+              supplierName: pr.supplierName, items: pr.items,
+              subtotal: pr.subtotal, totalTax: pr.totalTax, totalAmount: pr.totalAmount,
+              reason: reasonCtrl.text.trim(), notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+              status: status, createdAt: pr.createdAt,
+            );
+            await appState.updatePurchaseReturn(updated);
+            if (ctx.mounted) Navigator.pop(ctx);
+          }, child: const Text('Save')),
+        ],
+      );
+    }));
+  }
+
+  // ===== PRINT =====
+  Future<void> _printReturn(PurchaseReturn pr, AppState appState) async {
+    final s = await appState.getAllSettings();
+    final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+    final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
+    // Convert PurchaseReturn items to BillItems for the invoice generator
+    final billItems = pr.items.map((i) => BillItem(
+      itemId: i.itemId, itemName: i.itemName,
+      unitPrice: i.unitCost, quantity: i.quantity,
+      taxRate: i.taxRate, unit: i.unit,
+      description: i.description, serialNumber: i.serialNumber,
+    )).toList();
+    final bill = Bill(
+      id: pr.id, billNumber: pr.returnNumber,
+      customerName: pr.supplierName,
+      items: billItems, subtotal: pr.subtotal,
+      totalTax: pr.totalTax, totalAmount: pr.totalAmount,
+      createdAt: pr.createdAt,
+    );
+    await InvoiceGenerator.generateAndPrint(bill,
+      businessName: s['businessName'] ?? 'My Billu',
+      businessAddress: s['businessAddress'] ?? '',
+      businessPhone: s['businessPhone'] ?? '',
+      businessGstin: s['businessGstin'] ?? '',
+      businessBankName: s['businessBankName'] ?? '',
+      businessBankAccount: s['businessBankAccount'] ?? '',
+      businessBankIfsc: s['businessBankIfsc'] ?? '',
+      businessUpiId: s['businessUpiId'] ?? '',
+      logoBytes: logoBytes, sealBytes: sealBytes,
+      template: InvoiceTemplate.gstInvoice,
+      documentTitle: 'PURCHASE RETURN',
+      thankYouMessage: 'Purchase Return - ${pr.returnNumber}',
+      termsConditions: pr.reason,
+    );
+  }
+
+  // ===== CREATE DIALOG =====
   void _showCreateDialog(BuildContext context, AppState appState) {
     Purchase? selectedPurchase;
     final reasonCtrl = TextEditingController();
@@ -115,7 +248,6 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
       final allPurchases = appState.purchases.where((p) => p.status == PurchaseStatus.received).toList();
 
-      // Calculate return total
       double returnTotal = 0;
       if (selectedPurchase != null) {
         for (int idx = 0; idx < selectedPurchase!.items.length; idx++) {
@@ -127,7 +259,6 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
           }
         }
       }
-
       final hasSelection = selectedFlags.values.any((v) => v == true);
 
       return AlertDialog(
@@ -164,10 +295,7 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: Row(children: [
-                    Checkbox(
-                      value: isSelected,
-                      onChanged: (v) => setDialogState(() => selectedFlags[idx] = v ?? false),
-                    ),
+                    Checkbox(value: isSelected, onChanged: (v) => setDialogState(() => selectedFlags[idx] = v ?? false)),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(item.itemName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                       Text('${AppFormatters.currency(item.unitCost)} × $maxQty ${item.unit} = ${AppFormatters.currency(item.total)}',
@@ -175,18 +303,11 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
                     ])),
                     if (isSelected) SizedBox(width: 70, child: TextFormField(
                       initialValue: currentQty.toString(),
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      decoration: InputDecoration(
-                        labelText: 'Qty',
-                        isDense: true,
+                      keyboardType: TextInputType.number, textAlign: TextAlign.center,
+                      decoration: InputDecoration(labelText: 'Qty', isDense: true,
                         contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      onChanged: (v) {
-                        final parsed = int.tryParse(v) ?? 0;
-                        setDialogState(() => returnQtys[idx] = parsed.clamp(1, maxQty));
-                      },
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                      onChanged: (v) { final p = int.tryParse(v) ?? 0; setDialogState(() => returnQtys[idx] = p.clamp(1, maxQty)); },
                     )),
                   ]),
                 ),
@@ -210,7 +331,6 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(onPressed: selectedPurchase != null && hasSelection && reasonCtrl.text.trim().isNotEmpty ? () async {
-            // Build return items with selected quantities
             final returnItems = <PurchaseItem>[];
             for (int idx = 0; idx < selectedPurchase!.items.length; idx++) {
               if (selectedFlags[idx] == true) {
@@ -226,14 +346,14 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
             }
             final sub = returnItems.fold<double>(0, (s, i) => s + i.subtotal);
             final tax = returnItems.fold<double>(0, (s, i) => s + i.taxAmount);
-            final pr = PurchaseReturn(
+            final prObj = PurchaseReturn(
               returnNumber: appState.getNextPurchaseReturnNumber(),
               purchaseId: selectedPurchase!.id, purchaseNumber: selectedPurchase!.purchaseNumber,
               supplierName: selectedPurchase!.supplierName,
               items: returnItems, subtotal: sub, totalTax: tax, totalAmount: sub + tax,
               reason: reasonCtrl.text.trim(), notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
             );
-            await appState.addPurchaseReturn(pr);
+            await appState.addPurchaseReturn(prObj);
             if (ctx.mounted) Navigator.pop(ctx);
           } : null, child: const Text('Create')),
         ],

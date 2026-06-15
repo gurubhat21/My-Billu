@@ -715,6 +715,16 @@ class AppState extends ChangeNotifier {
     _notifySync();
   }
 
+  Future<void> updateCreditNote(CreditNote updated) async {
+    final idx = _creditNotes.indexWhere((e) => e.id == updated.id);
+    if (idx >= 0) {
+      _creditNotes[idx] = updated;
+      await _saveCreditNotes();
+      notifyListeners();
+      _notifySync();
+    }
+  }
+
   String getNextCreditNoteNumber() {
     final count = _creditNotes.length + 1;
     return 'CN-${count.toString().padLeft(4, '0')}';
@@ -808,6 +818,16 @@ class AppState extends ChangeNotifier {
     await _savePurchaseReturns();
     notifyListeners();
     _notifySync();
+  }
+
+  Future<void> updatePurchaseReturn(PurchaseReturn updated) async {
+    final idx = _purchaseReturns.indexWhere((e) => e.id == updated.id);
+    if (idx >= 0) {
+      _purchaseReturns[idx] = updated;
+      await _savePurchaseReturns();
+      notifyListeners();
+      _notifySync();
+    }
   }
 
   String getNextPurchaseReturnNumber() {
