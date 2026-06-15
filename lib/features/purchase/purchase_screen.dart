@@ -733,7 +733,7 @@ class _NewPurchaseTabState extends State<_NewPurchaseTab> {
         invoiceNumber: _invoiceCtrl.text.trim().isEmpty ? null : _invoiceCtrl.text.trim(),
         items: purchaseItems,
         subtotal: _subtotal, totalTax: _totalTax, totalAmount: _total,
-        paidAmount: 0, status: PurchaseStatus.received,
+        paidAmount: 0, status: PurchaseStatus.pending,
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         createdAt: _purchaseDate,
       );

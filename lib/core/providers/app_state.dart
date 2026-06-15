@@ -241,8 +241,8 @@ class AppState extends ChangeNotifier {
     await _db.insertPurchase(purchase);
     await logAudit(AuditAction.created, AuditEntity.purchase, purchase.purchaseNumber, details: '₹${purchase.totalAmount.toStringAsFixed(2)} from ${purchase.supplierName}');
 
-    // Update stock quantities and prices for received purchases
-    if (purchase.status == PurchaseStatus.received) {
+    // Update stock quantities and prices (goods are received regardless of payment status)
+    if (purchase.status == PurchaseStatus.received || purchase.status == PurchaseStatus.pending) {
       for (final purchaseItem in purchase.items) {
         final item = _items.firstWhere(
           (i) => i.id == purchaseItem.itemId,
