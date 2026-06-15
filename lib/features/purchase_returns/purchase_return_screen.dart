@@ -318,15 +318,24 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
       return AlertDialog(
         title: const Text('Create Purchase Return'),
         content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          DropdownButtonFormField<Purchase>(
-            decoration: const InputDecoration(labelText: 'Select Purchase', border: OutlineInputBorder()),
-            isExpanded: true,
-            items: allPurchases.map((p) => DropdownMenuItem(value: p,
-              child: Text('${p.purchaseNumber} - ${p.supplierName} (${AppFormatters.currency(p.totalAmount)})', overflow: TextOverflow.ellipsis))).toList(),
-            onChanged: (p) => setDialogState(() {
+          Autocomplete<Purchase>(
+            displayStringForOption: (p) => '${p.purchaseNumber} - ${p.supplierName} (${AppFormatters.currency(p.totalAmount)})',
+            optionsBuilder: (textEditingValue) {
+              final query = textEditingValue.text.toLowerCase();
+              if (query.isEmpty) return allPurchases;
+              return allPurchases.where((p) =>
+                p.purchaseNumber.toLowerCase().contains(query) ||
+                p.supplierName.toLowerCase().contains(query));
+            },
+            onSelected: (p) => setDialogState(() {
               selectedPurchase = p; selectedFlags.clear(); returnQtys.clear();
-              if (p != null) { for (int i = 0; i < p.items.length; i++) { selectedFlags[i] = true; returnQtys[i] = p.items[i].quantity; } }
+              // Items start UNSELECTED — user must pick which to return
             }),
+            fieldViewBuilder: (ctx, controller, focusNode, onSubmitted) => TextField(
+              controller: controller, focusNode: focusNode,
+              decoration: const InputDecoration(labelText: 'Search Purchase (No./Supplier)', border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search, size: 18)),
+            ),
           ),
           if (selectedPurchase != null) ...[
             const SizedBox(height: 12),

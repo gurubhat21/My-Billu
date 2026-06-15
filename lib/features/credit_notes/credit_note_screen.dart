@@ -308,15 +308,24 @@ class _CreditNoteScreenState extends State<CreditNoteScreen> {
       return AlertDialog(
         title: const Text('Create Credit Note'),
         content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          DropdownButtonFormField<Bill>(
-            decoration: const InputDecoration(labelText: 'Select Invoice', border: OutlineInputBorder()),
-            isExpanded: true,
-            items: allBills.map((b) => DropdownMenuItem(value: b,
-              child: Text('${b.billNumber} - ${b.customerName ?? "Walk-in"} (${AppFormatters.currency(b.totalAmount)})', overflow: TextOverflow.ellipsis))).toList(),
-            onChanged: (b) => setDialogState(() {
+          Autocomplete<Bill>(
+            displayStringForOption: (b) => '${b.billNumber} - ${b.customerName ?? "Walk-in"} (${AppFormatters.currency(b.totalAmount)})',
+            optionsBuilder: (textEditingValue) {
+              final query = textEditingValue.text.toLowerCase();
+              if (query.isEmpty) return allBills;
+              return allBills.where((b) =>
+                b.billNumber.toLowerCase().contains(query) ||
+                (b.customerName ?? '').toLowerCase().contains(query));
+            },
+            onSelected: (b) => setDialogState(() {
               selectedBill = b; selectedFlags.clear(); returnQtys.clear();
-              if (b != null) { for (int i = 0; i < b.items.length; i++) { selectedFlags[i] = true; returnQtys[i] = b.items[i].quantity; } }
+              // Items start UNSELECTED — user must pick which to return
             }),
+            fieldViewBuilder: (ctx, controller, focusNode, onSubmitted) => TextField(
+              controller: controller, focusNode: focusNode,
+              decoration: const InputDecoration(labelText: 'Search Invoice (No./Customer)', border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search, size: 18)),
+            ),
           ),
           if (selectedBill != null) ...[
             const SizedBox(height: 12),
