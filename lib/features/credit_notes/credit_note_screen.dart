@@ -1,5 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:printing/printing.dart';
 import '../../core/models/credit_note.dart';
 import '../../core/models/bill.dart';
 import '../../core/providers/app_state.dart';
@@ -98,57 +100,91 @@ class _CreditNoteScreenState extends State<CreditNoteScreen> {
     )));
   }
 
+  Bill _toBill(CreditNote cn) => Bill(
+    id: cn.id, billNumber: cn.creditNoteNumber,
+    customerName: cn.customerName,
+    items: cn.items, subtotal: cn.subtotal,
+    totalTax: cn.totalTax, totalAmount: cn.totalAmount,
+    createdAt: cn.createdAt,
+  );
+
   // ===== DETAIL DIALOG =====
   void _showDetailDialog(BuildContext context, CreditNote cn, AppState appState) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: Row(children: [
-        const Icon(Icons.assignment_return, color: AppColors.success),
-        const SizedBox(width: 8),
-        Text(cn.creditNoteNumber),
-        const Spacer(),
-        IconButton(icon: const Icon(Icons.close, size: 18), onPressed: () => Navigator.pop(ctx)),
-      ]),
-      content: SizedBox(width: 550, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _infoRow('Customer', cn.customerName ?? 'Walk-in'),
-        if (cn.billNumber != null) _infoRow('Against Invoice', cn.billNumber!),
-        _infoRow('Date', AppFormatters.dateTime(cn.createdAt)),
-        _infoRow('Status', cn.status.name.toUpperCase()),
-        _infoRow('Reason', cn.reason),
-        if (cn.notes != null && cn.notes!.isNotEmpty) _infoRow('Notes', cn.notes!),
-        const Divider(height: 20),
-        const Text('Credit Items:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-        const SizedBox(height: 8),
-        ...cn.items.map((item) => Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(children: [
-            Expanded(child: Text(item.itemName, style: const TextStyle(fontSize: 13))),
-            Text('${item.quantity} ${item.unit}', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6))),
-            const SizedBox(width: 12),
-            Text(AppFormatters.currency(item.total), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-          ]),
-        )),
-        const Divider(height: 16),
-        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          Text('Total: ', style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.6))),
-          Text(AppFormatters.currency(cn.totalAmount), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.success)),
+    var selectedTemplate = 'GST Invoice';
+    var selectedSize = 'A4';
+    final templates = ['Modern', 'Classic', 'Minimal', 'GST Invoice', 'Simple'];
+    final sizes = ['A4', 'A5'];
+
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
+      return AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.assignment_return, color: AppColors.success),
+          const SizedBox(width: 8),
+          Text(cn.creditNoteNumber),
+          const Spacer(),
+          IconButton(icon: const Icon(Icons.close, size: 18), onPressed: () => Navigator.pop(ctx)),
         ]),
-      ]))),
-      actions: [
-        TextButton.icon(icon: const Icon(Icons.edit, size: 16), label: const Text('Edit'),
-          onPressed: () { Navigator.pop(ctx); _showEditDialog(context, cn, appState); }),
-        TextButton.icon(icon: const Icon(Icons.print, size: 16), label: const Text('Print'),
-          onPressed: () => _printCreditNote(cn, appState)),
-        TextButton.icon(icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.error), label: const Text('Delete', style: TextStyle(color: AppColors.error)),
-          onPressed: () async {
-            final ok = await showDialog<bool>(context: ctx, builder: (c) => AlertDialog(
-              title: const Text('Delete Credit Note?'),
-              actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-                ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete'))],
-            ));
-            if (ok == true) { await appState.deleteCreditNote(cn.id); if (ctx.mounted) Navigator.pop(ctx); }
-          }),
-      ],
-    ));
+        content: SizedBox(width: 550, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _infoRow('Customer', cn.customerName ?? 'Walk-in'),
+          if (cn.billNumber != null) _infoRow('Against Invoice', cn.billNumber!),
+          _infoRow('Date', AppFormatters.dateTime(cn.createdAt)),
+          _infoRow('Status', cn.status.name.toUpperCase()),
+          _infoRow('Reason', cn.reason),
+          if (cn.notes != null && cn.notes!.isNotEmpty) _infoRow('Notes', cn.notes!),
+          const Divider(height: 20),
+          const Text('Credit Items:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 8),
+          ...cn.items.map((item) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(children: [
+              Expanded(child: Text(item.itemName, style: const TextStyle(fontSize: 13))),
+              Text('${item.quantity} ${item.unit}', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6))),
+              const SizedBox(width: 12),
+              Text(AppFormatters.currency(item.total), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ]),
+          )),
+          const Divider(height: 16),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            Text('Total: ', style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.6))),
+            Text(AppFormatters.currency(cn.totalAmount), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.success)),
+          ]),
+          const SizedBox(height: 16),
+          // Template & Size selectors
+          Row(children: [
+            Expanded(child: DropdownButtonFormField<String>(
+              value: selectedSize,
+              decoration: const InputDecoration(labelText: 'Paper', border: OutlineInputBorder(), isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+              items: sizes.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 13)))).toList(),
+              onChanged: (v) => setDialogState(() => selectedSize = v ?? 'A4'),
+            )),
+            const SizedBox(width: 10),
+            Expanded(flex: 2, child: DropdownButtonFormField<String>(
+              value: selectedTemplate,
+              decoration: const InputDecoration(labelText: 'Template', border: OutlineInputBorder(), isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+              items: templates.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)))).toList(),
+              onChanged: (v) => setDialogState(() => selectedTemplate = v ?? 'GST Invoice'),
+            )),
+          ]),
+        ]))),
+        actions: [
+          TextButton.icon(icon: const Icon(Icons.edit, size: 16), label: const Text('Edit'),
+            onPressed: () { Navigator.pop(ctx); _showEditDialog(context, cn, appState); }),
+          TextButton.icon(icon: const Icon(Icons.visibility, size: 16), label: const Text('Preview'),
+            onPressed: () { Navigator.pop(ctx); _openPreview(context, cn, appState, selectedTemplate, selectedSize); }),
+          TextButton.icon(icon: const Icon(Icons.print, size: 16), label: const Text('Print'),
+            onPressed: () => _printCreditNote(cn, appState, selectedTemplate, selectedSize)),
+          TextButton.icon(icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.error), label: const Text('Delete', style: TextStyle(color: AppColors.error)),
+            onPressed: () async {
+              final ok = await showDialog<bool>(context: ctx, builder: (c) => AlertDialog(
+                title: const Text('Delete Credit Note?'),
+                actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                  ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete'))],
+              ));
+              if (ok == true) { await appState.deleteCreditNote(cn.id); if (ctx.mounted) Navigator.pop(ctx); }
+            }),
+        ],
+      );
+    }));
   }
 
   Widget _infoRow(String label, String value) => Padding(
@@ -158,6 +194,18 @@ class _CreditNoteScreenState extends State<CreditNoteScreen> {
       Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
     ]),
   );
+
+  InvoiceTemplate _parseTemplate(String name) {
+    switch (name) {
+      case 'Modern': return InvoiceTemplate.modern;
+      case 'Classic': return InvoiceTemplate.classic;
+      case 'Minimal': return InvoiceTemplate.minimal;
+      case 'Simple': return InvoiceTemplate.simple;
+      default: return InvoiceTemplate.gstInvoice;
+    }
+  }
+
+  PaperSize _parsePaperSize(String name) => name == 'A5' ? PaperSize.a5 : PaperSize.a4;
 
   // ===== EDIT DIALOG =====
   void _showEditDialog(BuildContext context, CreditNote cn, AppState appState) {
@@ -199,32 +247,39 @@ class _CreditNoteScreenState extends State<CreditNoteScreen> {
     }));
   }
 
-  // ===== PRINT =====
-  Future<void> _printCreditNote(CreditNote cn, AppState appState) async {
+  // ===== PREVIEW =====
+  Future<void> _openPreview(BuildContext context, CreditNote cn, AppState appState, String templateName, String sizeName) async {
     final s = await appState.getAllSettings();
     final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
     final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
-    final bill = Bill(
-      id: cn.id, billNumber: cn.creditNoteNumber,
-      customerName: cn.customerName,
-      items: cn.items, subtotal: cn.subtotal,
-      totalTax: cn.totalTax, totalAmount: cn.totalAmount,
-      createdAt: cn.createdAt,
-    );
-    await InvoiceGenerator.generateAndPrint(bill,
-      businessName: s['businessName'] ?? 'My Billu',
-      businessAddress: s['businessAddress'] ?? '',
-      businessPhone: s['businessPhone'] ?? '',
-      businessGstin: s['businessGstin'] ?? '',
-      businessBankName: s['businessBankName'] ?? '',
-      businessBankAccount: s['businessBankAccount'] ?? '',
-      businessBankIfsc: s['businessBankIfsc'] ?? '',
-      businessUpiId: s['businessUpiId'] ?? '',
+    if (context.mounted) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => _CreditNotePreviewPage(
+          bill: _toBill(cn), docTitle: 'CREDIT NOTE', docNumber: cn.creditNoteNumber, reason: cn.reason,
+          businessName: s['businessName'] ?? 'My Billu', businessAddress: s['businessAddress'] ?? '',
+          businessPhone: s['businessPhone'] ?? '', businessGstin: s['businessGstin'] ?? '',
+          businessBankName: s['businessBankName'] ?? '', businessBankAccount: s['businessBankAccount'] ?? '',
+          businessBankIfsc: s['businessBankIfsc'] ?? '', businessUpiId: s['businessUpiId'] ?? '',
+          logoBytes: logoBytes, sealBytes: sealBytes,
+          template: _parseTemplate(templateName), paperSize: _parsePaperSize(sizeName),
+        ),
+      ));
+    }
+  }
+
+  // ===== PRINT =====
+  Future<void> _printCreditNote(CreditNote cn, AppState appState, String templateName, String sizeName) async {
+    final s = await appState.getAllSettings();
+    final logoBytes = InvoiceGenerator.parseLogoData(s['businessLogoData']);
+    final sealBytes = InvoiceGenerator.parseLogoData(s['businessSealData']);
+    await InvoiceGenerator.generateAndPrint(_toBill(cn),
+      businessName: s['businessName'] ?? 'My Billu', businessAddress: s['businessAddress'] ?? '',
+      businessPhone: s['businessPhone'] ?? '', businessGstin: s['businessGstin'] ?? '',
+      businessBankName: s['businessBankName'] ?? '', businessBankAccount: s['businessBankAccount'] ?? '',
+      businessBankIfsc: s['businessBankIfsc'] ?? '', businessUpiId: s['businessUpiId'] ?? '',
       logoBytes: logoBytes, sealBytes: sealBytes,
-      template: InvoiceTemplate.gstInvoice,
-      documentTitle: 'CREDIT NOTE',
-      thankYouMessage: 'Credit Note - ${cn.creditNoteNumber}',
-      termsConditions: cn.reason,
+      template: _parseTemplate(templateName), paperSize: _parsePaperSize(sizeName),
+      documentTitle: 'CREDIT NOTE', thankYouMessage: 'Thank you......visit again.', termsConditions: cn.reason,
     );
   }
 
@@ -238,15 +293,13 @@ class _CreditNoteScreenState extends State<CreditNoteScreen> {
 
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
       final allBills = appState.bills;
-
       double returnTotal = 0;
       if (selectedBill != null) {
         for (int idx = 0; idx < selectedBill!.items.length; idx++) {
           if (selectedFlags[idx] == true) {
             final item = selectedBill!.items[idx];
             final qty = returnQtys[idx] ?? item.quantity;
-            final unitTotal = item.unitPrice * (1 + item.taxRate / 100);
-            returnTotal += unitTotal * qty;
+            returnTotal += item.unitPrice * (1 + item.taxRate / 100) * qty;
           }
         }
       }
@@ -261,52 +314,37 @@ class _CreditNoteScreenState extends State<CreditNoteScreen> {
             items: allBills.map((b) => DropdownMenuItem(value: b,
               child: Text('${b.billNumber} - ${b.customerName ?? "Walk-in"} (${AppFormatters.currency(b.totalAmount)})', overflow: TextOverflow.ellipsis))).toList(),
             onChanged: (b) => setDialogState(() {
-              selectedBill = b;
-              selectedFlags.clear();
-              returnQtys.clear();
-              if (b != null) {
-                for (int i = 0; i < b.items.length; i++) {
-                  selectedFlags[i] = true;
-                  returnQtys[i] = b.items[i].quantity;
-                }
-              }
+              selectedBill = b; selectedFlags.clear(); returnQtys.clear();
+              if (b != null) { for (int i = 0; i < b.items.length; i++) { selectedFlags[i] = true; returnQtys[i] = b.items[i].quantity; } }
             }),
           ),
           if (selectedBill != null) ...[
             const SizedBox(height: 12),
             const Align(alignment: Alignment.centerLeft, child: Text('Return Items:', style: TextStyle(fontWeight: FontWeight.w600))),
             ...selectedBill!.items.asMap().entries.map((e) {
-              final idx = e.key;
-              final item = e.value;
+              final idx = e.key; final item = e.value;
               final isSelected = selectedFlags[idx] == true;
-              final maxQty = item.quantity;
-              final currentQty = returnQtys[idx] ?? maxQty;
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Row(children: [
-                    Checkbox(value: isSelected, onChanged: (v) => setDialogState(() => selectedFlags[idx] = v ?? false)),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(item.itemName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      Text('${AppFormatters.currency(item.unitPrice)} × $maxQty ${item.unit} = ${AppFormatters.currency(item.total)}',
-                        style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
-                    ])),
-                    if (isSelected) SizedBox(width: 70, child: TextFormField(
-                      initialValue: currentQty.toString(),
-                      keyboardType: TextInputType.number, textAlign: TextAlign.center,
-                      decoration: InputDecoration(labelText: 'Qty', isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
-                      onChanged: (v) { final p = int.tryParse(v) ?? 0; setDialogState(() => returnQtys[idx] = p.clamp(1, maxQty)); },
-                    )),
-                  ]),
-                ),
-              );
+              return Card(margin: const EdgeInsets.symmetric(vertical: 4), child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(children: [
+                  Checkbox(value: isSelected, onChanged: (v) => setDialogState(() => selectedFlags[idx] = v ?? false)),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(item.itemName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text('${AppFormatters.currency(item.unitPrice)} × ${item.quantity} ${item.unit} = ${AppFormatters.currency(item.total)}',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                  ])),
+                  if (isSelected) SizedBox(width: 70, child: TextFormField(
+                    initialValue: (returnQtys[idx] ?? item.quantity).toString(),
+                    keyboardType: TextInputType.number, textAlign: TextAlign.center,
+                    decoration: InputDecoration(labelText: 'Qty', isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                    onChanged: (v) { final p = int.tryParse(v) ?? 0; setDialogState(() => returnQtys[idx] = p.clamp(1, item.quantity)); },
+                  )),
+                ]),
+              ));
             }),
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(10),
+            Container(padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 const Text('Credit Total:', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -327,28 +365,94 @@ class _CreditNoteScreenState extends State<CreditNoteScreen> {
               if (selectedFlags[idx] == true) {
                 final orig = selectedBill!.items[idx];
                 final qty = (returnQtys[idx] ?? orig.quantity).clamp(1, orig.quantity);
-                returnItems.add(BillItem(
-                  itemId: orig.itemId, itemName: orig.itemName,
-                  unitPrice: orig.unitPrice, quantity: qty,
-                  taxRate: orig.taxRate, unit: orig.unit,
-                  description: orig.description, serialNumber: orig.serialNumber,
-                ));
+                returnItems.add(BillItem(itemId: orig.itemId, itemName: orig.itemName, unitPrice: orig.unitPrice, quantity: qty,
+                  taxRate: orig.taxRate, unit: orig.unit, description: orig.description, serialNumber: orig.serialNumber));
               }
             }
             final sub = returnItems.fold<double>(0, (s, i) => s + i.subtotal);
             final tax = returnItems.fold<double>(0, (s, i) => s + i.taxAmount);
-            final cnObj = CreditNote(
+            await appState.addCreditNote(CreditNote(
               creditNoteNumber: appState.getNextCreditNoteNumber(),
               billId: selectedBill!.id, billNumber: selectedBill!.billNumber,
               customerId: selectedBill!.customerId, customerName: selectedBill!.customerName,
               items: returnItems, subtotal: sub, totalTax: tax, totalAmount: sub + tax,
               reason: reasonCtrl.text.trim(), notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-            );
-            await appState.addCreditNote(cnObj);
+            ));
             if (ctx.mounted) Navigator.pop(ctx);
           } : null, child: const Text('Create')),
         ],
       );
     }));
+  }
+}
+
+// ===== PREVIEW PAGE =====
+class _CreditNotePreviewPage extends StatefulWidget {
+  final Bill bill;
+  final String docTitle, docNumber, reason;
+  final String businessName, businessAddress, businessPhone, businessGstin;
+  final String businessBankName, businessBankAccount, businessBankIfsc, businessUpiId;
+  final Uint8List? logoBytes, sealBytes;
+  final InvoiceTemplate template;
+  final PaperSize paperSize;
+
+  const _CreditNotePreviewPage({
+    required this.bill, required this.docTitle, required this.docNumber, required this.reason,
+    required this.businessName, required this.businessAddress,
+    required this.businessPhone, required this.businessGstin,
+    required this.businessBankName, required this.businessBankAccount,
+    required this.businessBankIfsc, required this.businessUpiId,
+    this.logoBytes, this.sealBytes,
+    required this.template, required this.paperSize,
+  });
+
+  @override
+  State<_CreditNotePreviewPage> createState() => _CreditNotePreviewPageState();
+}
+
+class _CreditNotePreviewPageState extends State<_CreditNotePreviewPage> {
+  Uint8List? _pdfBytes;
+  bool _loading = true;
+
+  @override
+  void initState() { super.initState(); _generatePdf(); }
+
+  Future<void> _generatePdf() async {
+    final bytes = await InvoiceGenerator.generatePdfBytes(widget.bill,
+      businessName: widget.businessName, businessAddress: widget.businessAddress,
+      businessPhone: widget.businessPhone, businessGstin: widget.businessGstin,
+      businessBankName: widget.businessBankName, businessBankAccount: widget.businessBankAccount,
+      businessBankIfsc: widget.businessBankIfsc, businessUpiId: widget.businessUpiId,
+      logoBytes: widget.logoBytes, sealBytes: widget.sealBytes,
+      template: widget.template, paperSize: widget.paperSize,
+      documentTitle: widget.docTitle, thankYouMessage: 'Thank you......visit again.', termsConditions: widget.reason,
+    );
+    if (mounted) setState(() { _pdfBytes = bytes; _loading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('${widget.docTitle} - ${widget.docNumber}'),
+        actions: [
+          Padding(padding: const EdgeInsets.only(right: 12), child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            onPressed: _pdfBytes == null ? null : () async => await Printing.layoutPdf(onLayout: (_) async => _pdfBytes!),
+            icon: const Icon(Icons.print, size: 18), label: const Text('Print'),
+          )),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              CircularProgressIndicator(), SizedBox(height: 16),
+              Text('Generating preview...', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            ]))
+          : _pdfBytes != null
+              ? PdfPreview(build: (_) async => _pdfBytes!, allowSharing: true, allowPrinting: true,
+                  canChangePageFormat: false, canChangeOrientation: false, canDebug: false,
+                  pdfFileName: '${widget.docTitle}_${widget.docNumber}.pdf')
+              : const Center(child: Text('Error generating preview')),
+    );
   }
 }
