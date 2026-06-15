@@ -108,37 +108,98 @@ class _CreditNoteScreenState extends State<CreditNoteScreen> {
     Bill? selectedBill;
     final reasonCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
-    final selectedItems = <BillItem>[];
+    final selectedFlags = <int, bool>{};
+    final returnQtys = <int, int>{};
 
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
-      final unpaidBills = appState.bills;
+      final allBills = appState.bills;
+
+      // Calculate return total
+      double returnTotal = 0;
+      if (selectedBill != null) {
+        for (int idx = 0; idx < selectedBill!.items.length; idx++) {
+          if (selectedFlags[idx] == true) {
+            final item = selectedBill!.items[idx];
+            final qty = returnQtys[idx] ?? item.quantity;
+            final unitTotal = item.unitPrice * (1 + item.taxRate / 100);
+            returnTotal += unitTotal * qty;
+          }
+        }
+      }
+
+      final hasSelection = selectedFlags.values.any((v) => v == true);
+
       return AlertDialog(
         title: const Text('Create Credit Note'),
         content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           DropdownButtonFormField<Bill>(
             decoration: const InputDecoration(labelText: 'Select Invoice', border: OutlineInputBorder()),
             isExpanded: true,
-            items: unpaidBills.map((b) => DropdownMenuItem(value: b,
+            items: allBills.map((b) => DropdownMenuItem(value: b,
               child: Text('${b.billNumber} - ${b.customerName ?? "Walk-in"} (${AppFormatters.currency(b.totalAmount)})', overflow: TextOverflow.ellipsis))).toList(),
             onChanged: (b) => setDialogState(() {
               selectedBill = b;
-              selectedItems.clear();
-              if (b != null) selectedItems.addAll(b.items);
+              selectedFlags.clear();
+              returnQtys.clear();
+              if (b != null) {
+                for (int i = 0; i < b.items.length; i++) {
+                  selectedFlags[i] = true;
+                  returnQtys[i] = b.items[i].quantity;
+                }
+              }
             }),
           ),
           if (selectedBill != null) ...[
             const SizedBox(height: 12),
             const Align(alignment: Alignment.centerLeft, child: Text('Return Items:', style: TextStyle(fontWeight: FontWeight.w600))),
-            ...selectedBill!.items.map((item) {
-              final isSelected = selectedItems.contains(item);
-              return CheckboxListTile(
-                dense: true, controlAffinity: ListTileControlAffinity.leading,
-                title: Text('${item.itemName} (${item.quantity} ${item.unit})', style: const TextStyle(fontSize: 13)),
-                subtitle: Text(AppFormatters.currency(item.total), style: const TextStyle(fontSize: 11)),
-                value: isSelected,
-                onChanged: (v) => setDialogState(() => v == true ? selectedItems.add(item) : selectedItems.remove(item)),
+            ...selectedBill!.items.asMap().entries.map((e) {
+              final idx = e.key;
+              final item = e.value;
+              final isSelected = selectedFlags[idx] == true;
+              final maxQty = item.quantity;
+              final currentQty = returnQtys[idx] ?? maxQty;
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(children: [
+                    Checkbox(
+                      value: isSelected,
+                      onChanged: (v) => setDialogState(() => selectedFlags[idx] = v ?? false),
+                    ),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(item.itemName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      Text('${AppFormatters.currency(item.unitPrice)} × $maxQty ${item.unit} = ${AppFormatters.currency(item.total)}',
+                        style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                    ])),
+                    if (isSelected) SizedBox(width: 70, child: TextFormField(
+                      initialValue: currentQty.toString(),
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      decoration: InputDecoration(
+                        labelText: 'Qty',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onChanged: (v) {
+                        final parsed = int.tryParse(v) ?? 0;
+                        setDialogState(() => returnQtys[idx] = parsed.clamp(1, maxQty));
+                      },
+                    )),
+                  ]),
+                ),
               );
             }),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('Credit Total:', style: TextStyle(fontWeight: FontWeight.w700)),
+                Text(AppFormatters.currency(returnTotal), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppColors.success)),
+              ]),
+            ),
             const SizedBox(height: 12),
             TextField(controller: reasonCtrl, decoration: const InputDecoration(labelText: 'Reason *', border: OutlineInputBorder())),
             const SizedBox(height: 10),
@@ -147,14 +208,28 @@ class _CreditNoteScreenState extends State<CreditNoteScreen> {
         ]))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(onPressed: selectedBill != null && selectedItems.isNotEmpty && reasonCtrl.text.trim().isNotEmpty ? () async {
-            final sub = selectedItems.fold<double>(0, (s, i) => s + i.subtotal);
-            final tax = selectedItems.fold<double>(0, (s, i) => s + i.taxAmount);
+          ElevatedButton(onPressed: selectedBill != null && hasSelection && reasonCtrl.text.trim().isNotEmpty ? () async {
+            // Build return items with selected quantities
+            final returnItems = <BillItem>[];
+            for (int idx = 0; idx < selectedBill!.items.length; idx++) {
+              if (selectedFlags[idx] == true) {
+                final orig = selectedBill!.items[idx];
+                final qty = (returnQtys[idx] ?? orig.quantity).clamp(1, orig.quantity);
+                returnItems.add(BillItem(
+                  itemId: orig.itemId, itemName: orig.itemName,
+                  unitPrice: orig.unitPrice, quantity: qty,
+                  taxRate: orig.taxRate, unit: orig.unit,
+                  description: orig.description, serialNumber: orig.serialNumber,
+                ));
+              }
+            }
+            final sub = returnItems.fold<double>(0, (s, i) => s + i.subtotal);
+            final tax = returnItems.fold<double>(0, (s, i) => s + i.taxAmount);
             final cn = CreditNote(
               creditNoteNumber: appState.getNextCreditNoteNumber(),
               billId: selectedBill!.id, billNumber: selectedBill!.billNumber,
               customerId: selectedBill!.customerId, customerName: selectedBill!.customerName,
-              items: selectedItems, subtotal: sub, totalTax: tax, totalAmount: sub + tax,
+              items: returnItems, subtotal: sub, totalTax: tax, totalAmount: sub + tax,
               reason: reasonCtrl.text.trim(), notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
             );
             await appState.addCreditNote(cn);
@@ -165,5 +240,3 @@ class _CreditNoteScreenState extends State<CreditNoteScreen> {
     }));
   }
 }
-
-
