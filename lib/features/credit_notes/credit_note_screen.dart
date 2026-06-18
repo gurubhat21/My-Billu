@@ -335,7 +335,9 @@ class _CreditNoteScreenState extends State<CreditNoteScreen> {
             },
             onSelected: (b) => setDialogState(() { selectedBill = b; selectedFlags.clear(); returnQtys.clear(); }),
             fieldViewBuilder: (ctx, ctrl, fn, os) => TextField(controller: ctrl, focusNode: fn,
-              decoration: const InputDecoration(labelText: 'Search Invoice (No./Customer)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.search, size: 18))),
+              decoration: InputDecoration(labelText: 'Search Invoice (No./Customer)', border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.search, size: 18),
+                suffixIcon: selectedBill != null ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () { ctrl.clear(); setDialogState(() { selectedBill = null; selectedFlags.clear(); returnQtys.clear(); }); }) : null),
+              onChanged: (_) { if (selectedBill != null) setDialogState(() { selectedBill = null; selectedFlags.clear(); returnQtys.clear(); }); }),
           ),
           if (selectedBill != null) ...[
             const SizedBox(height: 12),

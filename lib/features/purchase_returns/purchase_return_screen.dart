@@ -348,7 +348,9 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
             },
             onSelected: (p) => setDialogState(() { selectedPurchase = p; selectedFlags.clear(); returnQtys.clear(); }),
             fieldViewBuilder: (ctx, ctrl, fn, os) => TextField(controller: ctrl, focusNode: fn,
-              decoration: const InputDecoration(labelText: 'Search Purchase (No./Supplier)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.search, size: 18))),
+              decoration: InputDecoration(labelText: 'Search Purchase (No./Supplier)', border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.search, size: 18),
+                suffixIcon: selectedPurchase != null ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () { ctrl.clear(); setDialogState(() { selectedPurchase = null; selectedFlags.clear(); returnQtys.clear(); }); }) : null),
+              onChanged: (_) { if (selectedPurchase != null) setDialogState(() { selectedPurchase = null; selectedFlags.clear(); returnQtys.clear(); }); }),
           ),
           if (selectedPurchase != null) ...[
             const SizedBox(height: 12),
