@@ -629,7 +629,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> addCreditNote(CreditNote cn) async {
     _creditNotes.insert(0, cn);
-    // Restore stock for returned items
+    // Restore stock for returned items (customer returned goods)
     for (final item in cn.items) {
       final stockItem = _items.firstWhere((i) => i.id == item.itemId, orElse: () => Item(name: '', price: 0));
       if (stockItem.name.isNotEmpty) {
@@ -637,80 +637,47 @@ class AppState extends ChangeNotifier {
         await _db.updateItem(stockItem);
       }
     }
-    // Update original bill — reduce amounts
-    if (cn.billId != null) {
-      final billIdx = _bills.indexWhere((b) => b.id == cn.billId);
-      if (billIdx >= 0) {
-        final origBill = _bills[billIdx];
-        // Reduce item quantities in original bill
-        final updatedItems = <BillItem>[];
-        for (final origItem in origBill.items) {
-          final returnItem = cn.items.firstWhere(
-            (ri) => ri.itemId == origItem.itemId,
-            orElse: () => BillItem(itemId: '', itemName: '', unitPrice: 0, quantity: 0, taxRate: 0),
-          );
-          final newQty = origItem.quantity - returnItem.quantity;
-          if (newQty > 0) {
-            updatedItems.add(BillItem(
-              itemId: origItem.itemId, itemName: origItem.itemName,
-              unitPrice: origItem.unitPrice, quantity: newQty,
-              taxRate: origItem.taxRate, unit: origItem.unit,
-              description: origItem.description, serialNumber: origItem.serialNumber,
-            ));
-          }
-        }
-        final newSubtotal = updatedItems.fold<double>(0, (s, i) => s + i.subtotal);
-        final newTax = updatedItems.fold<double>(0, (s, i) => s + i.taxAmount);
-        final newTotal = newSubtotal + newTax;
-        // Scale discount proportionally
-        final ratio = origBill.subtotal > 0 ? newSubtotal / origBill.subtotal : 0.0;
-        final newDiscount = origBill.discount * ratio;
-        final finalTotal = newTotal - newDiscount;
-        final newPaid = origBill.paidAmount > finalTotal ? finalTotal : origBill.paidAmount;
-        BillStatus newStatus;
-        if (newPaid >= finalTotal) {
-          newStatus = BillStatus.paid;
-        } else if (newPaid > 0) {
-          newStatus = BillStatus.partial;
-        } else {
-          newStatus = BillStatus.unpaid;
-        }
-        final updatedBill = Bill(
-          id: origBill.id, billNumber: origBill.billNumber,
-          customerId: origBill.customerId, customerName: origBill.customerName,
-          customerPhone: origBill.customerPhone,
-          items: updatedItems, subtotal: newSubtotal, discount: newDiscount,
-          totalTax: newTax, totalAmount: finalTotal > 0 ? finalTotal : 0,
-          paidAmount: newPaid, paymentMethod: origBill.paymentMethod,
-          status: updatedItems.isEmpty ? BillStatus.paid : newStatus,
-          notes: origBill.notes, gstInclusive: origBill.gstInclusive,
-          createdAt: origBill.createdAt,
-        );
-        await _db.updateBill(updatedBill);
-        _bills[billIdx] = updatedBill;
-        // Update customer outstanding balance
-        if (cn.customerId != null) {
-          final custIdx = _customers.indexWhere((c) => c.id == cn.customerId);
-          if (custIdx >= 0) {
-            final cust = _customers[custIdx];
-            cust.outstandingBalance -= cn.totalAmount;
-            if (cust.outstandingBalance < 0) cust.outstandingBalance = 0;
-            await _db.updateCustomer(cust);
-          }
-        }
+    // Update customer outstanding balance (reduce what customer owes)
+    if (cn.customerId != null) {
+      final custIdx = _customers.indexWhere((c) => c.id == cn.customerId);
+      if (custIdx >= 0) {
+        final cust = _customers[custIdx];
+        cust.outstandingBalance -= cn.totalAmount;
+        if (cust.outstandingBalance < 0) cust.outstandingBalance = 0;
+        await _db.updateCustomer(cust);
       }
     }
     await _saveCreditNotes();
     await loadItems();
-    await loadBills();
     notifyListeners();
     _notifySync();
   }
 
   Future<void> deleteCreditNote(String id) async {
+    // Reverse stock changes before deleting
+    final cn = _creditNotes.firstWhere((e) => e.id == id, orElse: () => CreditNote(creditNoteNumber: '', items: [], subtotal: 0, totalTax: 0, totalAmount: 0, reason: ''));
+    if (cn.creditNoteNumber.isNotEmpty) {
+      for (final item in cn.items) {
+        final stockItem = _items.firstWhere((i) => i.id == item.itemId, orElse: () => Item(name: '', price: 0));
+        if (stockItem.name.isNotEmpty) {
+          stockItem.stockQuantity -= item.quantity;
+          if (stockItem.stockQuantity < 0) stockItem.stockQuantity = 0;
+          await _db.updateItem(stockItem);
+        }
+      }
+      // Restore customer outstanding balance
+      if (cn.customerId != null) {
+        final custIdx = _customers.indexWhere((c) => c.id == cn.customerId);
+        if (custIdx >= 0) {
+          _customers[custIdx].outstandingBalance += cn.totalAmount;
+          await _db.updateCustomer(_customers[custIdx]);
+        }
+      }
+    }
     await TombstoneService.recordDeletion('creditNotes', id);
     _creditNotes.removeWhere((e) => e.id == id);
     await _saveCreditNotes();
+    await loadItems();
     notifyListeners();
     _notifySync();
   }
@@ -749,7 +716,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> addPurchaseReturn(PurchaseReturn pr) async {
     _purchaseReturns.insert(0, pr);
-    // Deduct returned stock
+    // Deduct returned stock (goods going back to supplier)
     for (final item in pr.items) {
       final stockItem = _items.firstWhere((i) => i.id == item.itemId, orElse: () => Item(name: '', price: 0));
       if (stockItem.name.isNotEmpty) {
@@ -758,51 +725,21 @@ class AppState extends ChangeNotifier {
         await _db.updateItem(stockItem);
       }
     }
-    // Update original purchase bill — reduce amounts
+    // Reduce supplier payment — reduce paidAmount on original purchase
     if (pr.purchaseId != null) {
       final purchaseIdx = _purchases.indexWhere((p) => p.id == pr.purchaseId);
       if (purchaseIdx >= 0) {
         final origPurchase = _purchases[purchaseIdx];
-        // Reduce item quantities in original purchase
-        final updatedItems = <PurchaseItem>[];
-        for (final origItem in origPurchase.items) {
-          final returnItem = pr.items.firstWhere(
-            (ri) => ri.itemId == origItem.itemId,
-            orElse: () => PurchaseItem(itemId: '', itemName: '', unitCost: 0, quantity: 0, taxRate: 0),
-          );
-          final newQty = origItem.quantity - returnItem.quantity;
-          if (newQty > 0) {
-            updatedItems.add(PurchaseItem(
-              itemId: origItem.itemId, itemName: origItem.itemName,
-              unitCost: origItem.unitCost, quantity: newQty,
-              taxRate: origItem.taxRate, unit: origItem.unit,
-              description: origItem.description, serialNumber: origItem.serialNumber,
-            ));
-          }
-        }
-        final newSubtotal = updatedItems.fold<double>(0, (s, i) => s + i.subtotal);
-        final newTax = updatedItems.fold<double>(0, (s, i) => s + i.taxAmount);
-        final newTotal = newSubtotal + newTax;
-        final newPaid = origPurchase.paidAmount > newTotal ? newTotal : origPurchase.paidAmount;
-        PurchaseStatus newStatus;
-        if (newPaid >= newTotal) {
-          newStatus = PurchaseStatus.received;
+        final newPaid = (origPurchase.paidAmount - pr.totalAmount).clamp(0.0, origPurchase.totalAmount);
+        origPurchase.paidAmount = newPaid;
+        if (newPaid >= origPurchase.totalAmount) {
+          origPurchase.status = PurchaseStatus.received;
         } else if (newPaid > 0) {
-          newStatus = PurchaseStatus.pending;
+          origPurchase.status = PurchaseStatus.pending;
         } else {
-          newStatus = PurchaseStatus.pending;
+          origPurchase.status = PurchaseStatus.pending;
         }
-        final updatedPurchase = Purchase(
-          id: origPurchase.id, purchaseNumber: origPurchase.purchaseNumber,
-          supplierName: origPurchase.supplierName, supplierPhone: origPurchase.supplierPhone,
-          supplierGstin: origPurchase.supplierGstin, invoiceNumber: origPurchase.invoiceNumber,
-          items: updatedItems, subtotal: newSubtotal, totalTax: newTax, totalAmount: newTotal,
-          paidAmount: newPaid, status: updatedItems.isEmpty ? PurchaseStatus.cancelled : newStatus,
-          paymentMethod: origPurchase.paymentMethod,
-          notes: origPurchase.notes, createdAt: origPurchase.createdAt,
-        );
-        await _db.updatePurchase(updatedPurchase);
-        _purchases[purchaseIdx] = updatedPurchase;
+        await _db.updatePurchase(origPurchase);
       }
     }
     await _savePurchaseReturns();
@@ -813,9 +750,21 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deletePurchaseReturn(String id) async {
+    // Reverse stock changes before deleting
+    final pr = _purchaseReturns.firstWhere((e) => e.id == id, orElse: () => PurchaseReturn(returnNumber: '', supplierName: '', items: [], subtotal: 0, totalTax: 0, totalAmount: 0, reason: ''));
+    if (pr.returnNumber.isNotEmpty) {
+      for (final item in pr.items) {
+        final stockItem = _items.firstWhere((i) => i.id == item.itemId, orElse: () => Item(name: '', price: 0));
+        if (stockItem.name.isNotEmpty) {
+          stockItem.stockQuantity += item.quantity;
+          await _db.updateItem(stockItem);
+        }
+      }
+    }
     await TombstoneService.recordDeletion('purchaseReturns', id);
     _purchaseReturns.removeWhere((e) => e.id == id);
     await _savePurchaseReturns();
+    await loadItems();
     notifyListeners();
     _notifySync();
   }
