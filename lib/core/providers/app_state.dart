@@ -725,26 +725,10 @@ class AppState extends ChangeNotifier {
         await _db.updateItem(stockItem);
       }
     }
-    // Reduce supplier payment — reduce paidAmount on original purchase
-    if (pr.purchaseId != null) {
-      final purchaseIdx = _purchases.indexWhere((p) => p.id == pr.purchaseId);
-      if (purchaseIdx >= 0) {
-        final origPurchase = _purchases[purchaseIdx];
-        final newPaid = (origPurchase.paidAmount - pr.totalAmount).clamp(0.0, origPurchase.totalAmount);
-        origPurchase.paidAmount = newPaid;
-        if (newPaid >= origPurchase.totalAmount) {
-          origPurchase.status = PurchaseStatus.received;
-        } else if (newPaid > 0) {
-          origPurchase.status = PurchaseStatus.pending;
-        } else {
-          origPurchase.status = PurchaseStatus.pending;
-        }
-        await _db.updatePurchase(origPurchase);
-      }
-    }
+    // Note: We do NOT modify the original purchase paidAmount or totalAmount.
+    // The supplier payment screen uses getReturnAmountForPurchase() to adjust balanceDue.
     await _savePurchaseReturns();
     await loadItems();
-    await loadPurchases();
     notifyListeners();
     _notifySync();
   }
@@ -782,6 +766,27 @@ class AppState extends ChangeNotifier {
   String getNextPurchaseReturnNumber() {
     final count = _purchaseReturns.length + 1;
     return 'PR-${count.toString().padLeft(4, '0')}';
+  }
+
+  /// Get total return amount for a specific purchase
+  double getReturnAmountForPurchase(String purchaseId) {
+    return _purchaseReturns
+        .where((pr) => pr.purchaseId == purchaseId)
+        .fold<double>(0, (sum, pr) => sum + pr.totalAmount);
+  }
+
+  /// Get total return amount for a supplier (across all purchases)
+  double getReturnAmountForSupplier(String supplierName) {
+    return _purchaseReturns
+        .where((pr) => pr.supplierName == supplierName)
+        .fold<double>(0, (sum, pr) => sum + pr.totalAmount);
+  }
+
+  /// Get effective balance due for a purchase (accounting for returns)
+  double getEffectiveBalanceDue(Purchase purchase) {
+    final returnAmt = getReturnAmountForPurchase(purchase.id);
+    final effectiveTotal = purchase.totalAmount - returnAmt;
+    return (effectiveTotal - purchase.paidAmount).clamp(0.0, double.infinity);
   }
 
   // ===== CUSTOMER LEDGER =====

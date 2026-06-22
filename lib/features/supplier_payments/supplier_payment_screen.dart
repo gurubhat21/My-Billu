@@ -46,8 +46,8 @@ class _PaySupplierTabState extends State<_PaySupplierTab> {
   @override
   Widget build(BuildContext context) {
     return Consumer<AppState>(builder: (context, appState, _) {
-      // Get purchases with outstanding balance
-      final unpaid = appState.purchases.where((p) => p.balanceDue > 0).toList()
+      // Get purchases with outstanding balance (accounting for returns)
+      final unpaid = appState.purchases.where((p) => appState.getEffectiveBalanceDue(p) > 0.01).toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       final filtered = _filterSupplier.isEmpty
@@ -84,7 +84,7 @@ class _PaySupplierTabState extends State<_PaySupplierTab> {
                 _summaryChip('Suppliers', '${grouped.length}', Icons.local_shipping, AppColors.accent),
                 _summaryChip('Invoices', '${filtered.length}', Icons.receipt, AppColors.primary),
                 _summaryChip('Total Pending',
-                    AppFormatters.currency(filtered.fold(0.0, (s, p) => s + p.balanceDue)),
+                    AppFormatters.currency(filtered.fold(0.0, (s, p) => s + appState.getEffectiveBalanceDue(p))),
                     Icons.currency_rupee, AppColors.error),
               ]),
             ),
@@ -103,7 +103,7 @@ class _PaySupplierTabState extends State<_PaySupplierTab> {
                     itemBuilder: (ctx, i) {
                       final supplier = grouped.keys.elementAt(i);
                       final purchases = grouped[supplier]!;
-                      final totalPending = purchases.fold(0.0, (s, p) => s + p.balanceDue);
+                      final totalPending = purchases.fold(0.0, (s, p) => s + appState.getEffectiveBalanceDue(p));
                       return _supplierCard(context, supplier, purchases, totalPending, appState);
                     },
                   ),
@@ -145,20 +145,24 @@ class _PaySupplierTabState extends State<_PaySupplierTab> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         ),
-        children: purchases.map((p) => ListTile(
-          dense: true,
-          leading: const Icon(Icons.receipt_long, size: 18),
-          title: Text('${p.purchaseNumber} · ${AppFormatters.shortDate(p.createdAt)}',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-          subtitle: Text('Total: ${AppFormatters.currency(p.totalAmount)} · Paid: ${AppFormatters.currency(p.paidAmount)}',
-              style: const TextStyle(fontSize: 11)),
-          trailing: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Text('Pending', style: TextStyle(fontSize: 9, color: AppColors.error.withValues(alpha: 0.7))),
-            Text(AppFormatters.currency(p.balanceDue),
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.error)),
-          ]),
-          onTap: () => _showPaySingleDialog(context, appState, p),
-        )).toList(),
+        children: purchases.map((p) {
+          final effectiveDue = appState.getEffectiveBalanceDue(p);
+          final returnAmt = appState.getReturnAmountForPurchase(p.id);
+          return ListTile(
+            dense: true,
+            leading: const Icon(Icons.receipt_long, size: 18),
+            title: Text('${p.purchaseNumber} · ${AppFormatters.shortDate(p.createdAt)}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            subtitle: Text('Total: ${AppFormatters.currency(p.totalAmount)}${returnAmt > 0 ? ' · Return: -${AppFormatters.currency(returnAmt)}' : ''} · Paid: ${AppFormatters.currency(p.paidAmount)}',
+                style: const TextStyle(fontSize: 11)),
+            trailing: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text('Pending', style: TextStyle(fontSize: 9, color: AppColors.error.withValues(alpha: 0.7))),
+              Text(AppFormatters.currency(effectiveDue),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.error)),
+            ]),
+            onTap: () => _showPaySingleDialog(context, appState, p),
+          );
+        }).toList(),
       ),
     );
   }
@@ -286,7 +290,8 @@ class _PaySupplierTabState extends State<_PaySupplierTab> {
   }
 
   void _showPaySingleDialog(BuildContext context, AppState appState, Purchase purchase) {
-    _showPayDialog(context, appState, purchase.supplierName, [purchase], purchase.balanceDue);
+    final effectiveDue = appState.getEffectiveBalanceDue(purchase);
+    _showPayDialog(context, appState, purchase.supplierName, [purchase], effectiveDue);
   }
 
   Future<void> _processPayment(BuildContext context, AppState appState, List<Purchase> purchases, double amount, String payMode, BankAccount? bank, String supplier) async {
@@ -296,10 +301,10 @@ class _PaySupplierTabState extends State<_PaySupplierTab> {
       final sorted = [...purchases]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
       for (final p in sorted) {
         if (remaining <= 0) break;
-        final due = p.balanceDue;
+        final due = appState.getEffectiveBalanceDue(p);
         final paying = remaining >= due ? due : remaining;
         p.paidAmount += paying;
-        if (p.balanceDue <= 0.01) {
+        if (appState.getEffectiveBalanceDue(p) <= 0.01) {
           p.status = PurchaseStatus.received;
           p.paymentMethod = payMode == 'cash' ? PaymentMethod.cash : PaymentMethod.bank;
         }
