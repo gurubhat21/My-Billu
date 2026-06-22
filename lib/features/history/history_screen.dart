@@ -51,22 +51,25 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Expanded(child: bills.isEmpty
               ? const EmptyState(icon: Icons.receipt_long_outlined, title: 'No bills yet', subtitle: 'Bills you create will appear here')
               : ListView.builder(padding: EdgeInsets.symmetric(horizontal: isWide ? 24 : 16),
-                  itemCount: bills.length, itemBuilder: (ctx, i) => _billTile(context, bills[i]))),
+                  itemCount: bills.length, itemBuilder: (ctx, i) => _billTile(context, bills[i], appState))),
         ]);
       });
     });
   }
 
-  Widget _billTile(BuildContext context, Bill bill) {
+  Widget _billTile(BuildContext context, Bill bill, AppState appState) {
     final statusColor = bill.status == BillStatus.paid ? AppColors.success
         : bill.status == BillStatus.partial ? AppColors.warning : AppColors.error;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveDue = appState.getEffectiveBillBalanceDue(bill);
+    final creditAmt = appState.getCreditNoteAmountForBill(bill.id);
     return Padding(padding: const EdgeInsets.only(bottom: 8),
       child: GlassCard(onTap: () => _showBillDetail(context, bill), padding: const EdgeInsets.all(16),
         child: Row(children: [
           Container(padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.receipt, size: 22, color: AppColors.primary)),
+            decoration: BoxDecoration(color: statusColor.withValues(alpha: isDark ? 0.15 : 0.1),
+              borderRadius: BorderRadius.circular(12)),
+            child: Icon(Icons.receipt, color: statusColor, size: 22)),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(bill.billNumber, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
@@ -80,11 +83,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
             const SizedBox(height: 4),
             Row(mainAxisSize: MainAxisSize.min, children: [
+              if (creditAmt > 0)
+                Text('CN: -${AppFormatters.currency(creditAmt)} ',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.accent.withValues(alpha: 0.8))),
               Text('Paid: ${AppFormatters.currency(bill.paidAmount)}',
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.success.withValues(alpha: 0.8))),
-              if (bill.balanceDue > 0) ...[
+              if (effectiveDue > 0.01) ...[
                 const SizedBox(width: 6),
-                Text('Due: ${AppFormatters.currency(bill.balanceDue)}',
+                Text('Due: ${AppFormatters.currency(effectiveDue)}',
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.error.withValues(alpha: 0.9))),
               ],
             ]),
@@ -202,11 +208,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
           _detailRow('GST', AppFormatters.currency(bill.totalTax)),
           const SizedBox(height: 4),
           _detailRow('Total', AppFormatters.currency(bill.totalAmount)),
+          if (appState.getCreditNoteAmountForBill(bill.id) > 0)
+            _detailRow('Credit Note', '- ${AppFormatters.currency(appState.getCreditNoteAmountForBill(bill.id))}'),
           if (bill.paidAmount > 0) ...[
             _detailRow('Paid', AppFormatters.currency(bill.paidAmount)),
             Row(children: [
               Text('Balance Due: ', style: TextStyle(fontSize: 12, color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
-              Text(AppFormatters.currency(bill.balanceDue),
+              Text(AppFormatters.currency(appState.getEffectiveBillBalanceDue(bill)),
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.error)),
             ]),
           ],
@@ -546,13 +554,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   void _showCollectPayment(BuildContext context, Bill bill) {
-    final amountCtrl = TextEditingController(text: bill.balanceDue.toStringAsFixed(2));
+    final appState = context.read<AppState>();
+    final effectiveDue = appState.getEffectiveBillBalanceDue(bill);
+    final amountCtrl = TextEditingController(text: effectiveDue.toStringAsFixed(2));
     String paymentType = 'cash';
     String? selectedBankId;
-    final appState = context.read<AppState>();
 
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setPayState) {
       final bankAccounts = appState.bankAccounts;
+      final creditAmt = appState.getCreditNoteAmountForBill(bill.id);
       return AlertDialog(
         title: const Row(children: [
           Icon(Icons.payments, color: AppColors.success), SizedBox(width: 10), Text('Collect Payment')]),
@@ -560,10 +570,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
           _detailRow('Bill', bill.billNumber),
           _detailRow('Customer', bill.customerName ?? 'Walk-in'),
           _detailRow('Total', AppFormatters.currency(bill.totalAmount)),
+          if (creditAmt > 0) _detailRow('Credit Note', '- ${AppFormatters.currency(creditAmt)}'),
           _detailRow('Paid', AppFormatters.currency(bill.paidAmount)),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             const Text('Balance Due', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.error)),
-            Text(AppFormatters.currency(bill.balanceDue),
+            Text(AppFormatters.currency(effectiveDue),
               style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.error)),
           ]),
           const SizedBox(height: 16),

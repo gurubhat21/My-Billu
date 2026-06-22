@@ -637,16 +637,8 @@ class AppState extends ChangeNotifier {
         await _db.updateItem(stockItem);
       }
     }
-    // Update customer outstanding balance (reduce what customer owes)
-    if (cn.customerId != null) {
-      final custIdx = _customers.indexWhere((c) => c.id == cn.customerId);
-      if (custIdx >= 0) {
-        final cust = _customers[custIdx];
-        cust.outstandingBalance -= cn.totalAmount;
-        if (cust.outstandingBalance < 0) cust.outstandingBalance = 0;
-        await _db.updateCustomer(cust);
-      }
-    }
+    // Note: We do NOT modify the original bill or customer outstandingBalance.
+    // History/payment screens use getCreditNoteAmountForBill() to adjust balanceDue.
     await _saveCreditNotes();
     await loadItems();
     notifyListeners();
@@ -663,14 +655,6 @@ class AppState extends ChangeNotifier {
           stockItem.stockQuantity -= item.quantity;
           if (stockItem.stockQuantity < 0) stockItem.stockQuantity = 0;
           await _db.updateItem(stockItem);
-        }
-      }
-      // Restore customer outstanding balance
-      if (cn.customerId != null) {
-        final custIdx = _customers.indexWhere((c) => c.id == cn.customerId);
-        if (custIdx >= 0) {
-          _customers[custIdx].outstandingBalance += cn.totalAmount;
-          await _db.updateCustomer(_customers[custIdx]);
         }
       }
     }
@@ -695,6 +679,27 @@ class AppState extends ChangeNotifier {
   String getNextCreditNoteNumber() {
     final count = _creditNotes.length + 1;
     return 'CN-${count.toString().padLeft(4, '0')}';
+  }
+
+  /// Get total credit note amount for a specific bill
+  double getCreditNoteAmountForBill(String billId) {
+    return _creditNotes
+        .where((cn) => cn.billId == billId)
+        .fold<double>(0, (sum, cn) => sum + cn.totalAmount);
+  }
+
+  /// Get total credit note amount for a customer (across all bills)
+  double getCreditNoteAmountForCustomer(String customerId) {
+    return _creditNotes
+        .where((cn) => cn.customerId == customerId)
+        .fold<double>(0, (sum, cn) => sum + cn.totalAmount);
+  }
+
+  /// Get effective balance due for a bill (accounting for credit notes)
+  double getEffectiveBillBalanceDue(Bill bill) {
+    final creditAmt = getCreditNoteAmountForBill(bill.id);
+    final effectiveTotal = bill.totalAmount - creditAmt;
+    return (effectiveTotal - bill.paidAmount).clamp(0.0, double.infinity);
   }
 
   // ===== PURCHASE RETURNS =====
