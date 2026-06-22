@@ -26,7 +26,33 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   Future<void> _loadClients() async {
     setState(() => _loading = true);
     _clients = await _subService.getAllSubscriptions();
+    // Auto-expire clients whose expiry date has passed
+    await _autoExpireClients();
     setState(() => _loading = false);
+  }
+
+  Future<void> _autoExpireClients() async {
+    final now = DateTime.now();
+    for (final client in _clients) {
+      final status = client['subscriptionStatus'] ?? '';
+      final expiryTs = client['expiryDate'] as Timestamp?;
+      if (expiryTs == null) continue;
+      final expiryDate = expiryTs.toDate();
+      // If expired but status is still active/trial, auto-update to expired
+      if (expiryDate.isBefore(now) && (status == 'active' || status == 'trial')) {
+        final email = client['email'] ?? '';
+        if (email.isNotEmpty) {
+          try {
+            await FirebaseFirestore.instance.collection('subscriptions').doc(email).update({
+              'subscriptionStatus': 'expired',
+              'androidStatus': 'expired',
+            });
+            client['subscriptionStatus'] = 'expired';
+            client['androidStatus'] = 'expired';
+          } catch (_) {}
+        }
+      }
+    }
   }
 
   List<Map<String, dynamic>> get _filteredClients {
@@ -242,11 +268,17 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         Wrap(spacing: 16, runSpacing: 8, children: [
           _infoChip(Icons.phone_android, '$deviceName ${deviceModel.isNotEmpty ? "($deviceModel)" : ""}'),
           _infoChip(Icons.computer, platform),
-          if (expiryDate != null)
-            _infoChip(Icons.event,
-              'Expires: ${expiryDate.toIso8601String().split('T').first}'
-              '${daysLeft != null ? " (${daysLeft}d)" : ""}',
-              color: daysLeft != null && daysLeft <= 7 ? AppColors.warning : null),
+          if (expiryDate != null) ...[
+            if (daysLeft != null && daysLeft < 0)
+              _infoChip(Icons.event_busy,
+                'Expired: ${expiryDate.toIso8601String().split('T').first} (${(-daysLeft)}d overdue)',
+                color: AppColors.error)
+            else
+              _infoChip(Icons.event,
+                'Expiry: ${expiryDate.toIso8601String().split('T').first}'
+                '${daysLeft != null ? " (${daysLeft}d left)" : ""}',
+                color: daysLeft != null && daysLeft <= 7 ? AppColors.warning : null),
+          ],
           if (lastOnlineTs != null)
             _infoChip(Icons.access_time,
               'Last: ${_timeAgo(lastOnlineTs.toDate())}'),
