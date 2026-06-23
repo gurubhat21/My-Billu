@@ -203,7 +203,7 @@ class FirebaseSyncService {
         'displayName': currentUser!.displayName,
         'lastSyncAt': FieldValue.serverTimestamp(),
         'deviceName': defaultTargetPlatform.name,
-        'version': '6.0.0',
+        'version': '6.1.0',
       });
 
       final allKeys = ['items', 'customers', 'bills', 'purchases', 'quotations',
@@ -372,7 +372,7 @@ class FirebaseSyncService {
       if (!metaSnap.exists) return null;
 
       final backup = <String, dynamic>{
-        'version': '6.0.0',
+        'version': '6.1.0',
         'timestamp': metaSnap.data()?['lastSyncAt']?.toString() ?? DateTime.now().toIso8601String(),
       };
 

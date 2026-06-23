@@ -165,7 +165,7 @@ class SubscriptionService {
           'displayName': displayName,
           'lastOnlineAt': FieldValue.serverTimestamp(),
           'androidLastOnlineAt': FieldValue.serverTimestamp(),
-          'appVersion': '6.0.0',
+          'appVersion': '6.1.0',
         });
       } else {
         // New registration — create with 7-day trial
@@ -183,7 +183,7 @@ class SubscriptionService {
           'registeredAt': FieldValue.serverTimestamp(),
           'lastOnlineAt': FieldValue.serverTimestamp(),
           'lastCheckAt': FieldValue.serverTimestamp(),
-          'appVersion': '6.0.0',
+          'appVersion': '6.1.0',
           'migrationHistory': [],
           'notes': '',
         });
@@ -310,7 +310,7 @@ class SubscriptionService {
         'androidLastOnlineAt': FieldValue.serverTimestamp(),
         'lastCheckAt': FieldValue.serverTimestamp(),
         ...deviceService.toBackwardCompatMap(),
-        'appVersion': '6.0.0',
+        'appVersion': '6.1.0',
       });
 
       // Log app open to activity_log subcollection

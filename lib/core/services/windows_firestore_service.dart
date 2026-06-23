@@ -106,7 +106,7 @@ class WindowsFirestoreService {
           'windowsDeviceModel': deviceService.deviceModel ?? 'Desktop',
           'platform': 'windows',
           'displayName': displayName,
-          'appVersion': '6.0.0',
+          'appVersion': '6.1.0',
         };
 
         // If windowsStatus is empty, set it (e.g. migrated legacy doc)
@@ -139,7 +139,7 @@ class WindowsFirestoreService {
           'lastOnlineAt': DateTime.now().toUtc().toIso8601String(),
           'windowsLastOnlineAt': DateTime.now().toUtc().toIso8601String(),
           'cloudSyncEnabled': 'false',
-          'appVersion': '6.0.0',
+          'appVersion': '6.1.0',
           'notes': '',
         });
       } else {
@@ -234,7 +234,7 @@ class WindowsFirestoreService {
         'windowsLastOnlineAt': now,
         'lastOnlineAt': now,
         'platform': 'windows',
-        'appVersion': '6.0.0',
+        'appVersion': '6.1.0',
       });
 
       // Log app open
@@ -650,7 +650,7 @@ class WindowsFirestoreService {
         'email': {'stringValue': prefs.getString(_syncEmailKey) ?? ''},
         'lastSyncAt': {'timestampValue': DateTime.now().toUtc().toIso8601String()},
         'deviceName': {'stringValue': 'Windows'},
-        'version': {'stringValue': '6.0.0'},
+        'version': {'stringValue': '6.1.0'},
       }}),
     );
 
@@ -719,7 +719,7 @@ class WindowsFirestoreService {
     );
     if (userResp.statusCode != 200) return null;
 
-    final backup = <String, dynamic>{'version': '6.0.0'};
+    final backup = <String, dynamic>{'version': '6.1.0'};
 
     final collections = ['items', 'customers', 'bills', 'purchases', 'quotations',
       'expenses', 'creditNotes', 'purchaseReturns', 'suppliers', 'recurringBills',

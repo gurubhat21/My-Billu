@@ -822,7 +822,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ]),
               const SizedBox(height: 16),
               _aboutRow('App Name', 'My Billu'),
-              _aboutRow('Version', '6.0.0'),
+              _aboutRow('Version', '6.1.0'),
               _aboutRow('Tax System', 'GST (India)'),
               _aboutRow('Currency', '\u20b9 INR'),
               const SizedBox(height: 8),
