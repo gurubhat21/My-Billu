@@ -33,24 +33,45 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
     final totalAmount = all.fold<double>(0, (s, pr) => s + pr.totalAmount);
     final totalItems = all.fold<int>(0, (s, pr) => s + pr.items.fold<int>(0, (q, i) => q + i.quantity));
 
+    return LayoutBuilder(builder: (context, constraints) {
+    final isWide = constraints.maxWidth > 500;
     return Column(children: [
       // Header
-      Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 0), child: Row(children: [
-        Expanded(child: Text('Purchase Returns', style: Theme.of(context).textTheme.headlineLarge)),
-        SizedBox(width: 220, child: TextField(
-          onChanged: (v) => setState(() => _search = v),
-          decoration: InputDecoration(
-            hintText: 'Search...', prefixIcon: const Icon(Icons.search, size: 18),
-            isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-        )),
-        const SizedBox(width: 12),
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-          onPressed: () => _showCreateDialog(context, appState),
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('New Return')),
-      ])),
+      Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 0), child: isWide
+        ? Row(children: [
+            Expanded(child: Text('Purchase Returns', style: Theme.of(context).textTheme.headlineLarge)),
+            SizedBox(width: 220, child: TextField(
+              onChanged: (v) => setState(() => _search = v),
+              decoration: InputDecoration(
+                hintText: 'Search...', prefixIcon: const Icon(Icons.search, size: 18),
+                isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+            )),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+              onPressed: () => _showCreateDialog(context, appState),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('New Return')),
+          ])
+        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: TextField(
+                onChanged: (v) => setState(() => _search = v),
+                decoration: InputDecoration(
+                  hintText: 'Search...', prefixIcon: const Icon(Icons.search, size: 18),
+                  isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+              )),
+              const SizedBox(width: 10),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
+                onPressed: () => _showCreateDialog(context, appState),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('New Return', style: TextStyle(fontSize: 12))),
+            ]),
+          ]),
+      ),
       const SizedBox(height: 12),
       // Summary Cards
       Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: GlassCard(
@@ -75,6 +96,7 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
             itemBuilder: (ctx, i) => _buildReturnCard(context, filtered[i], appState),
           )),
     ]);
+    });
   }
 
   Widget _summaryChip(String label, String value, IconData icon, Color color) {
